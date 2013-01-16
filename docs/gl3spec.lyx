@@ -2118,18 +2118,13 @@ Where
 \series bold
 compute_context
 \series default
- has the following functions to provide access to the current vertex data
+ has the following functions:
 \end_layout
 
 \begin_layout LyX-Code
 \begin_inset listings
 inline false
 status open
-
-\begin_layout LyX-Code
-
-graph_row& compute_context::current_vertex_data()
-\end_layout
 
 \begin_layout LyX-Code
 
@@ -2141,169 +2136,15 @@ graph_vid_t& compute_context::vertex_id()
 
 \end_layout
 
-\begin_layout Standard
-Values on other vertices may be accessed via the get_other_vertex function.
- These accesses are always eventually consistent
-\end_layout
-
 \begin_layout LyX-Code
-\begin_inset listings
-inline false
-status open
-
-\begin_layout LyX-Code
-
-graph_value compute_context::get_other_vertex(graph_vid_t vid, 
-\end_layout
-
-\begin_layout LyX-Code
-
-                                              size_t fieldpos)
-\end_layout
-
-\begin_layout LyX-Code
-
-graph_value compute_context::get_other_vertex(graph_vid_t vid, 
-\end_layout
-
-\begin_layout LyX-Code
-
-                                              std::string fieldname)
-\end_layout
-
-\end_inset
-
 
 \end_layout
 
 \begin_layout Standard
-If consistent access is needed
-\end_layout
 
-\begin_layout LyX-Code
-\begin_inset listings
-inline false
-status open
-
-\begin_layout LyX-Code
-
-graph_value compute_context::get_other_vertex_consistent(graph_vid_t vid,
- 
-\end_layout
-
-\begin_layout LyX-Code
-
-                                                         size_t fieldpos)
-\end_layout
-
-\begin_layout LyX-Code
-
-graph_value compute_context::get_other_vertex_consistent(graph_vid_t vid,
- 
-\end_layout
-
-\begin_layout LyX-Code
-
-                                                         std::string fieldname)
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-Values on other vertices may be written via the set_other_vertex function.
- These accesses are always eventually consistent
-\end_layout
-
-\begin_layout LyX-Code
-\begin_inset listings
-inline false
-status open
-
-\begin_layout LyX-Code
-
-void compute_context::set_other_vertex(graph_vid_t vid, 
-\end_layout
-
-\begin_layout LyX-Code
-
-                                       size_t fieldpos,
-\end_layout
-
-\begin_layout LyX-Code
-
-                                       const graph_value& val)
-\end_layout
-
-\begin_layout LyX-Code
-
-void compute_context::set_other_vertex(graph_vid_t vid, 
-\end_layout
-
-\begin_layout LyX-Code
-
-                                       std::string fieldname,
-\end_layout
-
-\begin_layout LyX-Code
-
-                                       const graph_value& val)
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-Deltas can be made via the delta_other_vertex function.
- Naturally, these will only work on double values.
-\end_layout
-
-\begin_layout Standard
-These accesses are always eventually consistent
-\end_layout
-
-\begin_layout LyX-Code
-\begin_inset listings
-inline false
-status open
-
-\begin_layout LyX-Code
-
-void compute_context::delta_other_vertex(graph_vid_t vid, 
-\end_layout
-
-\begin_layout LyX-Code
-
-                                         size_t fieldpos,
-\end_layout
-
-\begin_layout LyX-Code
-
-                                         const graph_value& delta)
-\end_layout
-
-\begin_layout LyX-Code
-
-void compute_context::delta_other_vertex(graph_vid_t vid, 
-\end_layout
-
-\begin_layout LyX-Code
-
-                                         std::string fieldname
-\end_layout
-
-\begin_layout LyX-Code
-
-                                         const graph_value& delta)
-\end_layout
-
-\end_inset
-
-
+\series bold
+This needs to be updated to handle the new semantics as discussed in Dan
+ Grossman's office Jan 15th.
 \end_layout
 
 \begin_layout Standard

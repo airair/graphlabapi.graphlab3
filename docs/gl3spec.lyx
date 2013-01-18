@@ -367,7 +367,7 @@ typedef std::string graph_string_t;
 
 \begin_layout LyX-Code
 
-typedef void* graph_blob_t;
+typedef std::string graph_blob_t;
 \end_layout
 
 \begin_layout LyX-Code
@@ -503,12 +503,27 @@ status open
 
 \begin_layout LyX-Code
 
-std::vector<graph_field> graphdb::get_vertex_fields() 
+const std::vector<graph_field>& graphdb::get_vertex_fields() 
 \end_layout
 
 \begin_layout LyX-Code
 
-std::vector<graph_field> graphdb::get_edge_fields() 
+const std::vector<graph_field>& graphdb::get_edge_fields() 
+\end_layout
+
+\begin_layout LyX-Code
+
+// find the column number of a particular field
+\end_layout
+
+\begin_layout LyX-Code
+
+int graphdb::find_vertex_field(const char* fieldname) 
+\end_layout
+
+\begin_layout LyX-Code
+
+int graphdb::find_edge_field(const char* fieldname) 
 \end_layout
 
 \end_inset
@@ -583,7 +598,11 @@ Used in numerous places are also the
 graph_row
 \series default
  object which describes the data on either the vertex or edge.
- The graph_row class must be copyable.
+ The 
+\series bold
+graph_row
+\series default
+ type is not copyable.
 \end_layout
 
 \begin_layout LyX-Code
@@ -623,12 +642,7 @@ graph_value* graph_row::get_field(int fieldpos);
 
 \begin_layout LyX-Code
 
-graph_value* graph_row::get_field(char* fieldname);
-\end_layout
-
-\begin_layout LyX-Code
-
-graph_value* graph_row::get_field(const std::string& fieldname);
+graph_value* graph_row::get_field(const char* fieldname);
 \end_layout
 
 \end_inset
@@ -646,6 +660,11 @@ To access individual entries in the row, the
 graph_value
 \series default
  type is used.
+ The 
+\series bold
+graph_value
+\series default
+ type is not copyable.
 \end_layout
 
 \begin_layout LyX-Code
@@ -701,29 +720,26 @@ size_t graph_value::data_length();
 
 \begin_layout LyX-Code
 
-// Only valid for string or blob.
- Invalidates all pointers returned.
- 
-\end_layout
-
-\begin_layout LyX-Code
-
-// Same behavior as realloc.
-\end_layout
-
-\begin_layout LyX-Code
-
-void graph_value::resize(size newlen);
-\end_layout
-
-\begin_layout LyX-Code
-
 // Gets the pointer to the raw data.
 \end_layout
 
 \begin_layout LyX-Code
 
-void* graph_value::get_raw_pointer();
+const char* graph_value::get_raw_pointer();
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// Gets the pointer to the raw data 
+\end_layout
+
+\begin_layout LyX-Code
+
+char* graph_value::get_mutable_raw_pointer();
 \end_layout
 
 \begin_layout LyX-Code
@@ -734,6 +750,11 @@ void* graph_value::get_raw_pointer();
 \begin_layout LyX-Code
 
 // returns false on failure or NULL
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_value::get_vid(graph_vid_t* ret); 
 \end_layout
 
 \begin_layout LyX-Code
@@ -753,7 +774,12 @@ bool graph_value::get_string(graph_string_t* ret);
 
 \begin_layout LyX-Code
 
-bool graph_value::get_blob_ptr(graph_blob_t* ret, size_t* retlength); 
+bool graph_value::get_blob(graph_blob_t* ret); 
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_value::get_blob(size_t len, char* ret); 
 \end_layout
 
 \begin_layout LyX-Code
@@ -793,12 +819,12 @@ string graph_value::get_string();
 
 \begin_layout LyX-Code
 
-bool graph_value::set_integer(const graph_int_t& val); 
+bool graph_value::set_integer(graph_int_t val); 
 \end_layout
 
 \begin_layout LyX-Code
 
-bool graph_value::set_double(const graph_double_t& val);
+bool graph_value::set_double(graph_double_t val);
 \end_layout
 
 \begin_layout LyX-Code
@@ -808,7 +834,12 @@ bool graph_value::set_string(const graph_string_t& val);
 
 \begin_layout LyX-Code
 
-bool graph_value::set_blob(graph_blob_t val, size_t length); 
+bool graph_value::set_blob(const graph_blob_t& val); 
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_value::set_blob(const char*, size_t len)); 
 \end_layout
 
 \begin_layout LyX-Code
@@ -818,27 +849,36 @@ bool graph_value::set_blob(graph_blob_t val, size_t length);
 
 \begin_layout LyX-Code
 
-// returns false on failure
+bool graph_value::get_modified() const;
 \end_layout
 
 \begin_layout LyX-Code
 
-bool graph_value::delta_double(const graph_double_t& val);
+void graph_value::set_modified();
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// delta commit
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_value::get_use_delta_commit() const;
+\end_layout
+
+\begin_layout LyX-Code
+
+void graph_value::set_use_delta_commit();
 \end_layout
 
 \end_inset
 
 
-\end_layout
-
-\begin_layout Quote
-Note that get_blob_ptr returns direct pointers to the data.
- However, if the data is modified in place, it is important to also call
- set_blob, since this allows modification tracking to be performed.
- Also, realloc should not be called on the returned blob pointer.
- If resizing is needed, either the resize() function should be used, or
- a new blob should be allocated and set_blob be used.
- 
 \end_layout
 
 \begin_layout LyX-Code
@@ -1018,8 +1058,8 @@ status open
 
 \begin_layout LyX-Code
 
-// returns a vertex in ret_vertex for a queried vid.
- Returns false on failure
+// returns a vertex for a queried vid.
+ Returns NULL on failure
 \end_layout
 
 \begin_layout LyX-Code
@@ -1029,12 +1069,7 @@ status open
 
 \begin_layout LyX-Code
 
-bool graphdb::get_vertex(graph_vid_t vid, 
-\end_layout
-
-\begin_layout LyX-Code
-
-                         graph_vertex** ret_vertex_ptr);
+graph_vertex* graphdb::get_vertex(graph_vid_t vid)
 \end_layout
 
 \begin_layout LyX-Code
@@ -1050,7 +1085,7 @@ bool graphdb::get_vertex(graph_vid_t vid,
 
 \begin_layout LyX-Code
 
-bool graphdb::find_vertex(std::string fieldname, 
+bool graphdb::find_vertex(size_t fieldpos,
 \end_layout
 
 \begin_layout LyX-Code
@@ -1060,12 +1095,12 @@ bool graphdb::find_vertex(std::string fieldname,
 
 \begin_layout LyX-Code
 
-                          graph_vid_t* ret_vid);
+                          graph_vid_t* out_vid);
 \end_layout
 
 \begin_layout LyX-Code
 
-bool graphdb::find_vertex(std::string fieldname, 
+bool graphdb::find_vertex(size_t fieldpos, 
 \end_layout
 
 \begin_layout LyX-Code
@@ -1075,7 +1110,7 @@ bool graphdb::find_vertex(std::string fieldname,
 
 \begin_layout LyX-Code
 
-                          graph_vid_t* ret_vid);
+                          graph_vid_t* out_vid);
 \end_layout
 
 \begin_layout LyX-Code
@@ -1090,7 +1125,7 @@ void graphdb::free_vertex(graph_vertex* vertex);
 
 \begin_layout LyX-Code
 
-void graphdb::free_edge(graph_edge* edge);
+void graphdb::free_edge_list(graph_edge_list* edge);
 \end_layout
 
 \end_inset
@@ -1145,7 +1180,7 @@ status open
 
 \begin_layout LyX-Code
 
-graphaph_id_t graph_vertex::get_id()
+graphaph_vid_t graph_vertex::get_id()
 \end_layout
 
 \begin_layout LyX-Code
@@ -1252,7 +1287,7 @@ size_t graph_vertex::get_num_shards();
 
 \begin_layout LyX-Code
 
-graph_shard_id_t* graph_vertex::get_shard_list(); 
+std::vector<graph_shard_id_t> graph_vertex::get_shard_list(); 
 \end_layout
 
 \begin_layout LyX-Code
@@ -1287,53 +1322,21 @@ void graph_vertex::get_adj_list(graph_shard_id_t shard_id,
 
 \begin_layout LyX-Code
 
-                                std::vector<graph_edge*>* ret_inadj,
+								bool prefetch_data,
 \end_layout
 
 \begin_layout LyX-Code
 
-                                std::vector<graph_edge*>* ret_outadj);
+                                std::vector<graph_edge*>* out_inadj,
 \end_layout
 
 \begin_layout LyX-Code
 
- 
+                                std::vector<graph_edge*>* out_outadj);
 \end_layout
 
 \begin_layout LyX-Code
 
-// gets part of the adjacency list of this 
-\end_layout
-
-\begin_layout LyX-Code
-
-// vertex belonging on shard 'shard_id'.
- 
-\end_layout
-
-\begin_layout LyX-Code
-
-// Will also read the edge data.
-\end_layout
-
-\begin_layout LyX-Code
-
-// The returned edge pointers must be freed using free_edge
-\end_layout
-
-\begin_layout LyX-Code
-
-void graph_vertex::get_adj_list_with_data(graph_shard_id_t shard_id, 
-\end_layout
-
-\begin_layout LyX-Code
-
-                                std::vector<graph_edge*>* ret_inadj,
-\end_layout
-
-\begin_layout LyX-Code
-
-                                std::vector<graph_edge*>* ret_outadj);
 \end_layout
 
 \end_inset
@@ -1481,7 +1484,7 @@ void graph_edge::write_and_refresh();
 
 \begin_layout LyX-Code
 
-graph_shard_id_t graph_vertex::master_shard();
+graph_shard_id_t graph_edge::master_shard();
 \end_layout
 
 \end_inset
@@ -1645,12 +1648,12 @@ visited
 
 \begin_layout LyX-Code
 
-      std::vector<graph_edge*> in, out;
+      std::vector<graph_edge*> out;
 \end_layout
 
 \begin_layout LyX-Code
 
-      cur_vertex->get_adj_list(shard, &in, &out);
+      cur_vertex->get_adj_list(shard, false, NULL, &out);
 \end_layout
 
 \begin_layout LyX-Code
@@ -1670,27 +1673,12 @@ visited
 
 \begin_layout LyX-Code
 
-        // free the graph_edge
-\end_layout
-
-\begin_layout LyX-Code
-
-        gdb.free_edge(edge);
-\end_layout
-
-\begin_layout LyX-Code
-
       }
 \end_layout
 
 \begin_layout LyX-Code
 
-      // we need to free the in edges too
-\end_layout
-
-\begin_layout LyX-Code
-
-      for(graph_edge* edge: in) gdb.free_edge(edge);
+      gdb.free_edge_vector(out);
 \end_layout
 
 \begin_layout LyX-Code
@@ -1748,12 +1736,7 @@ size_t graphdb::num_shards();
 
 \begin_layout LyX-Code
 
-bool graphdb::get_shard(shard_id_t shard_id, 
-\end_layout
-
-\begin_layout LyX-Code
-
-                        graph_shard** ret_shard_ptr);
+graph_shard* graphdb::get_shard(shard_id_t shard_id);
 \end_layout
 
 \begin_layout LyX-Code
@@ -1763,17 +1746,12 @@ bool graphdb::get_shard(shard_id_t shard_id,
 
 \begin_layout LyX-Code
 
-bool graphdb::get_shard_contents_adj_to(shard_id_t shard_id,
+graph_shard* graphdb::get_shard_contents_adj_to(shard_id_t shard_id,
 \end_layout
 
 \begin_layout LyX-Code
 
-						                shared_id_t adjacent_to,
-\end_layout
-
-\begin_layout LyX-Code
-
-                                        graph_shard** ret_shard_ptr);
+						                shared_id_t adjacent_to);
 \end_layout
 
 \begin_layout LyX-Code

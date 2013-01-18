@@ -16,6 +16,8 @@ add_library(graphlab3
             parallel/thread_pool.cpp
             logger/assertions.cpp 
             logger/logger.cpp
+            database/graph_row.cpp
+            database/graph_value.cpp
            )
 
 requires_core_deps(graphlab3)

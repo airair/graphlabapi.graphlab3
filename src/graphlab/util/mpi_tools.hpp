@@ -47,65 +47,28 @@
 namespace graphlab {
   namespace mpi_tools {
 
+    /**
+     * Initializes MPI. This function may be called multiple times,
+     * but only the first call has any effect.
+     */
+    void init(int& argc, char**& argv, int required = MPI_THREAD_SINGLE);
+
+    /// Returns true if MPI was initialized
+    bool initialized();
 
     /**
-     * The init function is used to initialize MPI and must be called
-     * to clean the command line arguments.
+     * Finalizes MPI. After this call, no other MPI functions may be called.
+     * This function may be called multiple times. However only the first
+     * call has any effect.
      */
-    inline void init(int& argc, char**& argv) {
-#ifdef HAS_MPI
-      const int required(MPI_THREAD_SINGLE);
-      int provided(-1);
-      int error = MPI_Init_thread(&argc, &argv, required, &provided);
-      assert(provided == required);
-      assert(error == MPI_SUCCESS);
-#else
-      logstream(LOG_EMPH) << "MPI Support was not compiled." << std::endl;
-#endif
-    } // end of init
+    void finalize(); 
 
-    inline void finalize() {
-#ifdef HAS_MPI
-      int error = MPI_Finalize();
-      assert(error == MPI_SUCCESS);
-#endif
-    } // end of finalize
+    /// Returns the MPI Rank of this current node
+    size_t rank(); 
 
+    /// Returns the number of nodes in the MPI group
+    size_t size();
 
-    inline bool initialized() {
-#ifdef HAS_MPI
-      int ret_value = 0;
-      int error = MPI_Initialized(&ret_value);
-      assert(error == MPI_SUCCESS);
-      return ret_value;
-#else
-      return false;
-#endif
-    } // end of initialized
-
-    inline size_t rank() {
-#ifdef HAS_MPI
-      int mpi_rank(-1);
-      MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-      assert(mpi_rank >= 0);
-      return size_t(mpi_rank);
-#else
-      return 0;
-#endif
-    }
-
-    inline size_t size() {
-#ifdef HAS_MPI
-      int mpi_size(-1);
-      MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
-      assert(mpi_size >= 0);
-      return size_t(mpi_size);
-#else
-      return 1;
-#endif
-    }
-
-    
 
     template<typename T>
     void all_gather(const T& elem, std::vector<T>& results) {

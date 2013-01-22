@@ -20,8 +20,10 @@
  *
  */
 
-#include <iostream>
+#include <sys/time.h>
+#include <sys/resource.h> 
 
+#include <iostream>
 #ifdef HAS_TCMALLOC
 #include <google/malloc_extension.h>
 #endif
@@ -38,6 +40,16 @@ namespace graphlab {
 #endif
     } // end of available
 
+
+    size_t rusage_maxrss() {
+      rusage rs;
+      getrusage(RUSAGE_SELF, &rs);
+#ifdef __APPLE__
+      return rs.ru_maxrss;
+#else
+      return (size_t)(1024) * rs.ru_maxrss;
+#endif
+    }
 
 
     size_t heap_bytes() {

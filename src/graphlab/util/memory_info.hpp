@@ -34,8 +34,16 @@ namespace graphlab {
    */
   namespace memory_info {
 
+
     /**
-     * \interanl 
+     * \internal
+     *
+     * \brief returns the maxrss field in a getrss call.
+     */
+    size_t rusage_maxrss(); 
+
+    /**
+     * \internal
      *
      * \brief Returns whether memory info reporting is
      * available on this system (if memory_info was built with TCMalloc)

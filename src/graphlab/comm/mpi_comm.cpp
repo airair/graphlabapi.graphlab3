@@ -135,19 +135,28 @@ void mpi_comm::send(int targetmachine, void* _data, size_t length) {
   comm_header hdr; hdr.length = length;
   size_t headerlength = sizeof(size_t); 
   char* headerptr = reinterpret_cast<char*>(&hdr);
+  //bool printed_buf_full_message = false;
   while (headerlength > 0) {
     size_t sent = 0;
     sent = actual_send(targetmachine, headerptr, headerlength);
     headerptr += sent; headerlength -= sent;
     // if we failed to write everything... we probably should try to flush
-    if (headerlength > 0) flush();
+    if (headerlength > 0) {
+   //   if (!printed_buf_full_message) std::cout << "buffer full\n";
+   //   printed_buf_full_message = true;
+      flush();
+    }
   }
   while (length > 0) {
     size_t sent = 0;
     sent = actual_send(targetmachine, data, length);
     data += sent; length -= sent;
     // if we failed to write everything... we probably should try to flush
-    if (length > 0) flush();
+    if (length > 0) {
+   //   if (!printed_buf_full_message) std::cout << "buffer full\n";
+   //   printed_buf_full_message = true;
+      flush();
+    }
   }
 } 
 

@@ -47,7 +47,7 @@ int main(int argc, char** argv) {
         comm->send(1, c[i], 1 << i);
       }
       double t = ti.current_time();
-      std::cout << "Send of 64MB in " << (1<<i) << " chunks in " 
+      std::cout << "Send of 64MB in " << (1<<i) << " byte chunks in " 
                 << t << " s. "
                 << "(" << TOTAL_COMM / t / 1024 / 1024 << " MBps)" << std::endl;
       comm->flush();
@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
         assert(len == 1 << i);
       }
       double t = ti.current_time();
-      std::cout << "Receive of 64MB in " << (1<<i) << " chunks in " 
+      std::cout << "Receive of 64MB in " << (1<<i) << " byte chunks in " 
                 << t << " s. "
                 << "(" << TOTAL_COMM / t / 1024 / 1024 << " MBps)" << std::endl;
     }

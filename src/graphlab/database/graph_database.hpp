@@ -82,24 +82,24 @@ class graph_database {
   virtual graph_vertex* get_vertex(graph_vid_t vid) = 0;
 
   /**
-   *  Finds a vertex using an indexed integer field. Returns the vertex ID
-   *  in out_vid corresponding to the vertex where the integer field identified
-   *  by fieldpos has the specified value.
+   *  Finds a vertex using an indexed integer field. Returns the vertex IDs
+   *  in out_vids corresponding to the vertices where the integer field 
+   *  identified by fieldpos has the specified value.
    *  Return true on success, and false on failure.
    */
   virtual bool find_vertex(size_t fieldpos,
                            graph_int_t value, 
-                           graph_vid_t* out_vid) = 0;
+                           std::vector<graph_vid_t>* out_vids) = 0;
 
   /**
-   *  Finds a vertex using an indexed string field. Returns the vertex ID
-   *  in out_vid corresponding to the vertex where the string field identified
-   *  by fieldpos has the specified value.
+   *  Finds a vertex using an indexed string field. Returns the vertex IDs
+   *  in out_vids corresponding to the vertices where the string field 
+   *  identified  by fieldpos has the specified value.
    *  Return true on success, and false on failure.
    */
   virtual bool find_vertex(size_t fieldpos,
                            graph_string_t value, 
-                           graph_vid_t* ret_vid) = 0;
+                           std::vector<graph_vid_t>* out_vids) = 0;
 
   /**
    * Frees a vertex object

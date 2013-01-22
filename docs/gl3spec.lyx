@@ -278,8 +278,7 @@ PageURL
 \end_inset
 
  field, allowing direct searches for a vertex given a URL.
- Every vertex must have a different value for an indexed field.
- NULL values are ignored (and cannot be searched).
+  NULL values are ignored (and cannot be searched).
 \end_layout
 
 \begin_layout Subsection
@@ -1095,7 +1094,7 @@ bool graphdb::find_vertex(size_t fieldpos,
 
 \begin_layout LyX-Code
 
-                          graph_vid_t* out_vid);
+                          std::vector<graph_vid_t>* out_vid);
 \end_layout
 
 \begin_layout LyX-Code
@@ -1110,7 +1109,7 @@ bool graphdb::find_vertex(size_t fieldpos,
 
 \begin_layout LyX-Code
 
-                          graph_vid_t* out_vid);
+                          std::vector<graph_vid_t>* out_vid);
 \end_layout
 
 \begin_layout LyX-Code

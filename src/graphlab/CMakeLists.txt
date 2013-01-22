@@ -1,6 +1,6 @@
 project(GraphLab)
 
-add_library(graphlab3
+add_library(graphlab3 STATIC
             zookeeper/server_list.cpp
             util/event_log.cpp
             util/fs_util.cpp

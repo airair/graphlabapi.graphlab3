@@ -1,4 +1,5 @@
 #include <string>
+#include <cstdlib>
 #include <mpi.h>
 #include <graphlab/util/timer.hpp>
 #include <graphlab/comm/comm_base.hpp>

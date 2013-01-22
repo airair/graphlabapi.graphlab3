@@ -13,7 +13,7 @@ namespace zookeeper {
 // frees a zookeeper String_vector
 static void free_String_vector(struct String_vector* strings) {
   if (strings->data) {
-    for (size_t i = 0;i < strings->count; ++i) {
+    for (size_t i = 0;i < (size_t)(strings->count); ++i) {
       free(strings->data[i]);
     }
     free(strings->data);
@@ -26,7 +26,7 @@ static void free_String_vector(struct String_vector* strings) {
 static std::vector<std::string> String_vector_to_vector(
     const struct String_vector* strings) {
   std::vector<std::string> ret;
-  for (size_t i = 0;i < strings->count; ++i) {
+  for (size_t i = 0;i < (size_t)(strings->count); ++i) {
     ret.push_back(strings->data[i]);
   }
   return ret;

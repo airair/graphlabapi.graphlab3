@@ -1,5 +1,6 @@
 #include <graphlab/database/graph_value.hpp>
-
+#include <cstring>
+#include <cstdlib>
 namespace graphlab {
 
 graph_value::graph_value(): 

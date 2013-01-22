@@ -48,7 +48,7 @@ mpi_comm::mpi_comm(int* argc, char*** argv, size_t send_window)
   // round it to a multiple of the datatype size
   _max_sendlength_per_machine  = 
         (_max_sendlength_per_machine / sizeof(send_type)) * sizeof(send_type);
-  for (size_t i = 0; i < _size; ++i) {
+  for (size_t i = 0; i < (size_t)_size; ++i) {
     _offset[i] = i * _max_sendlength_per_machine;
     _offset_by_datatype[i] = _offset[i] / sizeof(send_type);
   }
@@ -217,7 +217,7 @@ void mpi_comm::actual_flush(size_t idx, MPI_Comm communicator) {
   // AlltoAll scatter the buffer sizes
   int send_buffer_sizes[_size];
 
-  for (size_t i = 0;i < _size; ++i) {
+  for (size_t i = 0;i < (size_t)_size; ++i) {
     // the size of the send buffer in send_type steps
     assert(_sendlength[idx][i] % sizeof(send_type) == 0);
     send_buffer_sizes[i] = _sendlength[idx][i] / sizeof(send_type);
@@ -238,7 +238,7 @@ void mpi_comm::actual_flush(size_t idx, MPI_Comm communicator) {
 
   // now allocate the receive buffers
   size_t total_receive = 0;
-  for (size_t i = 0;i < _size; ++i) {
+  for (size_t i = 0;i < (size_t)_size; ++i) {
     recv_buffer_offsets[i] = total_receive;
     total_receive += recv_buffer_sizes[i];
   }
@@ -254,7 +254,7 @@ void mpi_comm::actual_flush(size_t idx, MPI_Comm communicator) {
                         communicator);
   ASSERT_EQ(error, MPI_SUCCESS);
   // cut up the receive buffer into little pieces for each receiving buffer
-  for (size_t i = 0;i < _size; ++i) {
+  for (size_t i = 0;i < (size_t)_size; ++i) {
     if (recv_buffer_sizes[i] > 0) {
       char* recvptr = ((char*)(receiveptr)) + 
           recv_buffer_offsets[i] * sizeof(send_type);
@@ -276,7 +276,7 @@ void mpi_comm::garbage_collect(size_t idx) {
 
 
 void mpi_comm::reset_send_buffer(size_t idx) {
-  for (size_t i = 0;i < _size; ++i) {
+  for (size_t i = 0;i < (size_t)_size; ++i) {
     _sendlength[idx][i] = 0;
   }
   size_t curtime = timer::approx_time_millis();
@@ -311,7 +311,7 @@ void* mpi_comm::receive(int* sourcemachine, size_t* length) {
   // sweep from i,i+1... _size, 0, 1, 2, ... i-1
   // and try to receive from that buffer.
   // if all fail, we return NULL
-  for (size_t j = 0; j < _size; ++j) {
+  for (size_t j = 0; j < (size_t)_size; ++j) {
     void* ret = receive((j + i) % _size, length);
     if (ret != NULL) {
       (*sourcemachine) = (j + i) % _size;

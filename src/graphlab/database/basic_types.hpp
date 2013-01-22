@@ -1,6 +1,7 @@
 #ifndef GRAPHLAB_DATABASE_BASIC_TYPES_HPP
 #define GRAPHLAB_DATABASE_BASIC_TYPES_HPP
 #include <string>
+#include <stdint.h>
 namespace graphlab {
 
 /// \ingroup group_graph_database

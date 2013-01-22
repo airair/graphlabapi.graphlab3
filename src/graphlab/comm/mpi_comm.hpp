@@ -28,7 +28,16 @@ class mpi_comm : public comm_base{
   // the communicator used by MPI calls issued from public functions
   // of this class
   MPI_Comm external_comm;
-  
+
+  // true if we have mpi_thread_multiple support
+  bool _has_mpi_thread_multiple;
+
+  // without mpi_thread_multiple, we have to use the background thread
+  // to support our barriers. We get *substantially* slower barriers,
+  // but at least it will work.
+  int _local_barrier_count;
+  int _global_barrier_count;
+
   // this lock is acquired on flush so only one
   // one thread is flushing at any one time 
   mutex _flush_lock;
@@ -171,9 +180,7 @@ class mpi_comm : public comm_base{
   /**
    * Halts until all machines hit the barrier() call
    */
-  inline void barrier() {
-    MPI_Barrier(external_comm);
-  }
+  void barrier();
 
   inline size_t size() const {
     return (size_t)_size;

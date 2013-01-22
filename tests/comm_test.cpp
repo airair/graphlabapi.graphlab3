@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
     }
   }
   comm->flush();
-  comm->barrier();
+//  comm->barrier();
   while(1) {
     int source = 0; size_t length;
     char* ret = (char*)comm->receive(&source, &length);
@@ -35,6 +35,7 @@ int main(int argc, char** argv) {
       break;
     }
   }  
+
   comm->barrier();
   delete comm;
 }

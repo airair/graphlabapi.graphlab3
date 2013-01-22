@@ -30,25 +30,17 @@ namespace graphlab {
      * The init function is used to initialize MPI and must be called
      * to clean the command line arguments.
      */
-    void init(int& argc, char**& argv, int required) {
+    int init(int& argc, char**& argv, int required) {
 #ifdef HAS_MPI
+      static int provided(-1);
       if (initialized() == false) {
-        int provided(-1);
         int error = MPI_Init_thread(&argc, &argv, required, &provided);
         assert(error == MPI_SUCCESS);
-        if (rank() == 0 && provided < required) {
-          std::cerr << "We requested MPI to provided level " << required 
-                    << " multithreading support, but it can only provide level "
-                    << provided << ".\n"
-                    << "We will continue running since this may still work out."
-                    << "However, if it crashes, you will need to upgrade your "
-                    << "MPI implementation.\n";
-                    
-        }
-        
       }
+      return provided;
 #else
       logstream(LOG_EMPH) << "MPI Support was not compiled." << std::endl;
+      return -1;
 #endif
     } 
 

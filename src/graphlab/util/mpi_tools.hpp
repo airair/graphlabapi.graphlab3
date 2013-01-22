@@ -51,7 +51,7 @@ namespace graphlab {
      * Initializes MPI. This function may be called multiple times,
      * but only the first call has any effect.
      */
-    void init(int& argc, char**& argv, int required = MPI_THREAD_SINGLE);
+    int init(int& argc, char**& argv, int required = MPI_THREAD_SINGLE);
 
     /// Returns true if MPI was initialized
     bool initialized();

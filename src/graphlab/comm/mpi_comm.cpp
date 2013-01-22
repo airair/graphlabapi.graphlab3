@@ -27,9 +27,23 @@ size_t get_padded_length(size_t length) {
 mpi_comm::mpi_comm(int* argc, char*** argv, size_t send_window)
             :_send_window_size(send_window) {
   // initializes mpi and record the rank and size
-  mpi_tools::init(*argc, *argv, MPI_THREAD_MULTIPLE);
+  int ret = mpi_tools::init(*argc, *argv, MPI_THREAD_MULTIPLE);
+  _has_mpi_thread_multiple = (ret == MPI_THREAD_MULTIPLE);
+    _local_barrier_count = 0; 
+  _global_barrier_count = 0;
+
   _rank = mpi_tools::rank();
   _size = mpi_tools::size();
+
+  if (_rank == 0 && !_has_mpi_thread_multiple) {
+    std::cerr << "We requested MPI to provided MPI_THREAD_MULTIPLE "
+              << "multithreading support, but it can only provide level "
+              << ret << ".\n"
+              << "The system will still continue to operate, but performance "
+              << "will be degraded.\n";
+  }
+
+
 
   // create a new comm for this object
   MPI_Comm_dup(MPI_COMM_WORLD, &internal_comm);
@@ -187,7 +201,21 @@ size_t mpi_comm::actual_send(int targetmachine, void* data, size_t length) {
 
 
 void mpi_comm::flush() {
-  background_flush_inner_op();
+  // the proper way to flush will be to invoke the background flush inner op.
+  // but this does not play nice with MPI implementations that do not have
+  // MPI_THREAD_MULTIPLE support
+  if (_has_mpi_thread_multiple) {
+    background_flush_inner_op();
+  } else {
+    // here is therefore an alternate implementation that is quite a 
+    // bit uglier
+    size_t idx = _cur_send_buffer.value;
+    // looping until the value increments by 2 is a sure fire way
+    // to ensure that the flush has completed.
+    while(_cur_send_buffer.value - idx < 2) {
+      timer::sleep_ms(5);
+    }
+  }
 }
 
 
@@ -354,6 +382,13 @@ void mpi_comm::background_flush_inner_op() {
     MPI_Allreduce(&send, 
                   &_num_nodes_flushing_threads_done, 
                   1, MPI_INT, MPI_SUM, internal_comm);
+
+    if (!_has_mpi_thread_multiple) {
+      // we have to simulate the barrier here
+      MPI_Allreduce(&_local_barrier_count, 
+                  &_global_barrier_count, 
+                  1, MPI_INT, MPI_MIN, internal_comm);
+    }
   }
   _background_flush_inner_op_lock.unlock();
 }
@@ -363,6 +398,18 @@ void mpi_comm::background_flush() {
     timer::sleep_ms(10);
     background_flush_inner_op();
   } 
+}
+
+
+void mpi_comm::barrier() {
+  if (_has_mpi_thread_multiple) {
+    MPI_Barrier(external_comm);
+  } else {
+    ++_local_barrier_count;
+    while (_global_barrier_count < _local_barrier_count) {
+      timer::sleep_ms(5);
+    }
+  }
 }
 
 } // namespace graphlab

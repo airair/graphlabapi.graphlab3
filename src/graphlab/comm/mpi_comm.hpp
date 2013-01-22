@@ -32,7 +32,8 @@ class mpi_comm : public comm_base{
   // this lock is acquired on flush so only one
   // one thread is flushing at any one time 
   mutex _flush_lock;
-
+  // only one thread is executing the background flush operation sequence
+  mutex _background_flush_inner_op_lock;
   // ------- send buffer management --------
   // we manage 2 send buffers and swap between them
 
@@ -64,6 +65,7 @@ class mpi_comm : public comm_base{
 
   // flushing background thread
   bool _flushing_thread_done;
+  int _num_nodes_flushing_threads_done;
   thread _flushing_thread;
 
   // ------- receive buffer management --------
@@ -122,6 +124,12 @@ class mpi_comm : public comm_base{
   // background flusher
   void background_flush();
 
+  // the sequence of MPI operations performed by the background_flush function.
+  // by seperating it out into an independent function, I can call it from
+  // other sources (such as flush()) while ensuring that the MPI 
+  // call sequence still match up perfectly across nodes
+  void background_flush_inner_op();
+
  public:
   mpi_comm(int* argc, char*** argv, 
            size_t send_window = ((size_t)(1) << 32) /* 4GB */);
@@ -160,7 +168,13 @@ class mpi_comm : public comm_base{
   void* receive(int sourcemachine, size_t* length); 
 
   /**
-   * Halts until all machines call the barrier() once.
+   * Halts until all machines hit the barrier_flush() call. All sends
+   * issued before this call will also be completed.
+   */
+  void barrier_flush(); 
+
+  /**
+   * Halts until all machines hit the barrier() call
    */
   inline void barrier() {
     MPI_Barrier(external_comm);

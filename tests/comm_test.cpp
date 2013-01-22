@@ -9,10 +9,9 @@ int main(int argc, char** argv) {
   std::cout << "Rank: " << comm->rank() << "/" << comm->size() << std::endl;
   comm->send((comm->rank() + 1) % comm->size(), (void*)hello, 5);
   comm->send((comm->rank() + 2) % comm->size(), (void*)world, 5);
- 
+  if (comm->rank() == 0) comm->flush(); 
   comm->barrier(); 
   graphlab::timer::sleep(1);
-
   while(1) {
     int source = 0; size_t length;
     char* ret = (char*)comm->receive(&source, &length);

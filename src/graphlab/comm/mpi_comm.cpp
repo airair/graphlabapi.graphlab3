@@ -71,7 +71,7 @@ mpi_comm::mpi_comm(int* argc, char*** argv, size_t send_window)
     _receive_buffer[i].next_message_length = 0;
     _receive_buffer[i].padded_next_message_length = 0;
   }
-
+  _num_nodes_flushing_threads_done = 0;
   _flushing_thread_done = false;
   _flushing_thread.launch(boost::bind(&mpi_comm::background_flush, this));
 }
@@ -186,8 +186,11 @@ size_t mpi_comm::actual_send(int targetmachine, void* data, size_t length) {
 }
 
 
-
 void mpi_comm::flush() {
+  background_flush_inner_op();
+}
+
+void mpi_comm::barrier_flush() {
   // only one thread may be in the flush at any time
   _flush_lock.lock();
   size_t idx = swap_buffers();
@@ -344,20 +347,29 @@ void* mpi_comm::receive(int sourcemachine, size_t* length) {
 }
 
 
-void mpi_comm::background_flush() {
-  bool done = false;
-  while (!done) {
-    timer::sleep_ms(10);
-
+void mpi_comm::background_flush_inner_op() {
+  _background_flush_inner_op_lock.lock();
+  // this ensures that once the flushing threads quit,
+  // we don't start any more flushing MPI operations
+  // since these will not have a matching call on the other nodes.
+  if (_num_nodes_flushing_threads_done < _size) {
     _flush_lock.lock();
     size_t idx = swap_buffers();
     actual_flush(idx, internal_comm);
     _flush_lock.unlock();
 
     int send = _flushing_thread_done;
-    int result = 0;
-    MPI_Allreduce(&send, &result, 1, MPI_INT, MPI_SUM, internal_comm);
-    done = (result == _size);
+    MPI_Allreduce(&send, 
+                  &_num_nodes_flushing_threads_done, 
+                  1, MPI_INT, MPI_SUM, internal_comm);
+  }
+  _background_flush_inner_op_lock.unlock();
+}
+
+void mpi_comm::background_flush() {
+  while (_num_nodes_flushing_threads_done < _size) {
+    timer::sleep_ms(10);
+    background_flush_inner_op();
   } 
 }
 

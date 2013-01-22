@@ -18,6 +18,8 @@ add_library(graphlab3
             logger/logger.cpp
             database/graph_row.cpp
             database/graph_value.cpp
+            comm/comm_base.cpp
+            comm/mpi_comm.cpp
            )
 
 requires_core_deps(graphlab3)

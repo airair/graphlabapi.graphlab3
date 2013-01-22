@@ -1,3 +1,4 @@
 project(tests)
 add_graphlab_executable(zookeeper_test zookeeper_test.cpp)
 add_graphlab_executable(graph_database_test graph_database_test.cpp)
+add_graphlab_executable(comm_test comm_test.cpp)

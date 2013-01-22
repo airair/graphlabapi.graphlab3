@@ -248,6 +248,31 @@ ExternalProject_Add(zookeeper
 
 
 
+
+# MPI =========================================================================
+# MPI is currently used to establish communication between rpc nodes
+if(NOT NO_MPI) 
+find_package(MPICH2)
+endif()
+
+if(MPI_FOUND)
+  message(STATUS "MPI Found: " ${MPI_LIBRARY} ${MPI_EXTRA_LIBRARY})
+  add_definitions(-DHAS_MPI)
+  include_directories(${MPI_INCLUDE_PATH})
+else(MPI_FOUND)
+  message(STATUS "MPI Not Found! Distributed Executables will not be compiled")
+  set(MPI_LIBRARY "")
+  set(MPI_EXTRA_LIBRARY "")
+  # ExternalProject_Add(openmpi
+  #   PREFIX ${GraphLab_SOURCE_DIR}/deps/openmpi
+  #   URL http://www.open-mpi.org/software/ompi/v1.4/downloads/openmpi-1.4.5.tar.gz
+  #   CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=<INSTALL_DIR>
+  #   INSTALL_DIR ${GraphLab_SOURCE_DIR}/deps/local)
+endif(MPI_FOUND)
+
+
+
+
 ## =============================================================
 # Core graphlab requirements 
 macro(requires_core_deps NAME)
@@ -258,6 +283,9 @@ macro(requires_core_deps NAME)
     tcmalloc
     event event_pthreads)
   add_dependencies(${NAME} boost libtcmalloc libevent zookeeper)
+  if(MPI_FOUND)
+    target_link_libraries(${NAME} ${MPI_LIBRARY} ${MPI_EXTRA_LIBRARY})
+  endif(MPI_FOUND)
   if(HADOOP_FOUND)
     target_link_libraries(${NAME} hdfs ${JAVA_JVM_LIBRARY})
     add_dependencies(${NAME} hadoop)

@@ -96,6 +96,11 @@ namespace graphlab_impl {
 
     //! Performs an atomic exchange with 'val', returning the previous value
     T exchange(const T val) { return __sync_lock_test_and_set(&value, val);  }
+
+    //! returns true if the compare and swap was successful
+    bool cas(const T prev_value, const T new_value) {
+      return atomic_compare_and_swap(value, prev_value, new_value);
+    }
   };
   
   // specialization for floats and doubles

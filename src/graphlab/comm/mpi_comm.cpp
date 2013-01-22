@@ -82,11 +82,11 @@ void mpi_comm::construct_send_window(size_t i) {
                     MAP_PRIVATE | MAP_ANON, -1, 0);
 #else
   _send_base[i] = mmap(NULL, _send_window_size, PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
 #endif
-  if (_send_base[i] == NULL) {
-    logger(LOG_FATAL, "Unable to mmap send window of size %ld", 
-           _send_window_size);
+  if (_send_base[i] == (void*)(-1)) {
+    std::cerr << "Unable to mmap send window of size " << _send_window_size
+              << " : " << errno << ". " << strerror(errno) << std::endl;
     assert(_send_base[i] != NULL); 
   }
 }
@@ -188,14 +188,6 @@ size_t mpi_comm::actual_send(int targetmachine, void* data, size_t length) {
 
 void mpi_comm::flush() {
   background_flush_inner_op();
-}
-
-void mpi_comm::barrier_flush() {
-  // only one thread may be in the flush at any time
-  _flush_lock.lock();
-  size_t idx = swap_buffers();
-  actual_flush(idx, external_comm);
-  _flush_lock.unlock();
 }
 
 

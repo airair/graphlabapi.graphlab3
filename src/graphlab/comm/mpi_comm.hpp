@@ -167,11 +167,6 @@ class mpi_comm : public comm_base{
    */ 
   void* receive(int sourcemachine, size_t* length); 
 
-  /**
-   * Halts until all machines hit the barrier_flush() call. All sends
-   * issued before this call will also be completed.
-   */
-  void barrier_flush(); 
 
   /**
    * Halts until all machines hit the barrier() call

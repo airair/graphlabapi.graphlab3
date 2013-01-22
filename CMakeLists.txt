@@ -246,8 +246,14 @@ ExternalProject_Add(zookeeper
   CONFIGURE_COMMAND ./configure --prefix=<INSTALL_DIR> --disable-shared
   INSTALL_DIR ${GraphLab_SOURCE_DIR}/deps/local)
 
-
-
+ExternalProject_Add(qthreads
+                    PREFIX ${GraphLab_SOURCE_DIR}/deps/qthreads
+                    URL http://qthreads.googlecode.com/files/qthread-1.8.1.tar.bz2
+                    URL_MD5 435e3e3873d66c4021679409720e27fc
+                    INSTALL_DIR ${GraphLab_SOURCE_DIR}/deps/local
+                    BUILD_IN_SOURCE 1
+                    CONFIGURE_COMMAND ./configure --prefix=<INSTALL_DIR> --disable-lazy-threadids
+                    )
 
 # MPI =========================================================================
 # MPI is currently used to establish communication between rpc nodes
@@ -280,8 +286,9 @@ macro(requires_core_deps NAME)
     ${Boost_LIBRARIES}
     zookeeper_mt
     z
-    tcmalloc)
-  add_dependencies(${NAME} boost libtcmalloc zookeeper)
+    tcmalloc
+    qthread)
+  add_dependencies(${NAME} boost libtcmalloc zookeeper qthreads)
   if(MPI_FOUND)
     target_link_libraries(${NAME} ${MPI_LIBRARY} ${MPI_EXTRA_LIBRARY})
   endif(MPI_FOUND)

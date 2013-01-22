@@ -11,9 +11,11 @@ namespace graphlab {
  * Each machine issues messages to other machines through the send() call,
  * And receives messages through the receive() call.
  *
- * All functions must be thread-safe, but depending on the design of the 
- * underlying comm, certain operations may block the execution of other 
- * operations. However, it should not be possible to deadlock the system.
+ * The send(), flush() and receive() functions must be thread-safe.
+ * However, this interface does not prescribe any particular degree of  
+ * parallelism required. i.e. a single mutex locking the entire implementation
+ * satisfies the requirements. It should not be possible to deadlock the system
+ * under any combination of send(), flush() and receive() calls.
  *
  * No fault tolerance mechanism is defined, and all communication faults 
  * are fatal (for instance, resulting in an assertion failure).

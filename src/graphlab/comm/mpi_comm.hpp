@@ -6,6 +6,7 @@
 #include <sstream>
 #include <mpi.h>
 #include <boost/shared_ptr.hpp>
+#include <graphlab/util/circular_char_buffer.hpp>
 #include <graphlab/comm/comm_base.hpp>
 #include <graphlab/parallel/pthread_tools.hpp>
 #include <graphlab/parallel/atomic.hpp>
@@ -85,7 +86,7 @@ class mpi_comm : public comm_base{
   // to read the entire message, it is ready.  
   struct receive_buffer_type {
     mutex lock;
-    std::stringbuf* buffer;
+    circular_char_buffer buffer;
     size_t buflen;
     size_t next_message_length;
     size_t padded_next_message_length;

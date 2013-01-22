@@ -11,6 +11,7 @@ add_library(graphlab3 STATIC
             util/random.cpp
             util/timer.cpp
             util/tracepoint.cpp
+            util/circular_char_buffer.cpp
             util/web_util.cpp 
             parallel/pthread_tools.cpp 
             parallel/thread_pool.cpp

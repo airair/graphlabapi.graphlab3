@@ -81,7 +81,6 @@ mpi_comm::mpi_comm(int* argc, char*** argv, size_t send_window)
   _receive_buffer.resize(_size);
   for (size_t i = 0;i < _receive_buffer.size(); ++i) {
     _receive_buffer[i].buflen = 0;
-    _receive_buffer[i].buffer = new std::stringbuf();
     _receive_buffer[i].next_message_length = 0;
     _receive_buffer[i].padded_next_message_length = 0;
   }
@@ -115,9 +114,6 @@ mpi_comm::~mpi_comm() {
   _flushing_thread_done = true;
   _flushing_thread.join();
  
-  for (size_t i = 0;i < _receive_buffer.size(); ++i) {
-    delete _receive_buffer[i].buffer;
-  }
   MPI_Comm_free(&internal_comm);
   MPI_Comm_free(&external_comm);
   mpi_tools::finalize();
@@ -320,7 +316,7 @@ void mpi_comm::locked_read_header_from_buffer(size_t idx) {
   receive_buffer_type& curbuf = _receive_buffer[idx];
   if (curbuf.next_message_length == 0 && curbuf.buflen >= sizeof(comm_header)) {
     comm_header header;
-    curbuf.buffer->sgetn(reinterpret_cast<char*>(&header), sizeof(comm_header));
+    curbuf.buffer.read(reinterpret_cast<char*>(&header), sizeof(comm_header));
     curbuf.next_message_length = header.length;
     curbuf.padded_next_message_length = get_padded_length(header.length);
     curbuf.buflen -= sizeof(comm_header);
@@ -329,7 +325,7 @@ void mpi_comm::locked_read_header_from_buffer(size_t idx) {
 void mpi_comm::insert_receive_buffer(size_t idx, char* v, size_t length) {
   receive_buffer_type& curbuf = _receive_buffer[idx];
   curbuf.lock.lock();
-  curbuf.buffer->sputn(v, length);
+  curbuf.buffer.write(v, length);
   curbuf.buflen += length;
   locked_read_header_from_buffer(idx);
   curbuf.lock.unlock();
@@ -364,8 +360,14 @@ void* mpi_comm::receive(int sourcemachine, size_t* length) {
     ret = malloc(curbuf.padded_next_message_length);
     assert(ret != NULL);   
     // read the buffer. and return
-    curbuf.buffer->sgetn((char*)ret, curbuf.padded_next_message_length);
+    curbuf.buffer.read((char*)ret, curbuf.padded_next_message_length);
     curbuf.buflen -= curbuf.padded_next_message_length;
+    // if there is too much empty room in the buffer, we squeeze it
+    // to conserve memory
+    if (curbuf.buffer.reserved_size() >= 5 * curbuf.buflen &&
+        curbuf.buffer.reserved_size() > 4096) {
+      curbuf.buffer.squeeze();
+    }
     (*length) = curbuf.next_message_length;
     curbuf.next_message_length = 0;
     curbuf.padded_next_message_length = 0;

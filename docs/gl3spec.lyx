@@ -1948,7 +1948,7 @@ status open
 
 \begin_layout LyX-Code
 
-class pagerank_map_reduce: map_reduce {
+class pagerank_map_reduce: public map_reduce {
 \end_layout
 
 \begin_layout LyX-Code
@@ -2058,7 +2058,13 @@ double PR = 0.15 + context.mapred_in_vertices(pagerank_map_reduce(scale));
 \end_layout
 
 \begin_layout Subsection
-Compute Context
+Update Function
+\end_layout
+
+\begin_layout Standard
+The interface described here may change as it might be necessary to further
+ wrap say...
+ graph_value to provide higher level access to the data.
 \end_layout
 
 \begin_layout Standard
@@ -2072,7 +2078,7 @@ status open
 
 \begin_layout LyX-Code
 
-void update_function(compute_context& v) {
+void update_function(compute_context& ctx, modifications& mod) {
 \end_layout
 
 \begin_layout LyX-Code
@@ -2105,7 +2111,40 @@ status open
 
 \begin_layout LyX-Code
 
+// returns the ID of the current vertex
+\end_layout
+
+\begin_layout LyX-Code
+
 graph_vid_t& compute_context::vertex_id()
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// returns the value of the current vertex
+\end_layout
+
+\begin_layout LyX-Code
+
+const graph_value& compute_context::vertex_value()
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// returns the value of an arbitrary vertex
+\end_layout
+
+\begin_layout LyX-Code
+
+const graph_value& compute_context::vertex_value(graph_vid_t)
 \end_layout
 
 \end_inset
@@ -2118,14 +2157,7 @@ graph_vid_t& compute_context::vertex_id()
 \end_layout
 
 \begin_layout Standard
-
-\series bold
-This needs to be updated to handle the new semantics as discussed in Dan
- Grossman's office Jan 15th.
-\end_layout
-
-\begin_layout Standard
-For expert use, graphdb access is also provided.
+For expert use, direct graphdb access is also provided.
 \end_layout
 
 \begin_layout LyX-Code
@@ -2143,10 +2175,47 @@ graphdb& compute_context::db();
 
 \end_layout
 
+\begin_layout Standard
+The update function 
+\series bold
+should not make direct changes to any data
+\series default
+.
+ It can only return data modifications through the 
+\begin_inset Quotes eld
+\end_inset
+
+modifications
+\begin_inset Quotes erd
+\end_inset
+
+ parameter.
+ The modifications object accepts data modifications of two types.
+ Consistent and Eventual modifications.
+ Consistent modifications are guaranteed to complete immediately after the
+ execution of the update function: allowing all update functions scheduled
+ by this update function to see the new values.
+ Eventual modifications may take some time to complete.
+ See the 
+\begin_inset Quotes eld
+\end_inset
+
+Modifications
+\begin_inset Quotes erd
+\end_inset
+
+ section for details.
+\end_layout
+
 \begin_layout Subsection
 MapReduce
 \end_layout
 
+\begin_layout Standard
+The user defines a map reduce implementation, which must inherit from map_reduce
+_vertices class, or the map_reduce_general class
+\end_layout
+
 \begin_layout LyX-Code
 \begin_inset listings
 inline false
@@ -2154,47 +2223,181 @@ status open
 
 \begin_layout LyX-Code
 
-// map_function is a function of the form 
+// defines a map reduce over neighboring vertices
 \end_layout
 
 \begin_layout LyX-Code
 
-//     graph_value map_function(const graph_row& g);
+class map_reduce_vertices {
 \end_layout
 
 \begin_layout LyX-Code
 
-// red_function is a function of the form: (essentially a +=)
+  public:
 \end_layout
 
 \begin_layout LyX-Code
 
-//     graph_value red_function(graph_value& result, 
+    // serializers
 \end_layout
 
 \begin_layout LyX-Code
 
-//                              const graph_value& operand);
+    virtual void save(oarchive& oarc) const = 0;
 \end_layout
 
 \begin_layout LyX-Code
 
- 
+    virtual void load(iarchive& iarc) = 0;
 \end_layout
 
 \begin_layout LyX-Code
 
-graph_value compute_context::mapred_in_vertices(map_function, red_function);
 \end_layout
 
 \begin_layout LyX-Code
 
-graph_value compute_context::mapred_out_vertices(map_function, red_function);
+    virtual graph_value map_function(graph_row& other) = 0;
 \end_layout
 
 \begin_layout LyX-Code
 
-graph_value compute_context::mapred_all_vertices(map_function, red_function);
+	virtual graph_value reduce_function(graph_value& result, 
+\end_layout
+
+\begin_layout LyX-Code
+
+                                        const graph_value& operand) = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+};
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// defines a map reduce over neighboring edges as well as the
+\end_layout
+
+\begin_layout LyX-Code
+
+// vertices on the endpoints of the edges
+\end_layout
+
+\begin_layout LyX-Code
+
+class map_reduce_general {
+\end_layout
+
+\begin_layout LyX-Code
+
+  public:
+\end_layout
+
+\begin_layout LyX-Code
+
+    // serializers
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual void save(oarchive& oarc) const = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual void load(iarchive& iarc) = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual graph_value map_function(const graph_row& self,
+\end_layout
+
+\begin_layout LyX-Code
+
+                                     graph_row& edge,
+\end_layout
+
+\begin_layout LyX-Code
+
+                                     const graph_row& other,
+\end_layout
+
+\begin_layout LyX-Code
+
+                                     bool in_edge) = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+	virtual graph_value reduce_function(graph_value& result, 
+\end_layout
+
+\begin_layout LyX-Code
+
+                                        const graph_value& operand) = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+};
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The map_reduce function can then be called with:
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+// mr is a subclass of the class map_reduce_vertices 
+\end_layout
+
+\begin_layout LyX-Code
+
+// or the class map_reduce_general 
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_value compute_context::mapred_in_vertices<T>(T& mr);
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_value compute_context::mapred_out_vertices<T>(T& mr);
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_value compute_context::mapred_all_vertices<T>(T& mr);
 \end_layout
 
 \end_inset
@@ -2204,131 +2407,6 @@ graph_value compute_context::mapred_all_vertices(map_function, red_function);
 
 \begin_layout LyX-Code
  
-\end_layout
-
-\begin_layout Standard
-This alternate map_reduce form allows an additional value to be passed on
- to the map and reduce functions
-\end_layout
-
-\begin_layout LyX-Code
-\begin_inset listings
-inline false
-status open
-
-\begin_layout LyX-Code
-
-// map_function2 is a function of the form 
-\end_layout
-
-\begin_layout LyX-Code
-
-//     graph_value map_function2(const graph_row& g, 
-\end_layout
-
-\begin_layout LyX-Code
-
-//                               const graph_value& tag);
-\end_layout
-
-\begin_layout LyX-Code
-
-// red_function2 is a function of the form 
-\end_layout
-
-\begin_layout LyX-Code
-
-//     graph_value red_function2(graph_value& result, 
-\end_layout
-
-\begin_layout LyX-Code
-
-//                               const graph_value& operand,
-\end_layout
-
-\begin_layout LyX-Code
-
-//                               const graph_value& tag);
-\end_layout
-
-\begin_layout LyX-Code
-
-graph_value compute_context::mapred_in_vertices(map_function2, 
-\end_layout
-
-\begin_layout LyX-Code
-
-                                                red_function2, 
-\end_layout
-
-\begin_layout LyX-Code
-
-                                                graph_value& tag);
-\end_layout
-
-\begin_layout LyX-Code
-
-// ...
- also out and all versions ..
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-map reduce on the entire neighboring edge
-\end_layout
-
-\begin_layout LyX-Code
-\begin_inset listings
-inline false
-status open
-
-\begin_layout LyX-Code
-
-// emap_function is a function of the form 
-\end_layout
-
-\begin_layout LyX-Code
-
-//     graph_value emap_function(const graph_row& center, 
-\end_layout
-
-\begin_layout LyX-Code
-
-//                               const graph_row& edge,
-\end_layout
-
-\begin_layout LyX-Code
-
-//                               const graph_row& other,
-\end_layout
-
-\begin_layout LyX-Code
-
-//                               bool is_in_edge);
-\end_layout
-
-\begin_layout LyX-Code
-
-graph_value compute_context::mapred_in_edges(emap_function, red_function);
-\end_layout
-
-\begin_layout LyX-Code
-
-// ...
- also out and all versions ..
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-As well as the corresponding tagged versions which we omit for conciseness.
 \end_layout
 
 \begin_layout Subsection
@@ -2336,7 +2414,10 @@ Transform
 \end_layout
 
 \begin_layout Standard
-Transform adjacent vertices
+Transform operations allow the user to modify data on the edges, or on neighbori
+ng vertices.
+ Note the context does not provide transform functions.
+ Transform operations must be pushed into the modification object.
 \end_layout
 
 \begin_layout LyX-Code
@@ -2346,28 +2427,104 @@ status open
 
 \begin_layout LyX-Code
 
-// transform_function is a function of the form 
+// defines a transform over neighboring edges
 \end_layout
 
 \begin_layout LyX-Code
 
-//     void transform_function(graph_row& g);
+class transform_edge {
 \end_layout
 
 \begin_layout LyX-Code
 
- 
+  public:
 \end_layout
 
 \begin_layout LyX-Code
 
-context.transform_in_vertices(transform_function);
+    // serializers
 \end_layout
 
 \begin_layout LyX-Code
 
-// ...
- also out and all versions ..
+    virtual void save(oarchive& oarc) const = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual void load(iarchive& iarc) = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual void transform(graph_row& edge) = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+};
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// defines a general transform which can modify adjacent vertices
+\end_layout
+
+\begin_layout LyX-Code
+
+class transform_general {
+\end_layout
+
+\begin_layout LyX-Code
+
+  public:
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual void save(oarchive& oarc) const = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual void load(iarchive& iarc) = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual void transform(const graph_row& self,
+\end_layout
+
+\begin_layout LyX-Code
+
+                           graph_row& edge,
+\end_layout
+
+\begin_layout LyX-Code
+
+                           graph_row& other,
+\end_layout
+
+\begin_layout LyX-Code
+
+                           bool in_edge) = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+};
 \end_layout
 
 \end_inset
@@ -2375,8 +2532,12 @@ context.transform_in_vertices(transform_function);
 
 \end_layout
 
-\begin_layout Standard
-Transform adjacent edges
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout Subsection
+Scheduling Functions
 \end_layout
 
 \begin_layout LyX-Code
@@ -2386,38 +2547,31 @@ status open
 
 \begin_layout LyX-Code
 
-// etransform_function is a function of the form 
 \end_layout
 
 \begin_layout LyX-Code
 
-//     graph_value etransform_function(const graph_row& center, 
+void compute_context::schedule_in_vertices();
 \end_layout
 
 \begin_layout LyX-Code
 
-//                                     graph_row& edge,
+void compute_context::schedule_out_vertices();
 \end_layout
 
 \begin_layout LyX-Code
 
-//                                     graph_row& other,
+void compute_context::schedule_all_vertices();
 \end_layout
 
 \begin_layout LyX-Code
 
-//                                     bool is_in_edge);
+void compute_context::schedule_self();
 \end_layout
 
 \begin_layout LyX-Code
 
-context.transform_in_edges(etransform_function);
-\end_layout
-
-\begin_layout LyX-Code
-
-// ...
- also out and all versions ..
+// also schedule random?
 \end_layout
 
 \end_inset
@@ -2425,43 +2579,239 @@ context.transform_in_edges(etransform_function);
 
 \end_layout
 
+\begin_layout Standard
+We may also add in conditional scheduling functions.
+\end_layout
+
+\begin_layout Subsection
+Modifications
+\end_layout
+
+\begin_layout Standard
+The modification object tracks modifications made to graph data.
+ It has a family of heavily overloaded 
+\begin_inset Quotes eld
+\end_inset
+
+add_*
+\begin_inset Quotes erd
+\end_inset
+
+ functions which registers graph modifications.
+\end_layout
+
+\begin_layout Subsubsection
+
+\series bold
+Consistent Changes
+\end_layout
+
+\begin_layout Standard
+These changes will be commited immediately after the update function terminates
+ and will be visible to all update functions which run as a result of scheduling
+ performed by this update function.
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
 \begin_layout LyX-Code
 
 \end_layout
 
-\begin_layout Standard
-As well as the corresponding tagged versions which we omit for conciseness.
+\begin_layout LyX-Code
+
+// modifies the vertex vid with a particular value
 \end_layout
 
-\begin_layout Subsection
-Guarantees
+\begin_layout LyX-Code
+
+void modification::add_consistent(graph_vid_t vid, graph_value value);
 \end_layout
 
-\begin_layout Standard
-Update functions which do not modify adjacent vertex data, do not use the
- 
+\begin_layout LyX-Code
+
+// modifies a vertex from the vertex object
+\end_layout
+
+\begin_layout LyX-Code
+
+void modification::add_consistent(const graph_vertex& edge, graph_value
+ value);
+\end_layout
+
+\begin_layout LyX-Code
+
+// modifies an edge from the edge object
+\end_layout
+
+\begin_layout LyX-Code
+
+void modification::add_consistent((const graph_edge& edge, graph_value value);
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// where T is inherited from transform_edge or transform_general
+\end_layout
+
+\begin_layout LyX-Code
+
+// SFINAE can be used deeper in here to dispatch this to finer grained
+\end_layout
+
+\begin_layout LyX-Code
+
+// overloads if necessary
+\end_layout
+
+\begin_layout LyX-Code
+
+void modification::add_consistent(<T>(const T& transform);
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+void compute_context::schedule_all_vertices();
+\end_layout
+
+\begin_layout LyX-Code
+
+void compute_context::schedule_self();
+\end_layout
+
+\begin_layout LyX-Code
+
+// also schedule random?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+
 \series bold
-*_other_vertex
-\series default
- functions, and do not use direct graphdb access are guaranteed to have
- factorized consistency.
+Eventual Changes
+\end_layout
+
+\begin_layout Standard
+These changes will be commited eventually after the update function terminates.
  
 \end_layout
 
-\begin_layout Standard
-Writes to adjacent vertices or writes using 
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// modifies the vertex vid with a particular value
+\end_layout
+
+\begin_layout LyX-Code
+
+void modification::add_eventual(graph_vid_t vid, graph_value value);
+\end_layout
+
+\begin_layout LyX-Code
+
+// modifies a vertex from the vertex object
+\end_layout
+
+\begin_layout LyX-Code
+
+void modification::add_eventual(const graph_vertex& edge, graph_value value);
+\end_layout
+
+\begin_layout LyX-Code
+
+// modifies an edge from the edge object
+\end_layout
+
+\begin_layout LyX-Code
+
+void modification::add_eventual((const graph_edge& edge, graph_value value);
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// where T is inherited from transform_edge or transform_general
+\end_layout
+
+\begin_layout LyX-Code
+
+// SFINAE can be used deeper in here to dispatch this to finer grained
+\end_layout
+
+\begin_layout LyX-Code
+
+// overloads if necessary
+\end_layout
+
+\begin_layout LyX-Code
+
+void modification::add_eventual(<T>(const T& transform);
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+
 \series bold
-*_other_vertex
-\series default
- functions will result in eventual consistency
+Scheduling Changes
 \end_layout
 
-\begin_layout Subsection
-Scheduling
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
 \end_layout
 
-\begin_layout Standard
-...
+\begin_layout LyX-Code
+
+void compute_context::schedule_all_vertices();
+\end_layout
+
+\begin_layout LyX-Code
+
+void compute_context::schedule_self();
+\end_layout
+
+\begin_layout LyX-Code
+
+// also schedule random?
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection

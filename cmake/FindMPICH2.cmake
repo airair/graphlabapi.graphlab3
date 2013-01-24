@@ -250,6 +250,11 @@ else (MPI_COMPILE_CMDLINE)
     /usr/include/mpi
     /usr/include/mpich2
     /usr/local/mpi/include
+    /opt/include
+    /opt/local/include
+    /opt/local/mpi/include
+    /opt/include/mpi
+    /opt/local/include/mpi
     "C:/Program Files/MPICH/SDK/Include" 
     "$ENV{SystemDrive}/Program Files/MPICH2/include"
     "$ENV{SystemDrive}/Program Files/Microsoft Compute Cluster Pack/Include"
@@ -264,7 +269,7 @@ else (MPI_COMPILE_CMDLINE)
   
   find_library(MPI_LIBRARY 
     NAMES mpi mpich msmpi
-    PATHS /usr/lib /usr/local/lib /usr/local/mpi/lib 
+    PATHS /usr/lib /usr/local/lib /usr/local/mpi/lib /opt/lib /opt/lib/mpi /opt/local/lib /opt/local/mpi/lib /opt/local/lib/mpi
     "C:/Program Files/MPICH/SDK/Lib" 
     "$ENV{SystemDrive}/Program Files/MPICH/SDK/Lib"
     "$ENV{SystemDrive}/Program Files/Microsoft Compute Cluster Pack/Lib/${MS_MPI_ARCH_DIR}"
@@ -276,7 +281,7 @@ else (MPI_COMPILE_CMDLINE)
 
   find_library(MPI_EXTRA_LIBRARY 
     NAMES mpi++
-    PATHS /usr/lib /usr/local/lib /usr/local/mpi/lib 
+    PATHS /usr/lib /usr/local/lib /usr/local/mpi/lib /opt/lib /opt/lib/mpi /opt/local/lib /opt/local/mpi/lib /opt/local/lib/mpi
     "C:/Program Files/MPICH/SDK/Lib" 
     DOC "Extra MPI libraries to link against.")
 

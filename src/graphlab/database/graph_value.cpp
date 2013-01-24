@@ -27,25 +27,25 @@ void graph_value::free_data() {
   }
 }
 
-const char* graph_value::get_raw_pointer() {
+const void* graph_value::get_raw_pointer() {
   if (is_null()) {
     return NULL;
   } else if (is_scalar_graph_datatype(_type)) {
-    return reinterpret_cast<char*>(&_data);
+    return reinterpret_cast<void*>(&_data);
   } else {
-    return _data.bytes;
+    return reinterpret_cast<void*>(_data.bytes);
   }
 }
 
-char* graph_value::get_mutable_raw_pointer() {
+void* graph_value::get_mutable_raw_pointer() {
   if (is_null()) {
     return NULL;
   } else if (is_scalar_graph_datatype(_type)) {
     _modified = true;
-    return reinterpret_cast<char*>(&_data);
+    return reinterpret_cast<void*>(&_data);
   } else {
     _modified = true;
-    return _data.bytes;
+    return reinterpret_cast<void*>(_data.bytes);
   }
 }
 

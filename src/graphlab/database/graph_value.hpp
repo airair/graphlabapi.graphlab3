@@ -94,13 +94,13 @@ class graph_value {
    *  Realloc or free should not be called on the returned pointer.
    *  Modifications to the data also should not be made.
    */
-  const char* get_raw_pointer();
+  const void* get_raw_pointer();
 
   /** Returns the raw pointer to the data. Returns NULL if data is NULL.
    *  Realloc or free should not be called on the returned pointer.
    *  Modifications to the data may be made.
    */
-  char* get_mutable_raw_pointer();
+  void* get_mutable_raw_pointer();
 
 
 

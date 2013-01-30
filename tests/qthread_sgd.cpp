@@ -367,16 +367,16 @@ std::vector<double> generate_dataset(std::vector<std::vector<feature> >& X,
       if (graphlab::random::bernoulli(sparsity) == 0) {
         x.push_back(feature(j, 
                             graphlab::random::fast_uniform<double>(-1.0,1.0)));
-        linear_predictor += x.rbegin()->value * w[i];
+        linear_predictor += x.rbegin()->value * w[j];
       }
     }
     double py0 = 1.0 / (1 + std::exp(linear_predictor));
     double py1 = 1.0 - py0;
     // generate a 0/1Y value. 
-    //double yval = py1 >= 0.5;
+    double yval = graphlab::random::rand01() >= py1;
     // to get regression, comment the line above and uncomment the line below
-    double yval = py1;
-
+    //double yval = py1;
+    assert(!std::isnan(yval));
     X.push_back(x);
     Y.push_back(yval);
   }
@@ -400,18 +400,18 @@ void data_loop(std::vector<std::vector<feature> >* X,
 }
 
 int main(int argc, char** argv) {
-  stepsize = 0.1;
+  stepsize = 0.05;
   size_t numweights = 100;
   weights.resize(numweights, 0.0); // actual weights are based on mod p
 
   // make a small send window
   comm = new graphlab::mpi_comm(&argc, &argv);
   comm->register_receiver(receive_dispatch, true);
-  graphlab::qthread_tools::init(4, 8192);
+  graphlab::qthread_tools::init(8, 8192);
   // generate a little test dataset
   std::vector<std::vector<feature> > X;
   std::vector<double> Y;
-  std::vector<double> weights = generate_dataset(X, Y, numweights, 100000 / comm->size() , 0.1,
+  std::vector<double> weights = generate_dataset(X, Y, numweights, 1000000 / comm->size() , 0.1,
                                                  1234);
   std::cout << "Data generated\n";
   loss01 = 0;
@@ -421,7 +421,7 @@ int main(int argc, char** argv) {
   loss_count = 0;
   comm->barrier();
   graphlab::qthread_group group;
-  size_t numthreads = 1000;
+  size_t numthreads = 100000;
   for (size_t iter = 0; iter < 100; ++iter) {
     graphlab::timer ti; ti.start();
     timestep = iter;

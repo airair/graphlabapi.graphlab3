@@ -5,7 +5,7 @@
 namespace graphlab {
 
 namespace qthread_tools {
-  void init(int numthreads, int stacksize) {
+  void init(int numworkers, int stacksize) {
     static bool qthread_initialized = false;
     if (!qthread_initialized) {
       if (stacksize > 0) {
@@ -14,10 +14,14 @@ namespace qthread_tools {
         sprintf(c, "%d", stacksize);
         setenv("QTHREAD_STACK_SIZE", c, 1); 
       }
-      // if numthreads is negative or 0, we use the default initialize
-      // otherwise we initialize with numthreads
-      if (numthreads <= 0) qthread_initialize();
-      else qthread_init(numthreads);
+      if (numworkers > 0) {
+        // we need to set the environment variable to force the number of workers
+        char c[32];
+        sprintf(c, "%d", numworkers);
+        setenv("QTHREAD_HWPAR", c, 1); 
+      }
+
+      qthread_initialize();
       qthread_initialized = true;
     }
   }

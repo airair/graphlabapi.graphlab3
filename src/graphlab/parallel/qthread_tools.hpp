@@ -7,9 +7,11 @@
 namespace graphlab {
 
   namespace qthread_tools {
-    /** Initializes qthreads with numthreads shephard threads
-     * If numthreads is negative, qthreads will autodetect the number of 
-     * threads, or use the environment variable QTHREAD_NUM_SHEPHERDS if set.
+    /** Initializes qthreads with a certain number of total worker threads
+     * and a stacksize for each qthread.
+     *
+     * If numworkers is negative, qthreads will autodetect the number of 
+     * workers, or use the environment variable QTHREAD_HWPAR if set.
      *
      * The size of each qthread stack can also be defined in the second 
      * argument. If stacksize is negative, the environment variable 

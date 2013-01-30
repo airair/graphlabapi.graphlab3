@@ -13,20 +13,20 @@ namespace graphlab {
     std::vector<boost::unordered_map<graph_vid_t, std::vector<size_t> > > inEdges;
     std::vector<boost::unordered_map<graph_vid_t, std::vector<size_t> > > outEdges;
    public:
-     void get_edge_index (vector<size_t>& in,
-                          vector<size_t>& out,
+     void get_edge_index (std::vector<size_t>& in,
+                          std::vector<size_t>& out,
                           bool getIn,
                           bool getOut,
-                          shard_id_t shard_id,
+                          graph_shard_id_t shard_id,
                           graph_vid_t vid) {
-       if (getIn && inEdges[shard_id].find(vid) != NULL) {
+       if (getIn && inEdges[shard_id].find(vid) != inEdges[shard_id].end()) {
            in = inEdges[shard_id][vid];
        }
-       if (getOut && outEdges[shard_id].find(vid) != NULL) {
+       if (getOut && outEdges[shard_id].find(vid) != outEdges[shard_id].end()) {
            out = outEdges[shard_id][vid];
        }
      }
-  }
+  };
 } // namespace graphlab
 #include <graphlab/macros_undef.hpp>
 #endif

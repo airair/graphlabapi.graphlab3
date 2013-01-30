@@ -5,7 +5,6 @@
 #include <utility>
 #include <sstream>
 #include <mpi.h>
-#include <boost/shared_ptr.hpp>
 #include <graphlab/util/circular_char_buffer.hpp>
 #include <graphlab/comm/comm_base.hpp>
 #include <graphlab/parallel/pthread_tools.hpp>
@@ -56,8 +55,7 @@ class mpi_comm : public comm_base{
   // we use boost shared pointers to manage the reference counts
   // to each send buffer. We stick some arbitary int* into the shared
   // pointer to keep it happy
-  boost::shared_ptr<int> _buffer_reference_counts[2];
-  char __pad2__[64 - 2 * sizeof(boost::shared_ptr<int>)];
+  atomic<size_t> _buffer_reference_counts[2];
   // the base address of the send buffers
   void* _send_base[2];
   // the size of the send window in bytes
@@ -72,6 +70,10 @@ class mpi_comm : public comm_base{
   std::vector<atomic<size_t> > _sendlength[2];
   // the last time the buffers were completely reset
   size_t _last_garbage_collect_ms[2];
+
+  // only one thread can be sending to a particular target machine at any
+  // one time. 
+  std::vector<mutex> _send_locks;
 
   // flushing background thread
   bool _flushing_thread_done;
@@ -95,6 +97,14 @@ class mpi_comm : public comm_base{
   std::vector<receive_buffer_type> _receive_buffer;
   // the actual receive call will sweep between the receive buffers.
   size_t _last_receive_buffer_read_from;
+
+  // Set to true if a receive function was registered
+  bool _has_receiver;
+  // The receiver function.
+  boost::function<void(int machine, char* c, size_t len)> _receivefun;
+  // true if the the receive function is parallel
+  bool _parallel_receiver;
+  mutex _receiver_lock;
 
   // -------- private functions -----------
 
@@ -140,6 +150,19 @@ class mpi_comm : public comm_base{
   // call sequence still match up perfectly across nodes
   void background_flush_inner_op();
 
+
+  /*
+   * Performs a receive, but calls the receiver function on the result.
+   * Returns the number of receive calls made
+   */ 
+  size_t receiver_fun_receive(int sourcemachine);
+
+  /*
+   * Performs a receive, but calls the receiver function on the result.
+   * Returns the number of receive calls made
+   */ 
+  size_t receiver_fun_receive();
+
  public:
   mpi_comm(int* argc, char*** argv, 
            size_t send_window = ((size_t)(1) << 32) /* 4GB */);
@@ -176,6 +199,14 @@ class mpi_comm : public comm_base{
    * Fails fatally on an error. This function is thread-safe.
    */ 
   void* receive(int sourcemachine, size_t* length); 
+
+
+  /**
+   * Registers a receive function. The parallel flag is ignored.
+   */
+  bool register_receiver(const boost::function<void(int machine, char* c, size_t len)>& receivefun,
+                         bool parallel);
+
 
 
   /**

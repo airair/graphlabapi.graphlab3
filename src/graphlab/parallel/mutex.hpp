@@ -47,9 +47,8 @@ namespace graphlab {
       ASSERT_TRUE(!error);
     }
     /** Copy constructor which does not copy. Do not use!
-        Required for compatibility with some STL implementations (LLVM).
-        which use the copy constructor for vector resize, 
-        rather than the standard constructor.    */
+        Required for compatibility with vector resize
+        which use the copy constructor.    */
     mutex(const mutex&) {
       int error = pthread_mutex_init(&m_mut, NULL);
       ASSERT_TRUE(!error);

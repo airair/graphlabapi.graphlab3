@@ -248,11 +248,11 @@ ExternalProject_Add(zookeeper
 
 ExternalProject_Add(qthreads
                     PREFIX ${GraphLab_SOURCE_DIR}/deps/qthreads
-                    URL http://qthreads.googlecode.com/files/qthread-1.8.1.tar.bz2
-                    URL_MD5 435e3e3873d66c4021679409720e27fc
+                    URL http://graphlab.org/deps/qthreads.tar.bz2
+                    URL_MD5 cd91cefdcc04cec19a933009e11d23c6
                     INSTALL_DIR ${GraphLab_SOURCE_DIR}/deps/local
                     BUILD_IN_SOURCE 1
-                    CONFIGURE_COMMAND ./configure --prefix=<INSTALL_DIR> --disable-lazy-threadids
+                    CONFIGURE_COMMAND ./configure --prefix=<INSTALL_DIR> --enable-oversubscription --with-scheduler=nemesis --enable-lf-febs -enable-condwait-queue
                     )
 
 # MPI =========================================================================

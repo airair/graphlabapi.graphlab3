@@ -406,7 +406,7 @@ int main(int argc, char** argv) {
 
   // make a small send window
   comm = new graphlab::mpi_comm(&argc, &argv);
-  comm->register_receiver(receive_dispatch, false);
+  comm->register_receiver(receive_dispatch, true);
   graphlab::qthread_tools::init(4, 8192);
   // generate a little test dataset
   std::vector<std::vector<feature> > X;

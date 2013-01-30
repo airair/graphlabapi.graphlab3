@@ -376,7 +376,7 @@ std::vector<double> generate_dataset(std::vector<std::vector<feature> >& X,
     // generate a random 25% sparse datapoint
     for (size_t j = 0; j < numweights; ++j) {
       // with 25T probability generate a weight
-      if (graphlab::random::bernoulli(sparsity) == 0) {
+      if (graphlab::random::bernoulli(sparsity) == 1) {
         x.push_back(feature(j, 
                             graphlab::random::fast_uniform<double>(-1.0,1.0)));
         linear_predictor += x.rbegin()->value * w[j];
@@ -415,11 +415,15 @@ int main(int argc, char** argv) {
   size_t ndata = 1000000;
   size_t numthreads = 100000;
   size_t numweights = 100;
+  double density = 0.1;
   if (argc > 1) ndata = atoi(argv[1]);
   if (argc > 2) numthreads = atoi(argv[2]);
+  if (argc > 3) numweights = atoi(argv[3]);
+  if (argc > 4) density = atof(argv[4]);
   std::cout << "Generating " << ndata << " datapoints\n";
   std::cout << "Using " << numthreads << " threads per machine\n";
   std::cout << numweights << " weights\n";
+  std::cout << "Density " << density <<  "\n";
   stepsize = 0.10;
   weights.resize(numweights, 0.0); // actual weights are based on mod p
 
@@ -431,7 +435,7 @@ int main(int argc, char** argv) {
   // generate a little test dataset
   std::vector<std::vector<feature> > X;
   std::vector<double> Y;
-  std::vector<double> weights = generate_dataset(X, Y, numweights, ndata / comm->size() , 0.1,
+  std::vector<double> weights = generate_dataset(X, Y, numweights, ndata / comm->size() , density,
                                                  1234);
   std::cout << "Data generated\n";
   loss01 = 0;

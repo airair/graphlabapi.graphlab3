@@ -25,7 +25,7 @@ namespace graphlab {
 class comm_base {
  private:
   // the receiver function
-  boost::function<void(int machine, char* c, size_t len)> _receivefun;
+  boost::function<void(int machine, const char* c, size_t len)> _receivefun;
 
   // the receive loop if a receiver is registered
   void receive_loop();
@@ -83,7 +83,7 @@ class comm_base {
    * \note A default implementation using a loop around the receive() call
    * is provided
    */ 
-  virtual bool register_receiver(const boost::function<void(int machine, char* c, size_t len)>& receivefun,
+  virtual bool register_receiver(const boost::function<void(int machine, const char* c, size_t len)>& receivefun,
                                  bool parallel);
 
   /**

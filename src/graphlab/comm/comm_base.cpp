@@ -19,7 +19,7 @@ comm_base* comm_base::create(const char* descriptor,
 
 
 bool comm_base::register_receiver(
-    const boost::function<void(int machine, char* c, size_t len)>& receivefun,
+    const boost::function<void(int machine, const char* c, size_t len)>& receivefun,
     bool parallel) {
   if (_receivefun == NULL) {
     _receivefun = receivefun; 

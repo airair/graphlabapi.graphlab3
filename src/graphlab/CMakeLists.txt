@@ -21,6 +21,7 @@ add_library(graphlab3 STATIC
             database/graph_value.cpp
             comm/comm_base.cpp
             comm/mpi_comm.cpp
+            comm/comm_rpc.cpp
             parallel/qthread_tools.cpp
            )
 

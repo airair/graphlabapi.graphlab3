@@ -13,18 +13,19 @@
 #include <graphlab/parallel/pthread_tools.hpp>
 #include <graphlab/parallel/qthread_tools.hpp>
 #include <graphlab/parallel/atomic.hpp>
-#include <graphlab/parallel/qthread_external_future.hpp>
+#include <graphlab/parallel/qthread_future.hpp>
+#include <graphlab/comm/comm_rpc.hpp>
 
-#define WEIGHT_REQUEST (char(0))
-#define WEIGHT_REPLY   (char(1))
-#define WEIGHT_UPDATE (char(2))
-#define WEIGHT_UPDATE_REPLY   (char(3))
-#define LOSS_INCREMENT (char(4))
+#define WEIGHT_REQUEST (0)
+#define WEIGHT_REPLY   (1)
+#define WEIGHT_UPDATE  (2)
+#define LOSS_INCREMENT (3)
 
 std::vector<double> weights;
 double stepsize; // eta
 size_t timestep;
 graphlab::comm_base* comm;
+graphlab::comm_rpc* rpc;
 graphlab::atomic<size_t> loss01;
 graphlab::atomic<size_t> global_loss01;
 graphlab::atomic<double> lossl2;
@@ -41,7 +42,6 @@ struct feature: public graphlab::IS_POD_TYPE {
 
 struct request_future_result {
   graphlab::atomic<unsigned short> num_requests;
-  size_t future_handle;
   boost::unordered_map<size_t, double> store;
   graphlab::mutex lock;
 };
@@ -75,20 +75,18 @@ struct reply_message {
 
 struct update_future_result {
   graphlab::atomic<unsigned short> num_requests;
-  size_t future_handle;
 };
 
 
 
 struct update_message {
   std::vector<feature> res;
-  size_t update_handle_ptr;
   void save(graphlab::oarchive& oarc) const {
-    oarc << res << update_handle_ptr;
+    oarc << res;
   }
   
   void load(graphlab::iarchive& iarc) {
-    iarc >> res >> update_handle_ptr;
+    iarc >> res;
   }
 };
 
@@ -109,11 +107,9 @@ struct update_reply_message {
  * Sends out a request for all weights required for a data point
  */
 void send_requests(const std::vector<feature>& x, 
-                   size_t future_handle,
                    request_future_result* result) {
   std::vector<request_message> message;
   message.resize(comm->size());
-  result->future_handle = future_handle;
   for (size_t i = 0; i < x.size(); ++i) {
     size_t targetmachine = x[i].id % comm->size();
     if (targetmachine == comm->rank()) result->store[x[i].id] = weights[x[i].id];
@@ -124,7 +120,7 @@ void send_requests(const std::vector<feature>& x,
   for (size_t i = 0;i < comm->size(); ++i) numrequests += (message[i].ids.size() > 0);
   result->num_requests.value = numrequests;
   if (numrequests == 0) {
-    graphlab::qthread_external_future<request_future_result>::signal(future_handle);
+    graphlab::qthread_future<request_future_result>::signal(result);
     return;
   }
   //printf("Req 0x%lx\n", result);
@@ -133,18 +129,17 @@ void send_requests(const std::vector<feature>& x,
   for (size_t i = 0;i < comm->size(); ++i) {
     if (message[i].ids.size() > 0) {
       message[i].request_handle_ptr = reinterpret_cast<size_t>(result);
-      graphlab::oarchive oarc;
-      oarc << WEIGHT_REQUEST << message[i];
-      comm->send(i, oarc.buf, oarc.off);
-      free(oarc.buf);
+      graphlab::oarchive* oarc = rpc->prepare_message(WEIGHT_REQUEST);
+      (*oarc) << message[i];
+      rpc->complete_message(i, oarc);
     }
   }
 }
 
 
 
-void process_request(graphlab::comm_base* comm,
-                     size_t source, const char* c, size_t len) {
+void process_request(graphlab::comm_rpc* rpc,
+                     int source, const char* c, size_t len) {
   graphlab::iarchive iarc(c, len);
   request_message msg;
   iarc >> msg;
@@ -159,14 +154,13 @@ void process_request(graphlab::comm_base* comm,
   reply.request_handle_ptr = msg.request_handle_ptr;
 
   // serialize the reply
-  graphlab::oarchive oarc;
-  oarc << WEIGHT_REPLY << reply;
-  comm->send(source, oarc.buf, oarc.off); 
-  free(oarc.buf);
+  graphlab::oarchive* oarc = rpc->prepare_message(WEIGHT_REPLY);
+  (*oarc) << reply;
+  rpc->complete_message(source, oarc);
 }
 
-void process_reply(graphlab::comm_base* comm,
-                     size_t source, const char* c, size_t len) {
+void process_reply(graphlab::comm_rpc* comm,
+                   int source, const char* c, size_t len) {
   graphlab::iarchive iarc(c, len);
   reply_message reply;
   iarc >> reply;
@@ -182,14 +176,11 @@ void process_reply(graphlab::comm_base* comm,
   }
   req->lock.unlock();
   if (req->num_requests.dec() == 0) {
-    graphlab::qthread_external_future<request_future_result>::signal(req->future_handle);
+    graphlab::qthread_future<request_future_result>::signal(req);
   }
 }
 
-void send_update(const boost::unordered_map<size_t, double>& updates,
-                   size_t future_handle,
-                   update_future_result* result) {
-  result->future_handle = future_handle;
+void send_update(const boost::unordered_map<size_t, double>& updates) {
   std::vector<update_message> message;
   message.resize(comm->size());
   boost::unordered_map<size_t, double>::const_iterator iter = updates.begin();
@@ -199,30 +190,20 @@ void send_update(const boost::unordered_map<size_t, double>& updates,
     else message[targetmachine].res.push_back(feature(iter->first, iter->second));
     ++iter;
   }
-  
-  size_t numrequests = 0;
-  for (size_t i = 0;i < comm->size(); ++i) numrequests += (message[i].res.size() > 0);
-  result->num_requests.value = numrequests;
-  if (numrequests == 0) {
-    graphlab::qthread_external_future<update_future_result>::signal(future_handle);
-    return;
-  }
-
   // fill in the request_handle_pointer in the message
   // and send it out
   for (size_t i = 0;i < comm->size(); ++i) {
     if (message[i].res.size() > 0) {
-      message[i].update_handle_ptr = reinterpret_cast<size_t>(result);
-      graphlab::oarchive oarc;
-      oarc << WEIGHT_UPDATE << message[i];
-      comm->send(i, oarc.buf, oarc.off);
-      free(oarc.buf);
+
+      graphlab::oarchive* oarc = rpc->prepare_message(WEIGHT_UPDATE);
+      (*oarc) << message[i];
+      rpc->complete_message(i, oarc);
     }
   }
 }
 
-void process_update(graphlab::comm_base* comm,
-                    size_t source, const char* c, size_t len) {
+void process_update(graphlab::comm_rpc* comm,
+                    int source, const char* c, size_t len) {
   graphlab::iarchive iarc(c, len);
   update_message msg;
   iarc >> msg;
@@ -230,75 +211,20 @@ void process_update(graphlab::comm_base* comm,
   for (size_t i = 0;i < msg.res.size(); ++i) {
     weights[msg.res[i].id] += msg.res[i].value;
   }
-
-  update_reply_message reply;
-  // fill the request handle
-  reply.update_handle_ptr = msg.update_handle_ptr;
-
-  // serialize the reply
-  graphlab::oarchive oarc;
-  oarc << WEIGHT_UPDATE_REPLY << reply;
-  comm->send(source, oarc.buf, oarc.off); 
-  free(oarc.buf);
 }
 
-void process_update_reply(graphlab::comm_base* comm,
-                          size_t source, const char* c, size_t len) {
-  graphlab::iarchive iarc(c, len);
-  update_reply_message reply;
-  iarc >> reply;
-  // get the request pointer back
-  update_future_result* req = 
-      reinterpret_cast<update_future_result*>(reply.update_handle_ptr);
-  if (req->num_requests.dec() == 0) {
-    graphlab::qthread_external_future<update_future_result>::signal(req->future_handle);
-  }
-}
-
-void process_loss_update(graphlab::comm_base* comm,
-                         size_t source, const char* c, size_t len) {
+void process_loss_update(graphlab::comm_rpc* rpc,
+                         int source, const char* c, size_t len) {
   graphlab::iarchive iarc(c, len);
   size_t loss; double dloss;
   iarc >> loss >> dloss;
   global_loss01.inc(loss);
   global_lossl2.inc(dloss);
-  if (loss_count.value == comm->size() - 1) {
+  if (loss_count.value == rpc->get_comm()->size() - 1) {
     std::cout << "Loss01 = " << global_loss01.value << std::endl;
     std::cout << "LossL2 = " << global_lossl2.value << std::endl;
   }
   loss_count.inc();
-}
-
-void receive_dispatch(int machine, char* c, size_t len) {
-  assert(len > 0);
-  char ptype = c[0];
-  ++c;
-  --len;
-  switch(ptype) {
-    case WEIGHT_REQUEST:
-      //std::cout << "wreq\n";
-      process_request(comm, (size_t)(machine), c, len);
-      break;
-    case WEIGHT_REPLY:
-      //std::cout << "wreq_rep\n";
-      process_reply(comm, (size_t)(machine), c, len);
-      break;
-    case WEIGHT_UPDATE:
-      //std::cout << "wup\n";
-      process_update(comm, (size_t)(machine), c, len);
-      break;
-    case WEIGHT_UPDATE_REPLY:
-      //std::cout << "wup_rep\n";
-      process_update_reply(comm, (size_t)(machine), c, len);
-      break;
-    case LOSS_INCREMENT:
-      //std::cout << "wup_rep\n";
-      process_loss_update(comm, (size_t)(machine), c, len);
-      break;
-    default:
-      std::cerr << "Unexpected packet type: " << (int)(ptype) << std::endl;
-      assert(false);
-  }
 }
 
 /**
@@ -309,11 +235,11 @@ void receive_dispatch(int machine, char* c, size_t len) {
 double logistic_sgd_step(const std::vector<feature>& x, double y) {
   // compute predicted value of y
   double linear_predictor = 0;
-  graphlab::qthread_external_future<request_future_result> qfuture;
-  send_requests(x, qfuture.get_handle(), qfuture.get_result_ptr());
+  graphlab::qthread_future<request_future_result> qfuture;
+  send_requests(x, &qfuture.get());
   qfuture.wait();
-  assert(qfuture.get_result_ptr()->num_requests == 0);
-  boost::unordered_map<size_t, double>& w = qfuture.get_result_ptr()->store;
+  assert(qfuture.get().num_requests == 0);
+  boost::unordered_map<size_t, double>& w = qfuture.get().store;
   for (size_t i = 0; i < x.size(); ++i) {
     linear_predictor += x[i].value * w[x[i].id];
   } 
@@ -332,10 +258,7 @@ double logistic_sgd_step(const std::vector<feature>& x, double y) {
     w[x[i].id] = stepsize / (sqrt(1.0 + timestep)) * (double(y) - py1) * x[i].value; // atomic
   }
 
-  graphlab::qthread_external_future<update_future_result> qfuture_update;
-  send_update(w, qfuture_update.get_handle(), qfuture_update.get_result_ptr());
-  qfuture_update.wait();
-  assert(qfuture_update.get_result_ptr()->num_requests == 0);  
+  send_update(w);
   return py1;
 }
 
@@ -427,9 +350,16 @@ int main(int argc, char** argv) {
   stepsize = 0.10;
   weights.resize(numweights, 0.0); // actual weights are based on mod p
 
-  // make a small send window
   comm = new graphlab::mpi_comm(&argc, &argv);
-  comm->register_receiver(receive_dispatch, true);
+  rpc = new graphlab::comm_rpc(comm);
+  // register the functions
+
+  rpc->register_handler(WEIGHT_REQUEST, process_request);
+  rpc->register_handler(WEIGHT_REPLY, process_reply);
+  rpc->register_handler(WEIGHT_UPDATE, process_update); 
+  rpc->register_handler(LOSS_INCREMENT, process_loss_update); 
+
+
   // set the stacksize to 8192
   graphlab::qthread_tools::init(-1,8192);
   // generate a little test dataset
@@ -454,10 +384,10 @@ int main(int argc, char** argv) {
     group.join();  
     comm->barrier();
     if (comm->rank() == 0) std::cout << ti.current_time() << std::endl;
-    graphlab::oarchive oarc;
-    oarc << LOSS_INCREMENT << loss01.value << lossl2.value;
-    comm->send(0, oarc.buf, oarc.off);
-    free(oarc.buf);
+
+    graphlab::oarchive* oarc = rpc->prepare_message(LOSS_INCREMENT);
+    (*oarc) << loss01.value << lossl2.value;
+    rpc->complete_message(0, oarc);
     if (comm->rank() == 0) {
       while(loss_count.value < comm->rank()) cpu_relax();
     }

@@ -87,7 +87,22 @@ namespace graphlab {
       freelist[oldhead.q.val] = index_type(-1);
       return &(data[oldhead.q.val]);
     }
-  
+ 
+   
+    /**
+     * Returns true if this is a member of the pool.
+     * However, this may return false even if the object was 
+     * allocated by this pool since the pool may acquire an object
+     * from the heap if the pool is completely utilized.
+     */ 
+    bool is_pool_member(T* p) {
+        // if it is below the pointer limits
+      if (__unlikely__(p < lower_ptrlimit || p > upper_ptrlimit)) {
+        return false;
+      }
+      return true;
+    }
+
     void free(T* p) {
       // is this from the pool?
       // if it is below the pointer limits

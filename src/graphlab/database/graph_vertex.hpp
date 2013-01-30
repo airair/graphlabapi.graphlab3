@@ -29,10 +29,6 @@ namespace graphlab {
  */
 class graph_vertex {
  public:
-   /**
-    * Destructor
-    * */
-   virtual ~graph_vertex() = 0;
   /**
    * Returns the ID of the vertex
    */

@@ -7,9 +7,11 @@
 namespace graphlab {
 
   namespace qthread_tools {
-    /** Initializes qthreads with numthreads shephard threads
-     * If numthreads is negative, qthreads will autodetect the number of 
-     * threads, or use the environment variable QTHREAD_NUM_SHEPHARDS if set.
+    /** Initializes qthreads with a certain number of total worker threads
+     * and a stacksize for each qthread.
+     *
+     * If numworkers is negative, qthreads will autodetect the number of 
+     * workers, or use the environment variable QTHREAD_HWPAR if set.
      *
      * The size of each qthread stack can also be defined in the second 
      * argument. If stacksize is negative, the environment variable 
@@ -59,6 +61,8 @@ namespace graphlab {
     void join(); 
 
     ~qthread_thread();
+
+    static void yield();
   };
 
 
@@ -93,6 +97,35 @@ namespace graphlab {
 
   };
 
+
+  /**
+   * Standard Mutex but using qthread routines
+   */
+  class qthread_mutex {
+   private:
+    //aligned_t _lockvar;
+    syncvar_t _lockvar;
+    // block assignment
+    void operator=(const qthread_mutex&) { } 
+   public:
+
+    qthread_mutex() { } 
+
+    /** allow copy constructor. However, 
+     * this should not be used. This is to permit
+     * the allocation of mutexes inside a vector
+     */
+    qthread_mutex(const qthread_mutex&) { } 
+
+    inline void lock() {
+      //qthread_lock(&_lockvar);
+      qthread_syncvar_readFE(NULL, &_lockvar);
+    }
+    inline void unlock() {
+      //qthread_unlock(&_lockvar);
+      qthread_syncvar_fill(&_lockvar);
+    }
+  };
 
 } // namespace graphlab 
 

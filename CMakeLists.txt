@@ -252,7 +252,7 @@ ExternalProject_Add(qthreads
                     URL_MD5 435e3e3873d66c4021679409720e27fc
                     INSTALL_DIR ${GraphLab_SOURCE_DIR}/deps/local
                     BUILD_IN_SOURCE 1
-                    CONFIGURE_COMMAND ./configure --prefix=<INSTALL_DIR> --disable-lazy-threadids --enable-oversubscription
+                    CONFIGURE_COMMAND ./configure --prefix=<INSTALL_DIR> --disable-lazy-threadids --enable-oversubscription --enable-condwait-queue
                     )
 
 # MPI =========================================================================

@@ -94,12 +94,12 @@ class comm_base {
   /**
    * Gets the number of communication nodes
    */
-  virtual size_t size() const = 0;
+  virtual int size() const = 0;
   
   /**
    * Gets the ID of the current node
    */
-  virtual size_t rank() const = 0;
+  virtual int rank() const = 0;
 };
 
 } // namespace graphlab;

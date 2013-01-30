@@ -7,7 +7,7 @@
 #include <graphlab/logger/assertions.hpp>
 using namespace graphlab;
 
-bool CHECK_COMM_RESULT = true;
+bool CHECK_COMM_RESULT = false;
 
 atomic<size_t> receive_count;
 size_t expectedlen;
@@ -61,22 +61,22 @@ int main(int argc, char** argv) {
 
   if (comm->rank() == 0) {
     for (size_t i = MIN_SEND; i < MAX_SEND; ++i) {
-      c[i] = (char*)malloc((1 << i) + i);
-      memset(c[i], i, (1 << i) + i);
+      c[i] = (char*)malloc((1 << i));
+      memset(c[i], i, (1 << i));
     }
   }
 
   comm->barrier();
   for (size_t i = MIN_SEND; i < MAX_SEND; ++i) {
     expectedval = i;
-    expectedlen = (1 << i) + i;
+    expectedlen = (1 << i);
     receive_count.value = 0;
     comm->barrier();
     ti.start();
     size_t iterations = TOTAL_COMM / (1 << i);
     if (comm->rank() == 0) {
       for (size_t j = 0; j < iterations ; ++j) {
-        comm->send(1, c[i], (1 << i) + i);
+        comm->send(1, c[i], (1 << i));
       }
       double t = ti.current_time();
       std::cout << "Send of 64MB in " << (1<<i) << " byte chunks in " 

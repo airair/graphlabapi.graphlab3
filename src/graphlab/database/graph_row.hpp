@@ -79,6 +79,13 @@ class graph_row {
    */
   std::string get_field_metadata(size_t fieldpos);
 
+  /**
+   * Makes a shallow copy of this row into out_row. 
+   */
+  void shallowcopy(graph_row& out_row);
+
+
+
  private:
   // copy constructor deleted. It is not safe to copy this object.
   graph_row(const graph_row&) { }
@@ -86,6 +93,8 @@ class graph_row {
   // assignment operator deleted. It is not safe to copy this object.
   graph_row& operator=(const graph_row&) { return *this; }
 
+  // Stores the graph values for the row. Could be empty if it is a shallow copy. 
+  std::vector<graph_value> _values;
 };
 
 

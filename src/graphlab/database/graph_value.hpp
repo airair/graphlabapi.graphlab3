@@ -243,6 +243,8 @@ class graph_value {
   // assignment operator deleted. It is not safe to copy this object.
   graph_value& operator=(const graph_value&) { return *this; }
 
+  // Deepcopy into out_value. 
+  void deepcopy(graph_value& out_value);
 };
 
 } // namespace graphlab

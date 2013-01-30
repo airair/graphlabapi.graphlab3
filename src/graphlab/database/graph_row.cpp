@@ -50,5 +50,9 @@ std::string graph_row::get_field_metadata(size_t fieldpos) {
   }
 }
 
-
+void graph_row::shallowcopy(graph_row& out_row) {
+  out_row._database = _database;
+  out_row._data = _data;
+  out_row._is_vertex = _is_vertex;
+}
 } // namespace graphlab

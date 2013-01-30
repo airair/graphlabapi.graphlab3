@@ -115,12 +115,18 @@ void send_requests(const std::vector<feature>& x,
   message.resize(comm->size());
   result->future_handle = future_handle;
   for (size_t i = 0; i < x.size(); ++i) {
-    message[x[i].id % comm->size()].ids.push_back(x[i].id);
+    size_t targetmachine = x[i].id % comm->size();
+    if (targetmachine == comm->rank()) result->store[x[i].id] = weights[x[i].id];
+    else message[targetmachine].ids.push_back(x[i].id);
   }
   // figure out the number of requests we are making
   size_t numrequests = 0;
   for (size_t i = 0;i < comm->size(); ++i) numrequests += (message[i].ids.size() > 0);
   result->num_requests.value = numrequests;
+  if (numrequests == 0) {
+    graphlab::qthread_external_future<request_future_result>::signal(future_handle);
+    return;
+  }
   //printf("Req 0x%lx\n", result);
   // fill in the request_handle_pointer in the message
   // and send it out
@@ -188,13 +194,19 @@ void send_update(const boost::unordered_map<size_t, double>& updates,
   message.resize(comm->size());
   boost::unordered_map<size_t, double>::const_iterator iter = updates.begin();
   while (iter != updates.end()) {
-    message[iter->first % comm->size()].res.push_back(feature(iter->first, iter->second));
+    size_t targetmachine = iter->first % comm->size();
+    if (targetmachine == comm->rank()) weights[iter->first] += iter->second;
+    else message[targetmachine].res.push_back(feature(iter->first, iter->second));
     ++iter;
   }
   
   size_t numrequests = 0;
   for (size_t i = 0;i < comm->size(); ++i) numrequests += (message[i].res.size() > 0);
   result->num_requests.value = numrequests;
+  if (numrequests == 0) {
+    graphlab::qthread_external_future<update_future_result>::signal(future_handle);
+    return;
+  }
 
   // fill in the request_handle_pointer in the message
   // and send it out
@@ -400,18 +412,24 @@ void data_loop(std::vector<std::vector<feature> >* X,
 }
 
 int main(int argc, char** argv) {
-  stepsize = 0.05;
+  size_t ndata = 1000000;
+  size_t numthreads = 100000;
   size_t numweights = 100;
+  if (argc > 1) ndata = atoi(argv[1]);
+  if (argc > 2) numthreads = atoi(argv[2]);
+  std::cout << "Generating " << ndata << " datapoints\n";
+  std::cout << "Using " << numthreads << " threads per machine\n";
+  std::cout << numweights << " weights\n";
+  stepsize = 0.10;
   weights.resize(numweights, 0.0); // actual weights are based on mod p
 
   // make a small send window
   comm = new graphlab::mpi_comm(&argc, &argv);
   comm->register_receiver(receive_dispatch, true);
-  graphlab::qthread_tools::init(8, 8192);
   // generate a little test dataset
   std::vector<std::vector<feature> > X;
   std::vector<double> Y;
-  std::vector<double> weights = generate_dataset(X, Y, numweights, 1000000 / comm->size() , 0.1,
+  std::vector<double> weights = generate_dataset(X, Y, numweights, ndata / comm->size() , 0.1,
                                                  1234);
   std::cout << "Data generated\n";
   loss01 = 0;
@@ -421,7 +439,6 @@ int main(int argc, char** argv) {
   loss_count = 0;
   comm->barrier();
   graphlab::qthread_group group;
-  size_t numthreads = 100000;
   for (size_t iter = 0; iter < 100; ++iter) {
     graphlab::timer ti; ti.start();
     timestep = iter;

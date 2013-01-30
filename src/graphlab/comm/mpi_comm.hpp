@@ -214,11 +214,11 @@ class mpi_comm : public comm_base{
    */
   void barrier();
 
-  inline size_t size() const {
+  inline int size() const {
     return (size_t)_size;
   }
   
-  inline size_t rank() const {
+  inline int rank() const {
     return (size_t)_rank;
   }
 

@@ -1,7 +1,8 @@
-#ifndef GRAPHLAB_DATABASE_GRAPH_EDGE_HPP
-#define GRAPHLAB_DATABASE_GRAPH_EDGE_HPP
+#ifndef GRAPHLAB_DATABASE_GRAPH_EDGE_SHAREDMEM_HPP
+#define GRAPHLAB_DATABASE_GRAPH_EDGE_SHAREDMEM_HPP
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/database/graph_row.hpp>
+#include <graphlab/database/graph_edge.hpp>
 namespace graphlab {
 
 /**
@@ -18,13 +19,14 @@ class graph_edge_sharedmem : public graph_edge {
  graph_vid_t sourceid;
  graph_vid_t targetid;
  graph_row* cache;
- shard_id_t master;
+ graph_shard_id_t master;
  graph_database* database;
  public:
   graph_edge_sharedmem(const graph_vid_t& sourceid,
                        const graph_vid_t& targetid,
                        graph_row* data,
-                       shard_id_t master) :
+                       graph_shard_id_t master,
+                       graph_database* database) :
   sourceid(sourceid), targetid(targetid), cache(data),
     master(master), database(database) {}
 
@@ -52,7 +54,7 @@ class graph_edge_sharedmem : public graph_edge {
    * database, and caches it. Repeated calls to data() should always return
    * the same graph_row pointer.
    */
-  graph_row* data() = {
+  graph_row* data()  {
     return cache;
   };
 
@@ -69,7 +71,7 @@ class graph_edge_sharedmem : public graph_edge {
    * and update the _old values for each modified graph_value in the 
    * graph_row.
    */ 
-  void write_changes() = {
+  void write_changes() {
   };
 
   /**
@@ -87,7 +89,7 @@ class graph_edge_sharedmem : public graph_edge {
    * and update the _old values for each modified graph_value in the 
    * graph_row.
    */ 
-  void write_changes_async() = {
+  void write_changes_async()  {
 
   };
 
@@ -99,7 +101,7 @@ class graph_edge_sharedmem : public graph_edge {
    * \note The function should also reset the modification flags, delta_commit 
    * flags and update the _old values for each graph_value in the graph_row.
    */ 
-  void refresh() = {
+  void refresh()  {
   };
 
   /**
@@ -109,9 +111,7 @@ class graph_edge_sharedmem : public graph_edge {
    * implemented that way. This call may invalidate all previous
    * graph_row pointers returned by \ref data() . 
    */ 
-  void write_and_refresh() = {
-    write();
-    refresh();
+  void write_and_refresh()  {
   };
 
   /**
@@ -120,14 +120,6 @@ class graph_edge_sharedmem : public graph_edge {
   graph_shard_id_t master_shard() {
     return master;
   };
- private:
-  // copy constructor deleted. It is not safe to copy this object.
-  graph_edge(const graph_edge&) { }
-
-  // assignment operator deleted. It is not safe to copy this object.
-  graph_edge& operator=(const graph_edge&) { return *this; }
-
-
 };
 
 } // namespace graphlab

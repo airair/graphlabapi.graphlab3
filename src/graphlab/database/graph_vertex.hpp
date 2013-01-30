@@ -29,6 +29,10 @@ namespace graphlab {
  */
 class graph_vertex {
  public:
+   /**
+    * Destructor
+    * */
+   virtual ~graph_vertex() = 0;
   /**
    * Returns the ID of the vertex
    */
@@ -142,7 +146,7 @@ class graph_vertex {
                             std::vector<graph_edge*>* out_outadj) = 0;
  private:
   // copy constructor deleted. It is not safe to copy this object.
-  graph_vertex(const graph_vertex&) { }
+  // graph_vertex(const graph_vertex&) { }
 
   // assignment operator deleted. It is not safe to copy this object.
   graph_vertex& operator=(const graph_vertex&) { return *this; }

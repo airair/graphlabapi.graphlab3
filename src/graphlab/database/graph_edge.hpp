@@ -99,7 +99,7 @@ class graph_edge {
   virtual graph_shard_id_t master_shard() = 0;
  private:
   // copy constructor deleted. It is not safe to copy this object.
-  graph_edge(const graph_edge&) { }
+  // graph_edge(const graph_edge&) { }
 
   // assignment operator deleted. It is not safe to copy this object.
   graph_edge& operator=(const graph_edge&) { return *this; }

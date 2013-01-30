@@ -16,18 +16,19 @@ namespace graphlab {
    * Provide lookup for the vertex locations (master, and mirrors...)
    */
   class graph_vertex_index {
-   private:
-     boost::unordered_map<graph_vid_t, graph_shard_id_t> master_map;  // map from vid -> shardid
-     boost::unordered_map<graph_vid_t, std::vector<size_t> > location_map;  // map from vid -> locations on each shard
    public:
+
+     // Return the existence of a vertex with given id.
      bool has_vertex(graph_vid_t vid) {
        return !(master_map.find(vid) == master_map.end());
      };
 
+     // Return the master of a vertex.
      graph_shard_id_t get_master(graph_vid_t vid) {
        return master_map[vid];
      }
 
+     // Return a list of mirrors of a vertex.
      std::vector<graph_shard_id_t> get_mirrors(graph_vid_t vid) {
        std::vector<graph_shard_id_t> mirrors;
        std::vector<size_t>& locations = location_map[vid];
@@ -38,9 +39,16 @@ namespace graphlab {
        return mirrors;
      }
 
+     // Return the index of a vertex in a shard.
      size_t get_index_in_shard (graph_vid_t vid, graph_shard_id_t shard) {
        return location_map[vid][shard];
      } 
+
+    private:
+      // map from vid to shardid
+      boost::unordered_map<graph_vid_t, graph_shard_id_t> master_map;
+      // map from vid -> locations on each shard
+      boost::unordered_map<graph_vid_t, std::vector<size_t> > location_map; 
   };
 } // namespace graphlab
 #include <graphlab/macros_undef.hpp>

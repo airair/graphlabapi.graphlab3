@@ -92,7 +92,18 @@ namespace graphlab {
 
     /** Returns true if realignment requires a reallocation */
     bool align_requires_alloc();
-  
+ 
+    /**
+     * Returns a pointer (through s) referencing a read of exactly clen bytes.  
+     * This pointer is a direct pointer into the internal buffer of this
+     * datastructure. The pointer is valid as long as no other
+     * operations are performed on this structure. Returns true if the read
+     * can be done, and false otherwise. Due to the nature of the circular 
+     * buffer, an introspective read may fail even though there are more
+     * than clen bytes in the buffer.
+     */
+    bool introspective_must_read(char* &s, std::streamsize clen);
+
     /**
      * Returns a pointer (through s) and a length of the read.  This
      * pointer is a direct pointer into the internal buffer of this
@@ -108,7 +119,8 @@ namespace graphlab {
     /**
      * Returns a pointer (through s) and a length of the read.  This
      * pointer is a direct pointer into the internal buffer of this
-     * datastructure. The pointer is valid as long as no other
+     * datastructure. Reads at most clen bytes.
+     * The pointer is valid as long as no other
      * operations are performed on this structure.  The length of the
      * introspective_read may be less than the number of bytes
      * requested. Multiple calls to introspective_read may be

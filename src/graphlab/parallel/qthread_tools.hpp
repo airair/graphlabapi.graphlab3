@@ -59,6 +59,8 @@ namespace graphlab {
     void join(); 
 
     ~qthread_thread();
+
+    static void yield();
   };
 
 
@@ -93,6 +95,35 @@ namespace graphlab {
 
   };
 
+
+  /**
+   * Standard Mutex but using qthread routines
+   */
+  class qthread_mutex {
+   private:
+    //aligned_t _lockvar;
+    syncvar_t _lockvar;
+    // block assignment
+    void operator=(const qthread_mutex&) { } 
+   public:
+
+    qthread_mutex() { } 
+
+    /** allow copy constructor. However, 
+     * this should not be used. This is to permit
+     * the allocation of mutexes inside a vector
+     */
+    qthread_mutex(const qthread_mutex&) { } 
+
+    inline void lock() {
+      //qthread_lock(&_lockvar);
+      qthread_syncvar_readFE(NULL, &_lockvar);
+    }
+    inline void unlock() {
+      //qthread_unlock(&_lockvar);
+      qthread_syncvar_fill(&_lockvar);
+    }
+  };
 
 } // namespace graphlab 
 

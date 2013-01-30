@@ -3,13 +3,41 @@
 #include <graphlab/util/timer.hpp>
 #include <graphlab/util/memory_info.hpp>
 #include <graphlab/comm/mpi_comm.hpp>
+#include <graphlab/parallel/pthread_tools.hpp>
+#include <graphlab/logger/assertions.hpp>
 using namespace graphlab;
 
-bool CHECK_COMM_RESULT = false;
+bool CHECK_COMM_RESULT = true;
+
+atomic<size_t> receive_count;
+size_t expectedlen;
+char expectedval;
+
+mutex trigger_lock;
+conditional trigger_cond;
+
+void receive(int machine, char* c, size_t len) {
+  ASSERT_EQ(len, expectedlen);
+  if ( CHECK_COMM_RESULT) {
+    bool t = true;
+    for (size_t k = 0; k < len; ++k) t &= (c[k] == expectedval);
+    assert(t);
+  }
+  if (receive_count.inc() == 100) {
+    trigger_lock.lock();
+    trigger_cond.signal();
+    trigger_lock.unlock();
+  }
+}
+
 int main(int argc, char** argv) {
   // make a small send window
+  /*
   mpi_comm* comm = new mpi_comm(&argc, &argv, 
                                 (size_t)1 * 1024 * 1024 * 1024);
+   */
+  mpi_comm* comm = new mpi_comm(&argc, &argv);
+  comm->register_receiver(&receive, true);
   assert(comm->size() >= 2);
   if (comm->rank() == 0) std::cout << "barrier test.\n";
   timer ti; ti.start();
@@ -33,18 +61,22 @@ int main(int argc, char** argv) {
 
   if (comm->rank() == 0) {
     for (size_t i = MIN_SEND; i < MAX_SEND; ++i) {
-      c[i] = (char*)malloc(1 << i);
-      memset(c[i], i, 1 << i);
+      c[i] = (char*)malloc((1 << i) + i);
+      memset(c[i], i, (1 << i) + i);
     }
   }
 
   comm->barrier();
   for (size_t i = MIN_SEND; i < MAX_SEND; ++i) {
+    expectedval = i;
+    expectedlen = (1 << i) + i;
+    receive_count.value = 0;
+    comm->barrier();
     ti.start();
     size_t iterations = TOTAL_COMM / (1 << i);
     if (comm->rank() == 0) {
       for (size_t j = 0; j < iterations ; ++j) {
-        comm->send(1, c[i], 1 << i);
+        comm->send(1, c[i], (1 << i) + i);
       }
       double t = ti.current_time();
       std::cout << "Send of 64MB in " << (1<<i) << " byte chunks in " 
@@ -52,22 +84,12 @@ int main(int argc, char** argv) {
                 << "(" << TOTAL_COMM / t / 1024 / 1024 << " MBps)" << std::endl;
       comm->flush();
     } else if (comm->rank() == 1) {
-      for (size_t j = 0; j < iterations ; ++j) {
-        int source; size_t len;
-        char* ret = NULL; 
-        // spin on receive until I get 100
-        while (ret == NULL) {
-          ret = (char*)comm->receive(&source, &len);
-          if (ret == NULL) usleep(100);
-        }
-        if ( CHECK_COMM_RESULT) {
-          bool t = true;
-          for (size_t k = 0; k < (1 << i); ++k) t &= (ret[k] == i);
-          assert(t);
-        }
-        free(ret);
-        assert(len == 1 << i);
+        // wait till I received 64 MB
+      trigger_lock.lock();
+      while(receive_count.value < iterations) {
+        trigger_cond.wait(trigger_lock);
       }
+      trigger_lock.unlock();
       double t = ti.current_time();
       std::cout << "Receive of 64MB in " << (1<<i) << " byte chunks in " 
                 << t << " s. "

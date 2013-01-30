@@ -134,8 +134,6 @@ namespace graphlab {
 
 
   void circular_char_buffer::align() {
-    // squeeze to a minimum of 4 bytes
-    if (bufsize <= 4) return;
     // 2 cases
     // case 1: no loop around
     // case 2: loop around. Easiest solution is to allocate a new buffer
@@ -158,8 +156,6 @@ namespace graphlab {
   }
 
   bool circular_char_buffer::align_requires_alloc() {
-    // squeeze to a minimum of 4 bytes
-    if (bufsize <= 4) return false;
     // 2 cases
     // case 1: no loop around
     // case 2: loop around. Easiest solution is to allocate a new buffer
@@ -274,6 +270,39 @@ namespace graphlab {
     skip(readlen);
     return readlen;
   }
+
+  bool circular_char_buffer::introspective_must_read(char* &s, std::streamsize clen) {
+    if (len == 0) {
+      s = NULL;
+      return false;
+    }
+    s = buffer + head;
+    // how much we do read?
+    // we can go up to the end of the buffer, or until a looparound
+    // case 1: no looparound
+    // case 2: looparound
+    std::streamsize readlen = 0;
+    if (tail > head) {
+      readlen = tail - head;
+    }
+    else {
+      readlen = bufsize - head;
+    }
+
+    // if the amount I can read is at least as large as the requested length
+    // I am good. Set the read length to the requested length and return
+    // success. Otherwise failure
+    if (clen <= readlen) {
+      readlen = clen;
+      skip(readlen);
+      return true;
+    } else {
+      s = NULL;
+      return false;
+    }
+  }
+
+
 
   std::streamsize circular_char_buffer::introspective_read(char* &s, std::streamsize clen) {
     if (len == 0) {

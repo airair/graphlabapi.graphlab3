@@ -56,6 +56,11 @@ void qthread_thread::join() {
 }
 
 
+
+void qthread_thread::yield() {
+  qthread_yield();
+}
+
 //--------------- qthread_group ------------------
     
 qthread_group::qthread_group() {

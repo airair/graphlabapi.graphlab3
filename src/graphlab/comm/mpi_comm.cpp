@@ -10,12 +10,12 @@
 namespace graphlab {
 
   
-static const MPI_Datatype MPI_SEND_TYPE = MPI_DOUBLE;
-typedef double send_type; 
+static const MPI_Datatype MPI_SEND_TYPE = MPI_LONG;
+typedef uint64_t send_type; 
 
 
 struct comm_header {
-  size_t length;
+  uint64_t length;
 };
 
 size_t get_padded_length(size_t length) {
@@ -25,7 +25,7 @@ size_t get_padded_length(size_t length) {
 }
 
 mpi_comm::mpi_comm(int* argc, char*** argv, size_t send_window)
-            :_send_window_size(send_window) {
+            :_send_window_size(send_window),_has_receiver(false) {
   // initializes mpi and record the rank and size
   int ret = mpi_tools::init(*argc, *argv, MPI_THREAD_MULTIPLE);
   _has_mpi_thread_multiple = (ret == MPI_THREAD_MULTIPLE);
@@ -58,6 +58,7 @@ mpi_comm::mpi_comm(int* argc, char*** argv, size_t send_window)
   // fill the offset array. This is where the data destined to each machine
   // begins. Uniformly space the offsets across entire send window size
   _offset.resize(_size); _offset_by_datatype.resize(_size);
+  _send_locks.resize(_size);
   _max_sendlength_per_machine = _send_window_size / _size;
   // round it to a multiple of the datatype size
   _max_sendlength_per_machine  = 
@@ -70,8 +71,8 @@ mpi_comm::mpi_comm(int* argc, char*** argv, size_t send_window)
   // sends initially write to buffer 0
   _cur_send_buffer = 0; 
   // initialize the reference counters
-  _buffer_reference_counts[0].reset(new int);
-  _buffer_reference_counts[1].reset(new int);
+  _buffer_reference_counts[0] = 0;
+  _buffer_reference_counts[1] = 0;
   _last_garbage_collect_ms[0] = timer::approx_time_millis();
   _last_garbage_collect_ms[1] = timer::approx_time_millis();
   // ------------ receive buffer construction ---------
@@ -119,9 +120,11 @@ mpi_comm::~mpi_comm() {
   mpi_tools::finalize();
 }
 
+mutex send_lock;
 
 void mpi_comm::send(int targetmachine, void* _data, size_t length) {
   char* data = (char*)(_data);
+//  printf("Sending %ld %d %d %d\n", length, (int)(data[0]), (int)(data[1]), int(data[2]));
   assert(0 <= targetmachine && targetmachine < _size);
   // 0 length messages not permitted
   assert(length > 0);
@@ -132,6 +135,8 @@ void mpi_comm::send(int targetmachine, void* _data, size_t length) {
   size_t headerlength = sizeof(size_t); 
   char* headerptr = reinterpret_cast<char*>(&hdr);
   //bool printed_buf_full_message = false;
+  
+  _send_locks[targetmachine].lock();
   while (headerlength > 0) {
     size_t sent = 0;
     sent = actual_send(targetmachine, headerptr, headerlength);
@@ -140,7 +145,7 @@ void mpi_comm::send(int targetmachine, void* _data, size_t length) {
     if (headerlength > 0) {
    //   if (!printed_buf_full_message) std::cout << "buffer full\n";
    //   printed_buf_full_message = true;
-      flush();
+      timer::sleep_ms(1);
     }
   }
   while (length > 0) {
@@ -151,9 +156,10 @@ void mpi_comm::send(int targetmachine, void* _data, size_t length) {
     if (length > 0) {
    //   if (!printed_buf_full_message) std::cout << "buffer full\n";
    //   printed_buf_full_message = true;
-      flush();
+      timer::sleep_ms(1);
     }
   }
+  _send_locks[targetmachine].unlock();
 } 
 
 
@@ -165,17 +171,19 @@ size_t mpi_comm::actual_send(int targetmachine, void* data, size_t length) {
   // reference counts
   size_t target_buffer; // the send buffer ID
   size_t idx; // the buffer index to write to
-  boost::shared_ptr<int> ref;
   bool buffer_acquire_success = false;
   while (!buffer_acquire_success) {
     // get the buffer ID
     target_buffer = _cur_send_buffer.value;
     idx = target_buffer & 1;
+    _buffer_reference_counts[idx].inc();
     // acquire a reference to it
-    ref = _buffer_reference_counts[idx];
     // if the buffer changed, we are in trouble. It means, we interleaved
     // with a flush. cancel it and try again
     buffer_acquire_success = (_cur_send_buffer.value == target_buffer);
+    if (!buffer_acquire_success) {
+      _buffer_reference_counts[idx].dec();
+    }
   } 
 
   // Now, we got the buffer. Try to increment the length of the send as much
@@ -189,19 +197,25 @@ size_t mpi_comm::actual_send(int targetmachine, void* data, size_t length) {
     maxwrite = std::min(_max_sendlength_per_machine - oldsendlength, paddedlength);
     assert(maxwrite <= paddedlength);
     // if I cannot write anything, return
-    if (maxwrite == 0) return 0;
+    if (maxwrite == 0) {
+      _buffer_reference_counts[idx].dec();
+      return 0;
+    }
     cas_success = 
         (_sendlength[idx][targetmachine].value == oldsendlength) ? 
             _sendlength[idx][targetmachine].cas(oldsendlength, oldsendlength + maxwrite) 
             : false;
   }
+  size_t written = std::min(maxwrite, length);
   memcpy((char*)(_send_base[idx]) + _offset[targetmachine] + oldsendlength,
          data,
-         maxwrite);
+         written);
   // The reference count will be automatically relinquished when we exit
   // if I wrote more than the actual data length, then it is with the padding.
   // in which case the write is done.
-  return std::min(maxwrite, length);
+  
+  _buffer_reference_counts[idx].dec();
+  return written;
 }
 
 
@@ -215,7 +229,7 @@ void mpi_comm::flush() {
     // here is therefore an alternate implementation that is quite a 
     // bit uglier
     size_t idx = _cur_send_buffer.value;
-    // looping until the value increments by 2 is a sure fire way
+    // looping until the value increments by 2 is a sure way
     // to ensure that the flush has completed.
     while(_cur_send_buffer.value - idx < 2) {
       timer::sleep_ms(5);
@@ -232,7 +246,7 @@ size_t mpi_comm::swap_buffers() {
   // the assumption is most sends are relatively short.
   // If this becomes an issue in the future, a condition variable solution
   // can be substituted with little work
-  while(!_buffer_reference_counts[idx].unique()) {
+  while(_buffer_reference_counts[idx] != 0) {
     cpu_relax();
   }
   return idx;
@@ -378,6 +392,81 @@ void* mpi_comm::receive(int sourcemachine, size_t* length) {
 }
 
 
+size_t mpi_comm::receiver_fun_receive() {
+  assert(_has_receiver);
+  size_t i = _last_receive_buffer_read_from + 1;
+  // sweep from i,i+1... _size, 0, 1, 2, ... i-1
+  // and try to receive from that buffer.
+  // if all fail, we return NULL
+  for (size_t j = 0; j < (size_t)_size; ++j) {
+    int count = receiver_fun_receive((j + i) % _size);
+    if (count != 0) {
+      return count;
+    }
+  }
+  return 0;
+}
+
+
+
+size_t mpi_comm::receiver_fun_receive(int sourcemachine) {
+  assert(_has_receiver);
+  receive_buffer_type& curbuf = _receive_buffer[sourcemachine];
+  // test for quick exit conditions which I don't have to lock
+  if (curbuf.padded_next_message_length == 0 ||
+      curbuf.padded_next_message_length > curbuf.buflen) return NULL;
+  // ok. I have to lock
+  curbuf.lock.lock();
+  size_t numcalls = 0;
+  while (curbuf.padded_next_message_length > 0 &&  
+      curbuf.padded_next_message_length <= curbuf.buflen) {
+    // ok we have enough to read the block
+    char* ret = NULL;
+    // can we read the array without an align? 
+    if (curbuf.buffer.introspective_must_read(ret, curbuf.padded_next_message_length) == false) {
+      curbuf.buffer.align();
+      bool success = curbuf.buffer.introspective_must_read(ret, curbuf.padded_next_message_length);
+      assert(success); 
+    }
+    curbuf.buflen -= curbuf.padded_next_message_length;
+    if (!_parallel_receiver) _receiver_lock.lock();
+    _receivefun(sourcemachine, ret, curbuf.next_message_length);
+    if (!_parallel_receiver) _receiver_lock.unlock();
+    ++numcalls;
+    // if there is too much empty room in the buffer, we squeeze it
+    // to conserve memory
+    if (curbuf.buffer.reserved_size() >= 5 * curbuf.buflen &&
+        curbuf.buffer.reserved_size() > 4096) {
+      curbuf.buffer.squeeze();
+    }
+    curbuf.next_message_length = 0;
+    curbuf.padded_next_message_length = 0;
+    locked_read_header_from_buffer(sourcemachine);
+  }
+  curbuf.lock.unlock();
+  return numcalls;
+} 
+
+bool mpi_comm::register_receiver(
+    const boost::function<void(int machine, char* c, size_t len)>& receivefun,
+    bool parallel) {
+  if (_has_receiver == false) {
+    // lock the all flush operations before setting the receiver
+    _background_flush_inner_op_lock.lock();
+    _flush_lock.lock();
+    _receivefun = receivefun; 
+    _has_receiver = true;
+    _parallel_receiver = parallel;
+    _flush_lock.unlock();
+    _background_flush_inner_op_lock.unlock();
+    return true;
+  } else {
+    return false;
+  }
+}
+
+
+
 void mpi_comm::background_flush_inner_op() {
   _background_flush_inner_op_lock.lock();
   // this ensures that once the flushing threads quit,
@@ -402,6 +491,7 @@ void mpi_comm::background_flush_inner_op() {
     }
   }
   _background_flush_inner_op_lock.unlock();
+  if (_has_receiver) while(receiver_fun_receive() > 0);
 }
 
 void mpi_comm::background_flush() {

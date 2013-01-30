@@ -35,6 +35,7 @@ class graph_database_sharedmem : public graph_database {
         free(&shards[i]); 
    }
 
+
   /**
    * Returns the number of vertices in the graph.
    * This may be slow.
@@ -80,9 +81,12 @@ class graph_database_sharedmem : public graph_database {
    *  identified by fieldpos has the specified value.
    *  Return true on success, and false on failure.
    */
-  virtual bool find_vertex(size_t fieldpos,
+  bool find_vertex(size_t fieldpos,
                            graph_int_t value, 
-                           std::vector<graph_vid_t>* out_vids) = 0;
+                           std::vector<graph_vid_t>* out_vids) {
+    // not implemented
+    return false;
+  };
 
   /**
    *  Finds a vertex using an indexed string field. Returns the vertex IDs
@@ -90,9 +94,12 @@ class graph_database_sharedmem : public graph_database {
    *  identified  by fieldpos has the specified value.
    *  Return true on success, and false on failure.
    */
-  virtual bool find_vertex(size_t fieldpos,
+  bool find_vertex(size_t fieldpos,
                            graph_string_t value, 
-                           std::vector<graph_vid_t>* out_vids) = 0;
+                           std::vector<graph_vid_t>* out_vids) {
+    // not implemented
+    return false;
+  };
 
   /**
    * Frees a vertex object
@@ -118,6 +125,56 @@ class graph_database_sharedmem : public graph_database {
         free_edge(e);
     edgelist->clear();
   }
+
+
+//  ------ Coarse Grained API ---------
+
+  /**
+   * Returns the number of shards in the database
+   */
+  size_t num_shards() { return shards.size(); }
+  
+  
+  /**
+   * Synchronously obtains a shard from the database.
+   * Returns NULL on failure
+   */
+  graph_shard* get_shard(graph_shard_id_t shard_id) {
+    return &shards[shard_id];
+  }
+                          
+  /**
+   * Gets the contents of the shard which are adjacent to some other shard
+   * Returns NULL on failure
+   */
+  graph_shard* get_shard_contents_adj_to(graph_shard_id_t shard_id,
+                                                 graph_shard_id_t adjacent_to) {
+    // not implemented
+    return NULL;
+  }
+  /**
+   * Frees a shard.
+   */  
+  void free_shard(graph_shard* shard) {
+    shard->clear();
+  }
+  
+  /** 
+   * Returns a list of shards IDs which adjacent to a given shard id
+   */
+  void adjacent_shards(graph_shard_id_t shard_id, 
+                               std::vector<graph_shard_id_t>* out_adj_shard_ids) { 
+    // not implemented
+  }
+
+  /**
+   * Commits all the changes made to the vertex data and edge data 
+   * in the shard, resetting all modification flags.
+   */
+  void commit_shard(graph_shard* shard) {
+    // not implemented 
+  }
+
 };
 } // namespace graphlab
 #include <graphlab/macros_undef.hpp>

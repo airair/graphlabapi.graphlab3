@@ -95,6 +95,25 @@ class graph_shard {
    */
   inline graph_row* edge_data(size_t i) { return shard_impl.edge_data + i; }
 
+
+  /**
+   * Clear the content of this shard. Remove all vertex and edge info.
+   */
+  inline void clear() {
+      delete[] shard_impl.vertex;
+      delete[] shard_impl.num_in_edges;
+      delete[] shard_impl.num_out_edges;
+      delete[] shard_impl.edge;
+      for (size_t i = 0; i < num_vertices(); ++i) {
+        shard_impl.vertex_data[i]._values.clear();
+      }
+      delete[] shard_impl.vertex_data;
+      for (size_t i = 0; i < num_edges(); ++i) {
+        shard_impl.edge_data[i]._values.clear();
+      }
+      delete[] shard_impl.edge_data;
+  }
+
  private:
   // copy constructor deleted. It is not safe to copy this object.
   graph_shard(const graph_shard&) { }

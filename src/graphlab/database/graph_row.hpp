@@ -95,6 +95,9 @@ class graph_row {
 
   // Stores the graph values for the row. Could be empty if it is a shallow copy. 
   std::vector<graph_value> _values;
+
+  friend class graph_database;
+  friend class graph_shard;
 };
 
 

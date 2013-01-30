@@ -448,7 +448,7 @@ size_t mpi_comm::receiver_fun_receive(int sourcemachine) {
 } 
 
 bool mpi_comm::register_receiver(
-    const boost::function<void(int machine, char* c, size_t len)>& receivefun,
+    const boost::function<void(int machine, const char* c, size_t len)>& receivefun,
     bool parallel) {
   if (_has_receiver == false) {
     // lock the all flush operations before setting the receiver

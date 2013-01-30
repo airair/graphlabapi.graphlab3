@@ -101,7 +101,7 @@ class mpi_comm : public comm_base{
   // Set to true if a receive function was registered
   bool _has_receiver;
   // The receiver function.
-  boost::function<void(int machine, char* c, size_t len)> _receivefun;
+  boost::function<void(int machine, const char* c, size_t len)> _receivefun;
   // true if the the receive function is parallel
   bool _parallel_receiver;
   mutex _receiver_lock;
@@ -204,7 +204,7 @@ class mpi_comm : public comm_base{
   /**
    * Registers a receive function. The parallel flag is ignored.
    */
-  bool register_receiver(const boost::function<void(int machine, char* c, size_t len)>& receivefun,
+  bool register_receiver(const boost::function<void(int machine, const char* c, size_t len)>& receivefun,
                          bool parallel);
 
 

@@ -378,7 +378,7 @@ void* mpi_comm::receive(int sourcemachine, size_t* length) {
     curbuf.buflen -= curbuf.padded_next_message_length;
     // if there is too much empty room in the buffer, we squeeze it
     // to conserve memory
-    if (curbuf.buffer.reserved_size() >= 5 * curbuf.buflen &&
+    if ((size_t)curbuf.buffer.reserved_size() >= 5 * curbuf.buflen &&
         curbuf.buffer.reserved_size() > 4096) {
       curbuf.buffer.squeeze();
     }
@@ -414,7 +414,7 @@ size_t mpi_comm::receiver_fun_receive(int sourcemachine) {
   receive_buffer_type& curbuf = _receive_buffer[sourcemachine];
   // test for quick exit conditions which I don't have to lock
   if (curbuf.padded_next_message_length == 0 ||
-      curbuf.padded_next_message_length > curbuf.buflen) return NULL;
+      curbuf.padded_next_message_length > curbuf.buflen) return 0;
   // ok. I have to lock
   curbuf.lock.lock();
   size_t numcalls = 0;
@@ -435,7 +435,7 @@ size_t mpi_comm::receiver_fun_receive(int sourcemachine) {
     ++numcalls;
     // if there is too much empty room in the buffer, we squeeze it
     // to conserve memory
-    if (curbuf.buffer.reserved_size() >= 5 * curbuf.buflen &&
+    if ((size_t)curbuf.buffer.reserved_size() >= 5 * curbuf.buflen &&
         curbuf.buffer.reserved_size() > 4096) {
       curbuf.buffer.squeeze();
     }

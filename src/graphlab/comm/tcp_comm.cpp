@@ -138,7 +138,7 @@ void tcp_comm::receiver_thread(size_t threadid) {
     // unlock the core mutex while I run stuff
     _thread_mutex[threadid].unlock(); 
     // get the queues I am in charge of and execute them
-    for (size_t i = threadid; i < _size; i += _num_threads) {
+    for (size_t i = threadid; i < (size_t)_size; i += _num_threads) {
       // fast exit
       if (_recv_queue[i].empty()) continue;
       std::deque<chunk*> myqueue;
@@ -175,7 +175,7 @@ void tcp_comm::receiver_thread(size_t threadid) {
     // force a memory fence here
     asm volatile("mfence");
     bool allempty = true;
-    for (size_t i = threadid; i < _size; i += _num_threads) {
+    for (size_t i = threadid; i < (size_t)_size; i += _num_threads) {
       if (!_recv_queue[i].empty()) {
         allempty = false;
         break;

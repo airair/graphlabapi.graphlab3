@@ -19,7 +19,7 @@ class tcp_comm:public comm_base {
    // used to complete the receive function calls
    thread_group _thread_group;
    bool _dispatch_running;
-   int _num_threads; 
+   size_t _num_threads; 
 
    // rank of the current machine
    int _rank;

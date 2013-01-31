@@ -12,6 +12,7 @@ bool CHECK_COMM_RESULT = false;
 atomic<size_t> receive_count;
 size_t expectedlen;
 char expectedval;
+size_t required_count;
 
 mutex trigger_lock;
 conditional trigger_cond;
@@ -23,7 +24,7 @@ void receive(int machine, const char* c, size_t len) {
     for (size_t k = 0; k < len; ++k) t &= (c[k] == expectedval);
     assert(t);
   }
-  if (receive_count.inc() == 100) {
+  if (receive_count.inc() == required_count) {
     trigger_lock.lock();
     trigger_cond.signal();
     trigger_lock.unlock();
@@ -74,12 +75,13 @@ int main(int argc, char** argv) {
 
   comm->barrier();
   for (size_t i = MIN_SEND; i < MAX_SEND; ++i) {
+    size_t iterations = TOTAL_COMM / (1 << i);
     expectedval = i;
     expectedlen = (1 << i);
     receive_count.value = 0;
+    required_count = iterations;
     comm->barrier();
     ti.start();
-    size_t iterations = TOTAL_COMM / (1 << i);
     if (comm->rank() == 0) {
       for (size_t j = 0; j < iterations ; ++j) {
         comm->send(1, c[i], (1 << i));

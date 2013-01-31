@@ -25,6 +25,15 @@ namespace qthread_tools {
       qthread_initialized = true;
     }
   }
+
+
+  void finalize() {
+    static bool qthread_finalized = false;
+    if (!qthread_finalized) {
+      qthread_finalize();
+      qthread_finalized = true;
+    }
+  }
 } // qthread_tools
 
 

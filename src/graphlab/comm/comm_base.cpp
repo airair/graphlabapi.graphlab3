@@ -9,17 +9,20 @@ namespace graphlab {
 comm_base* comm_base::create(const char* descriptor,
                              int* argc,
                              char*** argv) {
+  comm_base* ret = NULL;
   if (strcmp(descriptor, "mpi") == 0 || 
       strcmp(descriptor, "MPI") == 0) {
-    return new mpi_comm(argc, argv);
+    ret = new mpi_comm(argc, argv);
+    if (ret->rank() == 0) std::cout << "MPI Communicator constructed\n";
   }
   else if (strcmp(descriptor, "tcp") == 0 || 
       strcmp(descriptor, "TCP") == 0) {
-    return new tcp_comm(argc, argv);
+    ret = new tcp_comm(argc, argv);
+    if (ret->rank() == 0) std::cout << "TCP Communicator constructed\n";
+  } else {
+    std::cout << "Unknown Communicator type: " << descriptor << "\n";
   }
-  else {
-    return NULL;
-  }
+  return ret;
 }
 
 

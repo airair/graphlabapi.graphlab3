@@ -24,7 +24,7 @@ namespace graphlab {
  *    .. perhaps even give the handle and result pointers away and
  *    .. return. 
  *    .. but eventually, someone somewhere must assign the result value 
- *    .. and call qthread_external_future<int>::signal(result)
+ *    .. and call qthread_future<int>::signal(result)
  * }
  *
  *

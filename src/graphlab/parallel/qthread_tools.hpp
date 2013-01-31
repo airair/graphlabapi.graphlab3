@@ -23,7 +23,12 @@ namespace graphlab {
      * will have any effect.
      */
     void init(int numthreads = -1, int stacksize = -1);
-  
+
+    /**
+     * Must be called at the end of program execution.
+     * It is safe to call this more than once.
+     */
+    void finalize(); 
   } // qthread_tools
 
 

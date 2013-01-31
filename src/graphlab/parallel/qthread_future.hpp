@@ -12,7 +12,7 @@ namespace graphlab {
  * \code
  * qthread_fn() {
  *   // create a future
- *   qthread_external_future<int> future;
+ *   qthread_future<int> future;
  *   int& result = future.get(); 
  *   __call_external_function_to_do_stuff__(&result);
  *   // will wait until signal is raised on the future

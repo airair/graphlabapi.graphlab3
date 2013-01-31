@@ -54,12 +54,12 @@
 
 # Try to find the MPI driver program
 find_program(MPI_COMPILER 
-  NAMES mpicxx
+  NAMES mpicxx openmpicxx
   DOC "MPI compiler. Used only to detect MPI compilation flags.")
 mark_as_advanced(MPI_COMPILER)
 
 find_program(MPIEXEC
-  NAMES mpiexec 
+  NAMES mpiexec openmpiexec
   DOC "Executable for running MPI programs.")
 
 set(MPIEXEC_NUMPROC_FLAG "-np" CACHE STRING "Flag used by MPI to specify the number of processes for MPIEXEC; the next option will be the number of processes.")
@@ -255,6 +255,7 @@ else (MPI_COMPILE_CMDLINE)
     /opt/local/mpi/include
     /opt/include/mpi
     /opt/local/include/mpi
+    /opt/local/include/openmpi
     "C:/Program Files/MPICH/SDK/Include" 
     "$ENV{SystemDrive}/Program Files/MPICH2/include"
     "$ENV{SystemDrive}/Program Files/Microsoft Compute Cluster Pack/Include"

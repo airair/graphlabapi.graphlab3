@@ -513,4 +513,10 @@ void mpi_comm::barrier() {
   }
 }
 
+
+void mpi_comm::send_relinquish(int targetmachine, void* data, size_t length) {
+  send(targetmachine, data, length);
+  free(data);
+}
+
 } // namespace graphlab

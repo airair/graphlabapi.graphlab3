@@ -171,10 +171,18 @@ class mpi_comm : public comm_base{
   
   /**
    * Sends a block of data of some length to a
-   * target machine. A copy of the data is made by the comm library.
+   * target machine. A copy of the data is made by the class.
    * Fails fatally on an error. This function is thread-safe.
    */ 
   void send(int targetmachine, void* data, size_t length);
+
+/**
+   * Sends a block of data of some length to a
+   * target machine. The comm will free the pointer when done.
+   * Fails fatally on an error. This function is thread-safe.
+   */ 
+  void send_relinquish(int targetmachine, void* data, size_t length);
+
 
   /**
    * Flushes all communication issued prior to this call. Blocks
@@ -220,6 +228,11 @@ class mpi_comm : public comm_base{
   
   inline int rank() const {
     return (size_t)_rank;
+  }
+
+
+  inline bool has_efficient_send() const {
+    return true;
   }
 
 };

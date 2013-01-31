@@ -287,7 +287,9 @@ macro(requires_core_deps NAME)
     zookeeper_mt
     z
     tcmalloc
-    qthread)
+    qthread
+    event
+    event_pthreads)
   add_dependencies(${NAME} boost libtcmalloc zookeeper qthreads)
   if(MPI_FOUND)
     target_link_libraries(${NAME} ${MPI_LIBRARY} ${MPI_EXTRA_LIBRARY})

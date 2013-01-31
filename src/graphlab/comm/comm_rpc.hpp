@@ -35,6 +35,8 @@ class comm_rpc {
   std::vector<dispatch_function_type> _dispatch_table;
 
   void receiver(int machine, const char* c, size_t len);
+
+  bool _comm_has_efficient_send;
  public:
   /**
    * Constructs a rpc which is attached to a comm system.

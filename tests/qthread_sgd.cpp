@@ -335,6 +335,7 @@ void data_loop(std::vector<std::vector<feature> >* X,
 }
 
 int main(int argc, char** argv) {
+ 
   size_t ndata = 1000000;
   size_t numthreads = 100000;
   size_t numweights = 100;
@@ -350,7 +351,15 @@ int main(int argc, char** argv) {
   stepsize = 0.10;
   weights.resize(numweights, 0.0); // actual weights are based on mod p
 
-  comm = new graphlab::mpi_comm(&argc, &argv);
+
+  if (argc > 5) {
+    comm = graphlab::comm_base::create(argv[5], &argc, &argv);
+  } else { 
+    comm = graphlab::comm_base::create("mpi", &argc, &argv);
+  }
+  assert(comm != NULL);
+  comm->barrier();
+
   rpc = new graphlab::comm_rpc(comm);
   // register the functions
 
@@ -360,6 +369,7 @@ int main(int argc, char** argv) {
   rpc->register_handler(LOSS_INCREMENT, process_loss_update); 
 
 
+  comm->barrier();
   // set the stacksize to 8192
   graphlab::qthread_tools::init(-1,8192);
   // generate a little test dataset

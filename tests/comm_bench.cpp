@@ -16,7 +16,7 @@ char expectedval;
 mutex trigger_lock;
 conditional trigger_cond;
 
-void receive(int machine, char* c, size_t len) {
+void receive(int machine, const char* c, size_t len) {
   ASSERT_EQ(len, expectedlen);
   if ( CHECK_COMM_RESULT) {
     bool t = true;
@@ -36,7 +36,13 @@ int main(int argc, char** argv) {
   mpi_comm* comm = new mpi_comm(&argc, &argv, 
                                 (size_t)1 * 1024 * 1024 * 1024);
    */
-  mpi_comm* comm = new mpi_comm(&argc, &argv);
+  graphlab::comm_base* comm ;
+  if (argc > 1) {
+    comm = graphlab::comm_base::create(argv[1], &argc, &argv);
+  } else { 
+    comm = graphlab::comm_base::create("mpi", &argc, &argv);
+  }
+  assert(comm != NULL);
   comm->register_receiver(&receive, true);
   assert(comm->size() >= 2);
   if (comm->rank() == 0) std::cout << "barrier test.\n";

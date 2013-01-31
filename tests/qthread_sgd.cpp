@@ -111,13 +111,13 @@ void send_requests(const std::vector<feature>& x,
   std::vector<request_message> message;
   message.resize(comm->size());
   for (size_t i = 0; i < x.size(); ++i) {
-    size_t targetmachine = x[i].id % comm->size();
+    int targetmachine = x[i].id % comm->size();
     if (targetmachine == comm->rank()) result->store[x[i].id] = weights[x[i].id];
     else message[targetmachine].ids.push_back(x[i].id);
   }
   // figure out the number of requests we are making
   size_t numrequests = 0;
-  for (size_t i = 0;i < comm->size(); ++i) numrequests += (message[i].ids.size() > 0);
+  for (int i = 0;i < comm->size(); ++i) numrequests += (message[i].ids.size() > 0);
   result->num_requests.value = numrequests;
   if (numrequests == 0) {
     graphlab::qthread_future<request_future_result>::signal(result);
@@ -126,7 +126,7 @@ void send_requests(const std::vector<feature>& x,
   //printf("Req 0x%lx\n", result);
   // fill in the request_handle_pointer in the message
   // and send it out
-  for (size_t i = 0;i < comm->size(); ++i) {
+  for (int i = 0;i < comm->size(); ++i) {
     if (message[i].ids.size() > 0) {
       message[i].request_handle_ptr = reinterpret_cast<size_t>(result);
       graphlab::oarchive* oarc = rpc->prepare_message(WEIGHT_REQUEST);
@@ -185,14 +185,14 @@ void send_update(const boost::unordered_map<size_t, double>& updates) {
   message.resize(comm->size());
   boost::unordered_map<size_t, double>::const_iterator iter = updates.begin();
   while (iter != updates.end()) {
-    size_t targetmachine = iter->first % comm->size();
+    int targetmachine = iter->first % comm->size();
     if (targetmachine == comm->rank()) weights[iter->first] += iter->second;
     else message[targetmachine].res.push_back(feature(iter->first, iter->second));
     ++iter;
   }
   // fill in the request_handle_pointer in the message
   // and send it out
-  for (size_t i = 0;i < comm->size(); ++i) {
+  for (size_t i = 0;i < (size_t)comm->size(); ++i) {
     if (message[i].res.size() > 0) {
 
       graphlab::oarchive* oarc = rpc->prepare_message(WEIGHT_UPDATE);
@@ -220,7 +220,7 @@ void process_loss_update(graphlab::comm_rpc* rpc,
   iarc >> loss >> dloss;
   global_loss01.inc(loss);
   global_lossl2.inc(dloss);
-  if (loss_count.value == rpc->get_comm()->size() - 1) {
+  if (loss_count.value == (size_t)rpc->get_comm()->size() - 1) {
     std::cout << "Loss01 = " << global_loss01.value << std::endl;
     std::cout << "LossL2 = " << global_lossl2.value << std::endl;
   }
@@ -285,19 +285,19 @@ std::vector<double> generate_dataset(std::vector<std::vector<feature> >& X,
   if (wseed != -1) graphlab::random::seed(wseed);
   // generate a random small weight vector between -1 and 1
   std::vector<double> w(numweights, 0);
-  for (size_t i = 0; i < numweights; ++i) {
+  for (size_t i = 0; i < (size_t)numweights; ++i) {
     w[i] = graphlab::random::fast_uniform<double>(-1.0,1.0);
   }
   std::cout << w[0] << "\n";
 
   if (wseed != -1) graphlab::random::nondet_seed();
 
-  for (size_t i = 0; i < numdata; ++i) {
+  for (size_t i = 0; i < (size_t)numdata; ++i) {
     std::vector<feature> x;  
     // use logistic regression to predict a y
     double linear_predictor = 0;
     // generate a random 25% sparse datapoint
-    for (size_t j = 0; j < numweights; ++j) {
+    for (size_t j = 0; j < (size_t)numweights; ++j) {
       // with 25T probability generate a weight
       if (graphlab::random::bernoulli(sparsity) == 1) {
         x.push_back(feature(j, 
@@ -399,7 +399,7 @@ int main(int argc, char** argv) {
     (*oarc) << loss01.value << lossl2.value;
     rpc->complete_message(0, oarc);
     if (comm->rank() == 0) {
-      while(loss_count.value < comm->rank()) cpu_relax();
+      while(loss_count.value < (size_t)comm->rank()) cpu_relax();
     }
     loss01 = 0;
     loss_count = 0;

@@ -71,11 +71,10 @@ namespace graphlab {
       // insert machines into the address map
       all_addrs.resize(nprocs);
       portnums.resize(nprocs);
-      assert(triggered_timeouts.size() >= nprocs);
       triggered_timeouts.clear();
       // fill all the socks
       sock.resize(nprocs);
-      for (size_t i = 0;i < nprocs; ++i) {
+      for (size_t i = 0;i < (size_t)nprocs; ++i) {
         sock[i].id = i;
         sock[i].owner = this;
         sock[i].outsock = -1;
@@ -117,7 +116,7 @@ namespace graphlab {
       } else {
         open_listening();
       }
-      for(size_t i = 0;i < nprocs; ++i) connect(i); 
+      for(size_t i = 0;i < (size_t)nprocs; ++i) connect(i); 
       // wait for all incoming connections
       insock_lock.lock();
       size_t prevconnected = -1;

@@ -22,6 +22,10 @@ add_library(graphlab3 STATIC
             comm/comm_base.cpp
             comm/mpi_comm.cpp
             comm/comm_rpc.cpp
+            comm/tcp_comm.cpp
+            comm/tcp/dc_buffered_stream_send2.cpp
+            comm/tcp/dc_stream_receive.cpp
+            comm/tcp/dc_tcp_comm.cpp
             parallel/qthread_tools.cpp
            )
 

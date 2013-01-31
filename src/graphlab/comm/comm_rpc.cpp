@@ -12,6 +12,7 @@ comm_rpc::comm_rpc(comm_base* comm):
   bool ret = comm->register_receiver(
       boost::bind(&comm_rpc::receiver, this, _1, _2, _3), 
       true);
+  _comm_has_efficient_send = comm->has_efficient_send();
   assert(ret);
 }
 
@@ -57,15 +58,26 @@ graphlab::oarchive* comm_rpc::prepare_message(unsigned short message_id) {
 }
 
 void comm_rpc::complete_message(int machine, graphlab::oarchive* arc) {
-  _comm->send(machine, arc->buf, arc->off);
-  // reset the offset so we can reuse this buffer
-  arc->off = 0;
-  // test if the arc is part of the pool
-  if (_pool.is_pool_member(arc) == false) {
-    free(arc->buf);
+  if (_comm_has_efficient_send) {
+    // send is efficient. We maintain the buffer and do not give it up
+    // to the comm
+    _comm->send(machine, arc->buf, arc->off);
+    // reset the offset so we can reuse this buffer
+    arc->off = 0;
+    // test if the arc is part of the pool
+    if (_pool.is_pool_member(arc) == false) {
+      free(arc->buf);
+      arc->buf = NULL;
+    }
+    _pool.free(arc);
+  } else {
+    // send_relinquish is more efficient. We give up the buffer
+    _comm->send_relinquish(machine, arc->buf, arc->off);
     arc->buf = NULL;
+    arc->off = 0;
+    arc->len = 0;
+    _pool.free(arc);
   }
-  _pool.free(arc);
 }
 
 

@@ -44,15 +44,23 @@ class comm_base {
                            char*** argv);
   /**
    * Sends a block of data of some length to a
-   * target machine. A copy of the data is made by the comm library.
+   * target machine. A copy of the data is made by the comm class.
    * Fails fatally on an error. This function is thread-safe.
    */ 
   virtual void send(int targetmachine, void* data, size_t length) = 0;
 
   /**
+   * Sends a block of data of some length to a
+   * target machine. The comm class will free the data when done.
+   * Fails fatally on an error. This function is thread-safe.
+   */ 
+  virtual void send_relinquish(int targetmachine, void* data, size_t length) = 0;
+
+
+  /**
    * Flushes all communication issued prior to this call. Blocks
    * until all communication is complete.
-   * This function is thread-safe.
+   * This function is thread-safe. 
    */
   virtual void flush() = 0;
 
@@ -100,6 +108,13 @@ class comm_base {
    * Gets the ID of the current node
    */
   virtual int rank() const = 0;
+
+  /**
+   * Provides some information about the relative efficiency of send()
+   * and send_relinquish(). Returns true if send() is faster or as fast as 
+   * send_relinquish(). False otherwise.
+   */
+  virtual bool has_efficient_send() const = 0;
 };
 
 } // namespace graphlab;

@@ -2,6 +2,7 @@
 #include <boost/bind.hpp>
 #include <graphlab/comm/comm_base.hpp>
 #include <graphlab/comm/mpi_comm.hpp>
+#include <graphlab/comm/tcp_comm.hpp>
 
 namespace graphlab {
  
@@ -11,6 +12,10 @@ comm_base* comm_base::create(const char* descriptor,
   if (strcmp(descriptor, "mpi") == 0 || 
       strcmp(descriptor, "MPI") == 0) {
     return new mpi_comm(argc, argv);
+  }
+  else if (strcmp(descriptor, "tcp") == 0 || 
+      strcmp(descriptor, "TCP") == 0) {
+    return new tcp_comm(argc, argv);
   }
   else {
     return NULL;
@@ -38,8 +43,10 @@ void comm_base::receive_loop() {
     void* msg = NULL;
     do {
       msg = receive(&source, &len);
-      _receivefun(source, (char*)(msg), len);
-      free(msg);
+      if (msg != NULL) {
+        _receivefun(source, (char*)(msg), len);
+        free(msg);
+      }
     } while(!_done && msg != NULL);
     usleep(1000);
   }

@@ -55,4 +55,14 @@ void graph_row::shallowcopy(graph_row& out_row) {
   out_row._data = _data;
   out_row._is_vertex = _is_vertex;
 }
+
+void graph_row::deepcopy(graph_row& out_row) {
+  out_row._database = _database;
+  out_row._is_vertex = _is_vertex;
+  out_row._values.resize(num_fields());
+  for (size_t i = 0; i < num_fields(); i++) {
+    _values[i].deepcopy(out_row._values[i]);
+    _data[i] = &(_values[i]);
+  }
+}
 } // namespace graphlab

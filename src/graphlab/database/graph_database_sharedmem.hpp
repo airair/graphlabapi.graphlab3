@@ -10,6 +10,7 @@
 #include <graphlab/database/graph_edge_index.hpp>
 #include <graphlab/database/graph_database.hpp>
 #include <graphlab/database/graph_vertex_sharedmem.hpp>
+#include <graphlab/database/graph_sharding_constraint.hpp>
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
 /**
@@ -17,31 +18,47 @@ namespace graphlab {
  * An shared memory implementation of a graph database
  */
 class graph_database_sharedmem : public graph_database {
+  // schema for vertex and edge datatypes
   std::vector<graph_field> vertex_fields;
   std::vector<graph_field> edge_fields;
-  std::vector<graph_shard> shards;
-  graph_vertex_index vertex_index;
-  graph_edge_index edge_index;
 
-  size_t _num_vertices;
+  // simulates backend storage of data
+  std::vector<graph_shard> shards;
+  // Array stores the vertex data.
+  std::vector<graph_row*> vertex_store; 
+  // dependencies between shards
+  sharding_constraint sharding_graph;
+
+  // index service for fine grained queries 
+  graph_vertex_index vertex_index;
+  std::vector<graph_edge_index> edge_index;
+
   size_t _num_edges;
+
  public:
    graph_database_sharedmem(std::vector<graph_field> vertex_fields,
                             std::vector<graph_field> edge_fields,
-                            size_t numshards) { }
-
-   ~graph_database_sharedmem() {
-     for (size_t i = 0; i < shards.size(); ++i)
-        free(&shards[i]); 
+                            size_t numshards) :sharding_graph(numshards, "grid") { 
+     _num_edges = 0; 
+     shards.resize(numshards);
+     edge_index.resize(numshards);
    }
 
+   virtual ~graph_database_sharedmem() {
+     for (size_t i = 0; i < shards.size(); ++i) {
+       shards[i].clear();
+     }
+     for (size_t i = 0; i < vertex_store.size(); i++) {
+       vertex_store[i]->_data.clear();
+     }
+   }
 
   /**
    * Returns the number of vertices in the graph.
    * This may be slow.
    */
   uint64_t num_vertices() {
-    return _num_vertices;
+    return vertex_store.size();
   };
   
   /**
@@ -65,14 +82,16 @@ class graph_database_sharedmem : public graph_database {
   const std::vector<graph_field>& get_edge_fields() {
     return edge_fields;
   };
- 
+
+
   // -------- Fine grained API ------------
 
   /** returns a vertex in ret_vertex for a queried vid. Returns NULL on failure
    * The returned vertex pointer must be freed using free_vertex
    */
   graph_vertex* get_vertex(graph_vid_t vid) {
-    return (new graph_vertex_sharedmem(vid, &vertex_index, &edge_index, this));
+    size_t idx = vertex_index.get_index(vid);
+    return (new graph_vertex_sharedmem(vid, vertex_store[idx], &edge_index, this));
   };
 
   /**
@@ -85,6 +104,7 @@ class graph_database_sharedmem : public graph_database {
                            graph_int_t value, 
                            std::vector<graph_vid_t>* out_vids) {
     // not implemented
+    ASSERT_TRUE(false);
     return false;
   };
 
@@ -98,6 +118,7 @@ class graph_database_sharedmem : public graph_database {
                            graph_string_t value, 
                            std::vector<graph_vid_t>* out_vids) {
     // not implemented
+    ASSERT_TRUE(false);
     return false;
   };
 
@@ -150,6 +171,7 @@ class graph_database_sharedmem : public graph_database {
   graph_shard* get_shard_contents_adj_to(graph_shard_id_t shard_id,
                                                  graph_shard_id_t adjacent_to) {
     // not implemented
+    ASSERT_TRUE(false);
     return NULL;
   }
   /**
@@ -164,7 +186,7 @@ class graph_database_sharedmem : public graph_database {
    */
   void adjacent_shards(graph_shard_id_t shard_id, 
                                std::vector<graph_shard_id_t>* out_adj_shard_ids) { 
-    // not implemented
+    sharding_graph.get_neighbors(shard_id, *out_adj_shard_ids);
   }
 
   /**
@@ -173,8 +195,54 @@ class graph_database_sharedmem : public graph_database {
    */
   void commit_shard(graph_shard* shard) {
     // not implemented 
+    ASSERT_TRUE(false);
   }
 
+// ----------- Modification API -----------------
+  /*
+   * Insert the vertex v into a shard = hash(v) as master
+   * Return false if v is already inserted.
+   */
+  bool add_vertex(graph_vid_t vid) {
+    if (vertex_index.has_vertex(vid)) {
+      return false;
+    }
+    // create a new row of all null values.
+    graph_row* row = new graph_row(this, vertex_fields);
+    row->_is_vertex = true;
+    vertex_store.push_back(row);
+    // update vertex index 
+    vertex_index.add_vertex(vid, row, vertex_store.size()-1);
+    return true;
+  }
+
+  /**
+   * Insert an edge from source to target with empty value.
+   * Also insert vertex copies into the corresponding shards.
+   */
+  void add_edge(graph_vid_t source, graph_vid_t target) {
+    boost::hash<std::pair<graph_vid_t, graph_vid_t> > edge_hash;
+    graph_shard_id_t shardid = edge_hash(std::pair<graph_vid_t, graph_vid_t>(source, target)) % shards.size();
+
+    // create a new row of all null values
+    graph_row* row = new graph_row(this, edge_fields);
+    row->_is_vertex = false;
+    size_t pos = get_shard(shardid)->add_edge(source, target, row);
+    _num_edges++;
+
+    // update_edge_index
+    edge_index[shardid].add_edge(source, target, pos);
+
+    // add source vertex to the shard if it was not there before
+    if (!vertex_index.has_vertex(source)) {
+      add_vertex(source);
+    }
+
+    // add target vertex to the shard  if it was not there before
+    if (!vertex_index.has_vertex(target)) {
+      add_vertex(target);
+    }
+  }
 };
 } // namespace graphlab
 #include <graphlab/macros_undef.hpp>

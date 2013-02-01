@@ -30,6 +30,20 @@ class graph_row {
   
   /// An array of all the values on this row
   std::vector<graph_value*> _data;
+
+  graph_row() {}
+
+  // Create an row with all NULL values in the given fields
+  graph_row(graph_database* database, std::vector<graph_field>& fields) :
+    _database(database) {
+    for (size_t i = 0; i < fields.size(); i++) {
+      graph_value* val = new graph_value();
+      val->_type = fields[i].type;
+      _data.push_back(val);
+    }
+  }
+
+  ~graph_row() {}
   
   /// If true, this represents a vertex; if false, this represents an edge.
   bool _is_vertex;
@@ -83,6 +97,12 @@ class graph_row {
    * Makes a shallow copy of this row into out_row. 
    */
   void shallowcopy(graph_row& out_row);
+
+  /**
+   * Makes a deep copy of this row into out_row. 
+   */
+  void deepcopy (graph_row& out_row);
+
 
 
 

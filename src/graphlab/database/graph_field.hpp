@@ -16,6 +16,9 @@ struct graph_field {
   bool is_indexed;
   graph_datatypes_enum type;
   size_t max_data_length;
+
+  graph_field(std::string name, graph_datatypes_enum type) :
+     name(name), type(type) {} 
 };
 
 } // namespace graphlab

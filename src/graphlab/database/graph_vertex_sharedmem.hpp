@@ -36,18 +36,19 @@ class graph_vertex_sharedmem : public graph_vertex {
   graph_vid_t vid;
   // Cache of the vertex data. 
   graph_row* cache;
-  // Index of the vertices
-  graph_vertex_index* vertex_index;
-  graph_edge_index* edge_index;
+  // Index of the edges
+  std::vector<graph_edge_index>* edge_index;
   graph_database* database;
 
  public:
   /**
    * Create a graph vertex object 
    */
-  graph_vertex_sharedmem(graph_vid_t vid, graph_vertex_index* vindex,
-                         graph_edge_index* eindex, graph_database* db) : 
-      vid(vid), vertex_index(vindex), edge_index(eindex), database(db) { cache = NULL; }
+  graph_vertex_sharedmem(graph_vid_t vid,
+                         graph_row* data,
+                         std::vector<graph_edge_index>* eindex,
+                         graph_database* db) : 
+      vid(vid), cache(data), edge_index(eindex), database(db) {}
 
   /**
    * Returns the ID of the vertex
@@ -87,7 +88,14 @@ class graph_vertex_sharedmem : public graph_vertex {
    * and update the _old values for each modified graph_value in the 
    * graph_row.
    */ 
-  void write_changes() {  }
+  void write_changes() {  
+    for (size_t i = 0; i < cache->num_fields(); i++) {
+      graph_value* val = cache->get_field(i);
+      if (val->get_modified()) {
+        val->post_commit_state();
+      }
+    }
+  }
 
   /**
    * Commits changes made to the data on this vertex asynchronously.
@@ -104,7 +112,9 @@ class graph_vertex_sharedmem : public graph_vertex {
    * and update the _old values for each modified graph_value in the 
    * graph_row.
    */ 
-  void write_changes_async() { }
+  void write_changes_async() { 
+    write_changes();
+  }
 
   /**
    * Synchronously refreshes the local copy of the data from the database, 
@@ -123,7 +133,9 @@ class graph_vertex_sharedmem : public graph_vertex {
    * implemented that way. This call may invalidate all previous
    * graph_row pointers returned by \ref data() . 
    */ 
-  void write_and_refresh() { }
+  void write_and_refresh() { 
+    write_changes();
+  }
 
   // --- sharding ---
 
@@ -131,24 +143,26 @@ class graph_vertex_sharedmem : public graph_vertex {
    * Returns the ID of the shard that owns this vertex
    */
   graph_shard_id_t master_shard() {
-    return vertex_index->get_master(vid);
+    // not implemented
+    ASSERT_TRUE(false);
+    return -1;
   };
 
   /**
    * returns the number of shards this vertex spans
    */
   size_t get_num_shards() {
-    std::vector<graph_shard_id_t> mirrors = vertex_index->get_mirrors(vid);
-    return 1+mirrors.size();
+    // not implemented
+    ASSERT_TRUE(false);
+   return -1;
   };
 
   /**
    * returns a vector containing the shard IDs this vertex spans
    */
   std::vector<graph_shard_id_t> get_shard_list() {
-    std::vector<graph_shard_id_t> span(vertex_index->get_mirrors(vid));
-    span.push_back(vertex_index->get_master(vid));
-    return span;
+    ASSERT_TRUE(false);
+    return std::vector<graph_shard_id_t>();
   };
 
   // --- adjacency ---
@@ -177,7 +191,8 @@ class graph_vertex_sharedmem : public graph_vertex {
     std::vector<size_t> index_out;
     bool getIn = out_inadj!=NULL;
     bool getOut = out_outadj!=NULL;
-    edge_index->get_edge_index(index_in, index_out, getIn, getOut, shard_id, vid);
+    edge_index->at(shard_id).get_edge_index(index_in, index_out, getIn, getOut, vid);
+
     foreach(size_t& idx, index_in) {  
       std::pair<graph_vid_t, graph_vid_t> pair = database->get_shard(shard_id)->edge(idx);
       graph_row* row = NULL;
@@ -186,16 +201,16 @@ class graph_vertex_sharedmem : public graph_vertex {
       }
       out_inadj->push_back(new graph_edge_sharedmem(pair.first, pair.second, row, shard_id, database)); 
     }
-    // foreach(size_t& idx, index_out) {  
-    //   std::pair<graph_vid_t, graph_vid_t> pair = database->get_shard(shard_id)->edge_data(idx);
-    //   graph_row* row = NULL;
-    //   if (prefetch_data) {
-    //     row = database->get_shard(shard_id)->edge_data(idx);
-    //   }
-    //   out_inadj->push_back(graph_edge_sharedmem(pair.first(), pair.second()), row, shard_id, database); 
-    // }
- }
 
+    foreach(size_t& idx, index_out) {  
+      std::pair<graph_vid_t, graph_vid_t> pair = database->get_shard(shard_id)->edge(idx);
+      graph_row* row = NULL;
+      if (prefetch_data) {
+        row = database->get_shard(shard_id)->edge_data(idx);
+      }
+      out_outadj->push_back(new graph_edge_sharedmem(pair.first, pair.second, row, shard_id, database)); 
+    }
+  }
 }; // end of class
 } // namespace graphlab
 #include <graphlab/macros_undef.hpp>

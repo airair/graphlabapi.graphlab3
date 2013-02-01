@@ -29,40 +29,43 @@ struct graph_shard_impl {
    * An array of the vertex IDs in this shard. 
    * The array has num_vertices elements
    */
-  graph_vid_t* vertex;
+  std::vector<graph_vid_t> vertex;
 
   /**
    * An array of all the vertex data in this shard.
    * The array has num_edges elements
    */
-  graph_row* vertex_data;
+  std::vector<graph_row*> vertex_data;
 
   /**
    * A array of length num_vertices where <code>num_out_edges[i]</code> is the number 
    * number of out edges of vertex <code>vertices[i]</code> in the graph.
    */
-  size_t* num_out_edges;
+  std::vector<size_t> num_out_edges;
 
   /**
    * A array of length num_vertices where <code>num_in_edges[i]</code> is the number 
    * number of in edges of vertex <code>vertices[i]</code> in the graph.
    */
-  size_t* num_in_edges;
+  std::vector<size_t> num_in_edges;
 
   /**
    * An array of length num_edges. Listing for each edge in the shard, 
    * its source and target vertices. The data for edge i is stored in 
    * edge_data[i] .
    */
-  std::pair<graph_vid_t, graph_vid_t>* edge;
+  std::vector< std::pair<graph_vid_t, graph_vid_t> > edge;
 
   /**
    * An array of length num_edges of all the edge data in the shard. 
    * This array has a 1-1 corresponding to the edges array.
    */
-  graph_row* edge_data;
+  std::vector<graph_row*> edge_data;
+
+  graph_shard_impl() { 
+    num_vertices = num_edges = 0;
+  }
 
 };
-
 } // namespace graphlab
 #endif

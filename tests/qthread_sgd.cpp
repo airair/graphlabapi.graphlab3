@@ -305,6 +305,8 @@ void generate_datapoint(std::vector<feature> & x,
   double py1 = 1.0 - py0;
   // generate a 0/1Y value. 
   y = graphlab::random::rand01() >= py1;
+  //if (graphlab::random::rand01() < 0.1) y = !y;
+  //y = py1 + graphlab::random::gaussian();
 }
 
 
@@ -334,7 +336,7 @@ int main(int argc, char** argv) {
   std::cout << "Using " << numthreads << " threads per machine\n";
   std::cout << numweights << " weights\n";
   std::cout << "Features Per X: " << num_features_per_x <<  "\n";
-  stepsize = 0.1;
+  stepsize = 0.01;
 
 
 
@@ -379,7 +381,7 @@ int main(int argc, char** argv) {
             
   comm->barrier();
   for (size_t iter = 0; iter < 100; ++iter) {
-    datapoints_so_far = (iter + 1) * points_per_machine * comm->size();
+    datapoints_so_far = (iter + 1) * points_per_iter * comm->size();
     graphlab::timer ti; ti.start();
     timestep = iter;
     for (size_t i = 0;i < numthreads; ++i) {

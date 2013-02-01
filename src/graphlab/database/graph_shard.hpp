@@ -4,6 +4,7 @@
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/database/graph_row.hpp>
 #include <graphlab/database/graph_shard_impl.hpp>
+#include <boost/functional/hash.hpp>
 
 // forward declaration
 class graph_database;
@@ -62,7 +63,7 @@ class graph_shard {
    * vertex_data(i) corresponds to the data on the vertex with ID vertex(i)
    * i must range from 0 to num_vertices() - 1 inclusive.
    */
-  inline graph_row* vertex_data(size_t i) { return shard_impl.vertex_data + i; }
+  inline graph_row* vertex_data(size_t i) { return shard_impl.vertex_data[i]; }
   
   /**
    * Returns the number of out edges of the vertex in the i'th position in this
@@ -93,33 +94,55 @@ class graph_shard {
    * edge_data(i) corresponds to the data on the edge edge(i)
    * i must range from 0 to num_edges() - 1 inclusive.
    */
-  inline graph_row* edge_data(size_t i) { return shard_impl.edge_data + i; }
+  inline graph_row* edge_data(size_t i) { return shard_impl.edge_data[i]; }
 
 
+// ----------- Modification API -----------------
   /**
    * Clear the content of this shard. Remove all vertex and edge info.
    */
   inline void clear() {
-      delete[] shard_impl.vertex;
-      delete[] shard_impl.num_in_edges;
-      delete[] shard_impl.num_out_edges;
-      delete[] shard_impl.edge;
+      // delete[] shard_impl.vertex;
+      // delete[] shard_impl.num_in_edges;
+      // delete[] shard_impl.num_out_edges;
+      // delete[] shard_impl.edge;
       for (size_t i = 0; i < num_vertices(); ++i) {
-        shard_impl.vertex_data[i]._values.clear();
+        shard_impl.vertex_data[i]->_values.clear();
       }
-      delete[] shard_impl.vertex_data;
+      // delete[] shard_impl.vertex_data;
       for (size_t i = 0; i < num_edges(); ++i) {
-        shard_impl.edge_data[i]._values.clear();
+        shard_impl.edge_data[i]->_values.clear();
       }
-      delete[] shard_impl.edge_data;
+      // delete[] shard_impl.edge_data;
   }
+
+  /**
+   * Insert a (vid, pair) into the shard. Return the position of the vertex in the shard.
+   * */
+  inline size_t add_vertex(graph_vid_t vid, graph_row* data) {
+    size_t pos = (shard_impl.num_vertices++);
+    shard_impl.vertex.push_back(vid);
+    shard_impl.vertex_data.push_back(data);
+    return pos;
+  }
+
+  /**
+   * Insert a (vid, pair) into the shard. Return the position of the vertex in the shard.
+   * */
+  inline size_t add_edge(graph_vid_t source, graph_vid_t target, graph_row* data) {
+    size_t pos = (shard_impl.num_edges++);
+    shard_impl.edge.push_back(std::pair<graph_vid_t, graph_vid_t>(source, target));
+    shard_impl.edge_data.push_back(data);
+    return pos;
+  }
+
 
  private:
   // copy constructor deleted. It is not safe to copy this object.
-  graph_shard(const graph_shard&) { }
+  // graph_shard(const graph_shard&) { }
 
   // assignment operator deleted. It is not safe to copy this object.
-  graph_shard& operator=(const graph_shard&) { return *this; }
+  // graph_shard& operator=(const graph_shard&) { return *this; }
 
   friend class graph_database;
 };

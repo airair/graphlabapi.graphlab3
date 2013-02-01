@@ -236,15 +236,34 @@ class graph_value {
     }
   }
 
- private:
-  // copy constructor deleted. It is not safe to copy this object.
-  graph_value(const graph_value&) { } 
 
-  // assignment operator deleted. It is not safe to copy this object.
-  graph_value& operator=(const graph_value&) { return *this; }
+  /**
+   * Set the value to post commit state: setting oldvalue to be new value,
+   * remove modification flags.
+   */
+  void post_commit_state() {
+    if (is_null() && _old.bytes != NULL) {
+        free(_old.bytes);
+        _old.bytes = NULL;
+    } else if (is_scalar_graph_datatype(_type)) {
+      _old = _data;
+    } else if ((_type == STRING_TYPE || _type == BLOB_TYPE) && _data.bytes != NULL) {
+      _old.bytes = reinterpret_cast<char*>(realloc(_old.bytes, _len));
+      memcpy(_data.bytes, _data.bytes, _len);
+    }
+    _modified = false;
+  }
 
   // Deepcopy into out_value. 
   void deepcopy(graph_value& out_value);
+
+ private:
+  // copy constructor deleted. It is not safe to copy this object.
+  // graph_value(const graph_value&) { } 
+
+  // assignment operator deleted. It is not safe to copy this object.
+  // graph_value& operator=(const graph_value&) { return *this; }
+
 };
 
 } // namespace graphlab

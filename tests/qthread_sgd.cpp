@@ -21,6 +21,7 @@
 #define WEIGHT_REPLY   (1)
 #define WEIGHT_UPDATE  (2)
 #define LOSS_INCREMENT (3)
+#define WEIGHT_SYNC    (4)
 
 std::vector<double> weights;
 std::vector<double> true_weights;
@@ -36,6 +37,7 @@ graphlab::atomic<size_t> global_loss01;
 graphlab::atomic<double> lossl2;
 graphlab::atomic<double> global_lossl2;
 graphlab::atomic<size_t> loss_count;
+graphlab::atomic<size_t> weight_sync;
 struct feature: public graphlab::IS_POD_TYPE {
   size_t id;
   double value;
@@ -234,6 +236,18 @@ void process_loss_update(graphlab::comm_rpc* rpc,
   loss_count.inc();
 }
 
+void process_weight_sync(graphlab::comm_rpc* rpc,
+                         int source, const char* c, size_t len) {
+  graphlab::iarchive iarc(c, len);
+  std::vector<double> other_weight;
+  iarc >> other_weight;
+  std::cout << "Receiving weights from " << source << "\n";
+  for (size_t i = source; i < weights.size(); i += rpc->get_comm()->size()) {
+    weights[i] = other_weight[i];
+  }
+  weight_sync.inc(); 
+}
+
 /**
  * Takes a logistic gradient step using the datapoint (x,y)
  * changes the global variable weights, timestep
@@ -310,6 +324,17 @@ void generate_datapoint(std::vector<feature> & x,
 }
 
 
+double test_data_point(const std::vector<feature>& x, double Y,
+                     const std::vector<double>& w) {
+  double linear_predictor = 0;
+  for (size_t j = 0; j < x.size(); ++j) {
+    linear_predictor += x[j].value * weights[x[j].id];
+  }
+  double py0 = 1.0 / (1 + std::exp(linear_predictor));
+  double py1 = 1.0 - py0;
+  return py1;
+}
+
 void data_loop(size_t num_points) {
   std::vector<feature> x;
   double y;
@@ -355,7 +380,7 @@ int main(int argc, char** argv) {
   rpc->register_handler(WEIGHT_REPLY, process_reply);
   rpc->register_handler(WEIGHT_UPDATE, process_update); 
   rpc->register_handler(LOSS_INCREMENT, process_loss_update); 
-
+  rpc->register_handler(WEIGHT_SYNC, process_weight_sync); 
 
   comm->barrier();
   // set the stacksize to 8192
@@ -363,11 +388,21 @@ int main(int argc, char** argv) {
   // generate ground truth vector
   generate_ground_truth_weight_vector(numweights, 1234);
   weights.resize(numweights);
+
+
+  // generate test data
+  std::vector<std::vector<feature> > testX(1000);
+  std::vector<double> testY(1000);
+  for (size_t i = 0;i < testY.size(); ++i) {
+    generate_datapoint(testX[i], testY[i], num_features_per_x);
+  }
+
   loss01 = 0;
   global_loss01 = 0;
   lossl2 = 0.0;
   global_lossl2 = 0.0;
   loss_count = 0;
+  weight_sync = 0;
   comm->barrier();
   graphlab::qthread_group group;
   // we synchronize 100 times for ndata points
@@ -394,13 +429,35 @@ int main(int argc, char** argv) {
     graphlab::oarchive* oarc = rpc->prepare_message(LOSS_INCREMENT);
     (*oarc) << loss01.value << lossl2.value;
     rpc->complete_message(0, oarc);
+
     if (comm->rank() == 0) {
       while(loss_count.value < comm->rank()) cpu_relax();
     }
+  
+    if (comm->rank() > 0) {
+      graphlab::oarchive* oarc = rpc->prepare_message(WEIGHT_SYNC);
+      (*oarc) << weights;
+      rpc->complete_message(0, oarc);
+    }
+    if (comm->rank() == 0) {
+      while(weight_sync.value + 1 < comm->rank()) cpu_relax();
+  
+      double testlossl2 = 0;
+      size_t testloss01 = 0;
+      for (size_t i = 0;i < testY.size(); ++i) {
+        double ret = test_data_point(testX[i], testY[i], weights);
+        testlossl2 += ((testY[i] - ret) * (testY[i] - ret));
+        testloss01 += (testY[i] != (ret >= 0.5));
+      }
+      std::cout << "Test Loss 01: " << double(testloss01) / testY.size() << "\n";
+      std::cout << "Test Loss L2: " << testlossl2 / testY.size() << "\n";
+    }
+
     if (comm->rank() == 0) {
       std::cout << iter << " iterations\n";
     }
     loss_count = 0;
+    weight_sync = 0;
     loss01 = 0;
     lossl2 = 0.0;
 

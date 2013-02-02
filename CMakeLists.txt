@@ -78,6 +78,25 @@ endif()
 ## ============================================================================
 # Build external dependencies
 
+# Build eigen =================================================================
+# TODO: Move to toolkits.
+# While eigen is not used in the core GraphLab library we found it
+# useful to have a matrix library. For now we download eigen from
+# our servers since the eigen servers use SSL which is not supported
+# by cmake DOWNLOAD_COMMAND hg clone
+# https://bitbucket.org/eigen/eigen/
+ExternalProject_Add(eigen
+  PREFIX ${GraphLab_SOURCE_DIR}/deps/eigen
+  URL http://graphlab.org/deps/eigen_3.1.2.tar.bz2
+  URL_MD5 e9c081360dde5e7dcb8eba3c8430fde2
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND ""
+  BUILD_IN_SOURCE 1  
+  INSTALL_COMMAND cp -r Eigen unsupported <INSTALL_DIR>/
+  INSTALL_DIR ${GraphLab_SOURCE_DIR}/deps/local/include)
+add_definitions(-DHAS_EIGEN)
+
+
 # libbz  =================================================================
 ExternalProject_Add(libbz2
   PREFIX ${GraphLab_SOURCE_DIR}/deps/libbz2

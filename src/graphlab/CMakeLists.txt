@@ -21,6 +21,7 @@ add_library(graphlab3 STATIC
             database/graph_value.cpp
             comm/comm_base.cpp
             comm/mpi_comm.cpp
+            comm/mpi_comm2.cpp
             comm/comm_rpc.cpp
             comm/tcp_comm.cpp
             comm/tcp/dc_buffered_stream_send2.cpp

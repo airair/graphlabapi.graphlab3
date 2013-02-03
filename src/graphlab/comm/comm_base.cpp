@@ -2,6 +2,7 @@
 #include <boost/bind.hpp>
 #include <graphlab/comm/comm_base.hpp>
 #include <graphlab/comm/mpi_comm.hpp>
+#include <graphlab/comm/mpi_comm2.hpp>
 #include <graphlab/comm/tcp_comm.hpp>
 
 namespace graphlab {
@@ -14,8 +15,11 @@ comm_base* comm_base::create(const char* descriptor,
       strcmp(descriptor, "MPI") == 0) {
     ret = new mpi_comm(argc, argv);
     if (ret->rank() == 0) std::cout << "MPI Communicator constructed\n";
-  }
-  else if (strcmp(descriptor, "tcp") == 0 || 
+  } else if (strcmp(descriptor, "mpi2") == 0 || 
+      strcmp(descriptor, "MPI2") == 0) {
+    ret = new mpi_comm2(argc, argv);
+    if (ret->rank() == 0) std::cout << "MPI Communicator constructed\n";
+  } else if (strcmp(descriptor, "tcp") == 0 || 
       strcmp(descriptor, "TCP") == 0) {
     ret = new tcp_comm(argc, argv);
     if (ret->rank() == 0) std::cout << "TCP Communicator constructed\n";

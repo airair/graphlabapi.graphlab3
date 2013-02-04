@@ -1,0 +1,4885 @@
+#LyX 1.6.7 created this file. For more info see http://www.lyx.org/
+\lyxformat 345
+\begin_document
+\begin_header
+\textclass article
+\begin_preamble
+\usepackage{color}
+
+\lstset{basicstyle={\footnotesize\ttfamily},commentstyle={\color[rgb]{0.133,0.545,0.133}},keywordstyle={\color[rgb]{0,0,1}},language={[GNU]C++},stringstyle={\color[rgb]{0.627,0.126,0.941}}}
+\end_preamble
+\use_default_options true
+\language english
+\inputencoding auto
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry true
+\use_amsmath 1
+\use_esint 1
+\cite_engine basic
+\use_bibtopic false
+\paperorientation portrait
+\leftmargin 1in
+\topmargin 1in
+\rightmargin 1in
+\bottommargin 1in
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\defskip medskip
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\author "" 
+\author "" 
+\end_header
+
+\begin_body
+
+\begin_layout Title
+GraphLab 3 Design
+\end_layout
+
+\begin_layout Section*
+Introduction
+\end_layout
+
+\begin_layout Standard
+This document aims to lay the groundwork for a 
+\series bold
+minimal
+\series default
+ specification of a GraphLab 3 computation system as well a Graph Database
+ interface to support it.
+ The specification is not meant to be complete and leaves open many possible
+ extensions (for instance edge indexing, more datatypes, enforcing constaints,
+ indexes on grouped fields, cursors, etc) that might be necessary for a
+ true graph database.
+ 
+\end_layout
+
+\begin_layout Standard
+Also not defined are the following:
+\end_layout
+
+\begin_layout Enumerate
+How vertex insertions trigger computation.
+\end_layout
+
+\begin_layout Enumerate
+Other database like operations
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+To support these operations on arbitrary backends, it is likely that a set
+ of 
+\begin_inset Quotes eld
+\end_inset
+
+lock servers
+\begin_inset Quotes erd
+\end_inset
+
+ will be necessary.
+\end_layout
+
+\end_inset
+
+:
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+Atomic 
+\series bold
+REPLACE
+\series default
+ operations (CAS) on edge data / vertex data
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+UPDATE
+\series default
+ operations on edge data / vertex.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+DELETE
+\series default
+ operations on edges / vertices.
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+Re-partitioning (migration of vertices/edges)
+\end_layout
+
+\begin_layout Enumerate
+Multiple simultaneously running computation engines.
+\end_layout
+
+\begin_layout Standard
+The document is roughly split into 4 parts.
+ 
+\end_layout
+
+\begin_layout Enumerate
+The 1st section (GraphLabDB) is a description of the database and of the
+ interface.
+ 
+\end_layout
+
+\begin_layout Enumerate
+The 2nd section (GraphLabCompute) outlines the GraphLab 3 computation model
+ and describes a possible user-facing interface.
+ 
+\end_layout
+
+\begin_layout Enumerate
+The 3rd section (Implementation) outlines one possible implementation (this
+ is to ensure that the system is actually possible to implement in a moderately
+ efficient manner.
+\end_layout
+
+\begin_layout Enumerate
+The last section (Sharding) describes a new sharding model which generalizes
+ the GraphChi design and has some interesting theoretical implications.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage clearpage
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+GraphLabDB
+\end_layout
+
+\begin_layout Standard
+The graph is a directed multigraph of vertices and edges.
+ Note that this is a relaxation from GraphLab 1/2: there can be multiple
+ edges between 2 vertices.
+ Self edges are not allowed.
+\end_layout
+
+\begin_layout Standard
+Each vertex in the graph has a unique 128-bit ID which is user assigned.
+ Vertex IDs need not be sequential and the entire 128-bit range must be
+ useable.
+ (The system may prescribe other internal IDs, but this is not strictly
+ necessary)
+\end_layout
+
+\begin_layout Standard
+All vertices share a fixed set of named fields where the fields are of the
+ following defined types.
+ 
+\end_layout
+
+\begin_layout Description
+INT64: 64-bit signed integer 
+\end_layout
+
+\begin_layout Description
+DOUBLE: 64-bit double 
+\end_layout
+
+\begin_layout Description
+STRING: Bounded length string
+\end_layout
+
+\begin_layout Description
+BLOB: arbitrary binary object 
+\end_layout
+
+\begin_layout Standard
+This list of field types is not exhaustive and may be expanded in the future
+ to include sparse/dense vector/matrix types, or even JSON entries.
+\end_layout
+
+\begin_layout Standard
+Every vertex share a fixed set of named fields.
+ For instance, a web graph could have the following:
+\end_layout
+
+\begin_layout LyX-Code
+ID: VERTEX_ID (required 128-bit field)
+\end_layout
+
+\begin_layout LyX-Code
+PageURL: STRING 
+\end_layout
+
+\begin_layout LyX-Code
+Body: BLOB 
+\end_layout
+
+\begin_layout LyX-Code
+PageRank: DOUBLE 
+\end_layout
+
+\begin_layout Standard
+Similarly every edge also share a fixed set of named fields.
+ For instance, a web graph could have the following:
+\end_layout
+
+\begin_layout LyX-Code
+LinkFontSize: INTEGER 
+\end_layout
+
+\begin_layout LyX-Code
+LinkText: STRING
+\end_layout
+
+\begin_layout Subsection
+Null Values
+\end_layout
+
+\begin_layout Standard
+If a field is not set, its value may be NULL, which denotes an missing value.
+\end_layout
+
+\begin_layout Subsection
+Indexing
+\end_layout
+
+\begin_layout Standard
+INT64 and STRING fields on vertices may be marked as INDEXED, allowing these
+ vertices to be identified by these fields.
+ It is not necessary for the contents of the indexed fields to be unique.
+ For instance, a web graph may choose to index the 
+\begin_inset Quotes eld
+\end_inset
+
+PageURL
+\begin_inset Quotes erd
+\end_inset
+
+ field, allowing direct searches for a vertex given a URL.
+  NULL values are ignored (and cannot be searched).
+\end_layout
+
+\begin_layout Subsection
+Graph Layout
+\end_layout
+
+\begin_layout Standard
+The database must define a sharding strategy based on vertex seperators
+ where each edge in the graph is uniquely assigned to a shard.
+ As in GraphLab 2, each vertex may appear in multiple shards and for which
+ one instance of the vertex is designated the 
+\series bold
+master
+\series default
+, and all remaining instances are designated as 
+\series bold
+mirrors.
+\end_layout
+
+\begin_layout Standard
+A graph shard therefore contains the following information:
+\end_layout
+
+\begin_layout Enumerate
+A list of all the edges stored in this shard as well as the edge data for
+ these edges.
+\end_layout
+
+\begin_layout Enumerate
+A list of all the master vertices stored within this shard.
+\end_layout
+
+\begin_layout Enumerate
+For each master vertex,
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+A list of all the shards containing mirrors of this vertex
+\end_layout
+
+\begin_layout Enumerate
+The vertex data
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+The API design is based somewhat on the MySQL C API.
+ The goal is to minimize memory allocations within the interface itself
+ thus simplifying its internal design.
+\end_layout
+
+\begin_layout Subsection
+Core Types
+\end_layout
+
+\begin_layout Standard
+The following types are defined:
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+typedef uint128_t graph_vid_t;
+\end_layout
+
+\begin_layout LyX-Code
+
+typedef int64_t graph_int_t;
+\end_layout
+
+\begin_layout LyX-Code
+
+typedef double graph_double_t;
+\end_layout
+
+\begin_layout LyX-Code
+
+typedef std::string graph_string_t;
+\end_layout
+
+\begin_layout LyX-Code
+
+typedef std::string graph_blob_t;
+\end_layout
+
+\begin_layout LyX-Code
+
+ 
+\end_layout
+
+\begin_layout LyX-Code
+
+enum graph_datatypes_enum {
+\end_layout
+
+\begin_layout LyX-Code
+
+	VID_TYPE,
+\end_layout
+
+\begin_layout LyX-Code
+
+	INT_TYPE,
+\end_layout
+
+\begin_layout LyX-Code
+
+	DOUBLE_TYPE,
+\end_layout
+
+\begin_layout LyX-Code
+
+	STRING_TYPE,
+\end_layout
+
+\begin_layout LyX-Code
+
+	BLOB_TYPE
+\end_layout
+
+\begin_layout LyX-Code
+
+};
+\end_layout
+
+\begin_layout LyX-Code
+
+ 
+\end_layout
+
+\begin_layout LyX-Code
+
+typedef uint32_t graph_shard_id_t;
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Graph Database Object
+\end_layout
+
+\begin_layout Standard
+On the client side, the core interface object is the 
+\series bold
+graphdb
+\series default
+ object.
+\end_layout
+
+\begin_layout Standard
+It defines a single string constructor which describes how the graphdb object
+ connects to the graph database.
+ The details of the configuration string may be implementation specific.
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+graphdb gdb("configuration string") 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The 
+\series bold
+graphdb
+\series default
+ also allows query of the number of vertices and edges.
+ This may be slow.
+ (We may also define approximate versions of this)
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+uint64_t graphdb::num_vertices() 
+\end_layout
+
+\begin_layout LyX-Code
+
+uint64_t graphdb::num_edges() 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Field
+\series default
+ metadata may be obtained using:
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+const std::vector<graph_field>& graphdb::get_vertex_fields() 
+\end_layout
+
+\begin_layout LyX-Code
+
+const std::vector<graph_field>& graphdb::get_edge_fields() 
+\end_layout
+
+\begin_layout LyX-Code
+
+// find the column number of a particular field
+\end_layout
+
+\begin_layout LyX-Code
+
+int graphdb::find_vertex_field(const char* fieldname) 
+\end_layout
+
+\begin_layout LyX-Code
+
+int graphdb::find_edge_field(const char* fieldname) 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Where each 
+\series bold
+field
+\series default
+ object provides the following interface.
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+std::string graph_field::name() const;
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_field::is_indexed() const;
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_datatypes_enum graph_field::type() const;
+\end_layout
+
+\begin_layout LyX-Code
+
+ 
+\end_layout
+
+\begin_layout LyX-Code
+
+// If scalar type, returns the number of bytes needed to represent it.
+\end_layout
+
+\begin_layout LyX-Code
+
+// otherwise for string/blob types returns the maximum supported size.
+\end_layout
+
+\begin_layout LyX-Code
+
+size_t graph_field::max_data_length() const; 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout Subsection
+Common Data Types
+\end_layout
+
+\begin_layout Standard
+Used in numerous places are also the 
+\series bold
+graph_row
+\series default
+ object which describes the data on either the vertex or edge.
+ The 
+\series bold
+graph_row
+\series default
+ type is not copyable.
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+size_t graph_row::num_fields() const;
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_row::is_vertex() const;
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_row::is_edge() const;
+\end_layout
+
+\begin_layout LyX-Code
+
+ 
+\end_layout
+
+\begin_layout LyX-Code
+
+// access individual entries in the row
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_value* graph_row::get_field(int fieldpos);
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_value* graph_row::get_field(const char* fieldname);
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout Standard
+To access individual entries in the row, the 
+\series bold
+graph_value
+\series default
+ type is used.
+ The 
+\series bold
+graph_value
+\series default
+ type is not copyable.
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+// returns true if this entry is NULL
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_value::is_null();
+\end_layout
+
+\begin_layout LyX-Code
+
+ 
+\end_layout
+
+\begin_layout LyX-Code
+
+// get the length of the data.
+ Returns 0 if NULL.
+\end_layout
+
+\begin_layout LyX-Code
+
+// If scalar type, returns the number of 
+\end_layout
+
+\begin_layout LyX-Code
+
+// bytes needed to represent it.
+ Otherwise, for string/blob types,
+\end_layout
+
+\begin_layout LyX-Code
+
+// returns the length of the string/blob
+\end_layout
+
+\begin_layout LyX-Code
+
+size_t graph_value::data_length();
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// Gets the pointer to the raw data.
+\end_layout
+
+\begin_layout LyX-Code
+
+const char* graph_value::get_raw_pointer();
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// Gets the pointer to the raw data 
+\end_layout
+
+\begin_layout LyX-Code
+
+char* graph_value::get_mutable_raw_pointer();
+\end_layout
+
+\begin_layout LyX-Code
+
+ 
+\end_layout
+
+\begin_layout LyX-Code
+
+// returns false on failure or NULL
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_value::get_vid(graph_vid_t* ret); 
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_value::get_integer(graph_int_t* ret); 
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_value::get_double(graph_double_t* ret);
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_value::get_string(graph_string_t* ret);
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_value::get_blob(graph_blob_t* ret); 
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_value::get_blob(size_t len, char* ret); 
+\end_layout
+
+\begin_layout LyX-Code
+
+ 
+\end_layout
+
+\begin_layout LyX-Code
+
+// exception versions of get.
+ Throws exception on failure.
+\end_layout
+
+\begin_layout LyX-Code
+
+int graph_value::get_integer(); 
+\end_layout
+
+\begin_layout LyX-Code
+
+double graph_value::get_double();
+\end_layout
+
+\begin_layout LyX-Code
+
+string graph_value::get_string();
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// returns false on failure
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_value::set_integer(graph_int_t val); 
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_value::set_double(graph_double_t val);
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_value::set_string(const graph_string_t& val);
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_value::set_blob(const graph_blob_t& val); 
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_value::set_blob(const char*, size_t len)); 
+\end_layout
+
+\begin_layout LyX-Code
+
+ 
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_value::get_modified() const;
+\end_layout
+
+\begin_layout LyX-Code
+
+void graph_value::set_modified();
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// delta commit
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graph_value::get_use_delta_commit() const;
+\end_layout
+
+\begin_layout LyX-Code
+
+void graph_value::set_use_delta_commit();
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout Subsection
+Insertion API
+\end_layout
+
+\begin_layout Standard
+To insert data into the graph, the user first creates a new vertex/edge
+ data entry using
+\series bold
+ new_vertex_row
+\series default
+ or 
+\series bold
+new_edge_row
+\series default
+.
+ These create a row with all NULL values.
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+graph_row graphdb::new_vertex_row()
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_row graphdb::new_edge_row()
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Then once the data is filled, 
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+bool graphdb::insert_vertex(const graph_row& data);
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graphdb::insert_edge(graph_vid_t src, graph_vid_t target, const graph_row&
+ data);
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+There is also a batch insertion interface:
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+bool graphdb::insert_vertices(const std::vector<graph_row>& v);
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+struct graph_edge_insert_descriptor{
+\end_layout
+
+\begin_layout LyX-Code
+
+  graph_vid_t src, target;
+\end_layout
+
+\begin_layout LyX-Code
+
+  graph_row data;
+\end_layout
+
+\begin_layout LyX-Code
+
+}
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graphdb::insert_edges(const std::vector<graph_edge_insert_descriptor>&
+ e);
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Quote
+It is possible to insert an edge 
+\series bold
+i->j
+\series default
+ where either of the endpoints do not yet exist.
+ In which case, the non-existant vertices are implicitly inserted with all
+ fields carrying NULL values.
+\end_layout
+
+\begin_layout Subsection
+Read/Write API
+\end_layout
+
+\begin_layout Standard
+There are two API groups which may be used to interact with the graph database.
+ The first provides fine-grained access patterns while the other provides
+ bulk access patterns.
+ All access methods are by default 
+\series bold
+PRAM consistent
+\series default
+ unless otherwise specified.
+ In other words, writes issued from the same machine are seen in the same
+ order, and the same machine immediately sees the effect of all writes.
+ (This can be guaranteed by having all writes block until completion)
+\end_layout
+
+\begin_layout Subsubsection
+Fine-Grained API
+\end_layout
+
+\begin_layout Standard
+The fine grained API allows for direct access to individual vertices and
+ edges through a 
+\series bold
+graph_vertex
+\series default
+ object and a 
+\series bold
+graph_edge
+\series default
+ object.
+ These objects are not copyable and are therefore manipulated as pointers.
+ All returned graph_vertex and graph_edge objects must be freed using the
+ free_vertex and free_edge functions.
+\end_layout
+
+\begin_layout Paragraph
+
+\series bold
+Finding vertices
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+// returns a vertex for a queried vid.
+ Returns NULL on failure
+\end_layout
+
+\begin_layout LyX-Code
+
+// The returned vertex pointer must be freed using free_vertex
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_vertex* graphdb::get_vertex(graph_vid_t vid)
+\end_layout
+
+\begin_layout LyX-Code
+
+ 
+\end_layout
+
+\begin_layout LyX-Code
+
+// returns the vertex ID in ret_vid for an index query.
+ Returns false on failure
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graphdb::find_vertex(size_t fieldpos,
+\end_layout
+
+\begin_layout LyX-Code
+
+                          graph_int_t value, 
+\end_layout
+
+\begin_layout LyX-Code
+
+                          std::vector<graph_vid_t>* out_vid);
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graphdb::find_vertex(size_t fieldpos, 
+\end_layout
+
+\begin_layout LyX-Code
+
+                          graph_string_t value, 
+\end_layout
+
+\begin_layout LyX-Code
+
+                          std::vector<graph_vid_t>* out_vid);
+\end_layout
+
+\begin_layout LyX-Code
+
+ 
+\end_layout
+
+\begin_layout LyX-Code
+
+void graphdb::free_vertex(graph_vertex* vertex);
+\end_layout
+
+\begin_layout LyX-Code
+
+void graphdb::free_edge_list(graph_edge_list* edge);
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout Paragraph
+
+\series bold
+Vertex Object
+\end_layout
+
+\begin_layout Standard
+The vertex object provides abstract to a single vertex.
+ It is possible to query the vertex for the sharding information, as well
+ as its adjacency information.
+\end_layout
+
+\begin_layout Standard
+The vertex object caches the information stored on the vertex, which is
+ accessible via the 
+\series bold
+data()
+\series default
+ function.
+ This data can be refreshed through the 
+\series bold
+refresh() 
+\series default
+function.
+ Modifications to the data can also be written through the 
+\series bold
+write_changes()
+\series default
+ function.
+ Only modified data is written since the 
+\series bold
+graph_row
+\series default
+ object does modification tracking.
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+graphaph_vid_t graph_vertex::get_id()
+\end_layout
+
+\begin_layout LyX-Code
+
+// Accesses the vertex data.
+ May return NULL if data was not read yet.
+\end_layout
+
+\begin_layout LyX-Code
+
+// in which case a refresh() call is necessary.
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_row* graph_vertex::data();
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// --- synchronization ---
+\end_layout
+
+\begin_layout LyX-Code
+
+// write changes to data.
+ Wait for completion
+\end_layout
+
+\begin_layout LyX-Code
+
+void graph_vertex::write_changes(); 
+\end_layout
+
+\begin_layout LyX-Code
+
+// write changes to data.
+ without waiting.
+\end_layout
+
+\begin_layout LyX-Code
+
+void graph_vertex::write_changes_async(); 
+\end_layout
+
+\begin_layout LyX-Code
+
+// synchronize local data with remote servers clearing local changes
+\end_layout
+
+\begin_layout LyX-Code
+
+void graph_vertex::refresh();
+\end_layout
+
+\begin_layout LyX-Code
+
+// writes local data to remote servers and reads the latest data
+\end_layout
+
+\begin_layout LyX-Code
+
+void graph_vertex::write_and_refresh(); 
+\end_layout
+
+\begin_layout LyX-Code
+
+ 
+\end_layout
+
+\begin_layout LyX-Code
+
+// --- sharding ---
+\end_layout
+
+\begin_layout LyX-Code
+
+// get the ID of the shard owning this vertex
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_shard_id_t graph_vertex::master_shard();
+\end_layout
+
+\begin_layout LyX-Code
+
+// returns the number of shards this vertex spans
+\end_layout
+
+\begin_layout LyX-Code
+
+size_t graph_vertex::get_num_shards(); 
+\end_layout
+
+\begin_layout LyX-Code
+
+// returns an array containing the shard IDs this vertex spans
+\end_layout
+
+\begin_layout LyX-Code
+
+std::vector<graph_shard_id_t> graph_vertex::get_shard_list(); 
+\end_layout
+
+\begin_layout LyX-Code
+
+ 
+\end_layout
+
+\begin_layout LyX-Code
+
+// --- adjacency ---
+\end_layout
+
+\begin_layout LyX-Code
+
+// gets part of the adjacency list of this 
+\end_layout
+
+\begin_layout LyX-Code
+
+// vertex belonging on shard 'shard_id'
+\end_layout
+
+\begin_layout LyX-Code
+
+// The returned edge pointers must be freed using free_edge
+\end_layout
+
+\begin_layout LyX-Code
+
+void graph_vertex::get_adj_list(graph_shard_id_t shard_id, 
+\end_layout
+
+\begin_layout LyX-Code
+
+								bool prefetch_data,
+\end_layout
+
+\begin_layout LyX-Code
+
+                                std::vector<graph_edge*>* out_inadj,
+\end_layout
+
+\begin_layout LyX-Code
+
+                                std::vector<graph_edge*>* out_outadj);
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout Paragraph
+
+\series bold
+Edge Object
+\end_layout
+
+\begin_layout Standard
+The edge object provides abstract to a single edge.
+ It is possible to query the edge for the shard it belongs to, as well as
+ its adjacency information.
+\end_layout
+
+\begin_layout Standard
+The edge object caches the information stored on the edge, which is accessible
+ via the 
+\series bold
+data()
+\series default
+ function.
+ This data can be refreshed through the 
+\series bold
+refresh() 
+\series default
+function.
+ Modifications to the data can also be written through the 
+\series bold
+write_changes()
+\series default
+ function.
+ Only modified data is written since the 
+\series bold
+graph_row
+\series default
+ object does modification tracking.
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+graph_vid_t graph_edge::get_src() 
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_vid_t graph_edge::get_dest()
+\end_layout
+
+\begin_layout LyX-Code
+
+// Accesses the edge data.
+ May return NULL if data was not read yet.
+\end_layout
+
+\begin_layout LyX-Code
+
+// in which case a refresh() call is necessary.
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_row* graph_edge::data();
+\end_layout
+
+\begin_layout LyX-Code
+
+ 
+\end_layout
+
+\begin_layout LyX-Code
+
+// --- synchronization ---
+\end_layout
+
+\begin_layout LyX-Code
+
+// write changes to data.
+ Wait for completion
+\end_layout
+
+\begin_layout LyX-Code
+
+void graph_edge::write_changes(); 
+\end_layout
+
+\begin_layout LyX-Code
+
+// write changes to data.
+ without waiting.
+\end_layout
+
+\begin_layout LyX-Code
+
+void graph_edge::write_changes_async(); 
+\end_layout
+
+\begin_layout LyX-Code
+
+// synchronize local data with remote servers clearing local changes
+\end_layout
+
+\begin_layout LyX-Code
+
+void graph_edge::refresh();
+\end_layout
+
+\begin_layout LyX-Code
+
+// writes local data to remote servers and reads the latest data
+\end_layout
+
+\begin_layout LyX-Code
+
+void graph_edge::write_and_refresh(); 
+\end_layout
+
+\begin_layout LyX-Code
+
+ 
+\end_layout
+
+\begin_layout LyX-Code
+
+// --- sharding ---
+\end_layout
+
+\begin_layout LyX-Code
+
+// get the ID of the shard owning this edge
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_shard_id_t graph_edge::master_shard();
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Paragraph
+
+\series bold
+Example BFS
+\end_layout
+
+\begin_layout Standard
+We can write a single machine BFS in this way: 
+\end_layout
+
+\begin_layout Standard
+\begin_inset listings
+lstparams "basicstyle={\footnotesize\ttfamily},commentstyle={\color[rgb]{0.133,0.545,0.133}},keywordstyle={\color[rgb]{0,0,1}},language={[GNU]C++},stringstyle={\color[rgb]{0.627,0.126,0.941}}"
+inline false
+status open
+
+\begin_layout LyX-Code
+
+// initialize BFS queue
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_vid_t root_vertex = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+std::queue<graph_vid_t> bfs_queue;
+\end_layout
+
+\begin_layout LyX-Code
+
+bfs_queue.push_back(root_vertex);
+\end_layout
+
+\begin_layout LyX-Code
+
+// assume every vertex has a integer 
+\begin_inset Quotes eld
+\end_inset
+
+visited
+\begin_inset Quotes erd
+\end_inset
+
+ field which is set to 0
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+while(!bfs_queue.empty()) {
+\end_layout
+
+\begin_layout LyX-Code
+
+  graph_vid_t cur_vid = bfs_queue.head(); bfs_queue.pop_front();
+\end_layout
+
+\begin_layout LyX-Code
+
+  graph_vertex* cur_vertex;
+\end_layout
+
+\begin_layout LyX-Code
+
+  gdb.get_vertex(cur_vid, &cur_vertex); // get the vertex object
+\end_layout
+
+\begin_layout LyX-Code
+
+  // check if we have visited this vertex before
+\end_layout
+
+\begin_layout LyX-Code
+
+  bool visited = cur_vertex->data()
+\end_layout
+
+\begin_layout LyX-Code
+
+                           ->get_field(
+\begin_inset Quotes eld
+\end_inset
+
+visited
+\begin_inset Quotes erd
+\end_inset
+
+)
+\end_layout
+
+\begin_layout LyX-Code
+
+                           ->get_integer() > 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+ 
+\end_layout
+
+\begin_layout LyX-Code
+
+  // the vertex was not visited
+\end_layout
+
+\begin_layout LyX-Code
+
+  if (!visited) {
+\end_layout
+
+\begin_layout LyX-Code
+
+    // set the field as visited
+\end_layout
+
+\begin_layout LyX-Code
+
+    cur_vertex->data()->get_field(
+\begin_inset Quotes eld
+\end_inset
+
+visited
+\begin_inset Quotes erd
+\end_inset
+
+)->set_integer(1);
+\end_layout
+
+\begin_layout LyX-Code
+
+    cur_vertex->write_changes();
+\end_layout
+
+\begin_layout LyX-Code
+
+    size_t numshards = cur_vertex->get_num_shards();
+\end_layout
+
+\begin_layout LyX-Code
+
+    // read the adjacency list
+\end_layout
+
+\begin_layout LyX-Code
+
+    for (size_t shard = 0; shard < numshards; ++shard) {
+\end_layout
+
+\begin_layout LyX-Code
+
+      std::vector<graph_edge*> out;
+\end_layout
+
+\begin_layout LyX-Code
+
+      cur_vertex->get_adj_list(shard, false, NULL, &out);
+\end_layout
+
+\begin_layout LyX-Code
+
+      // insert the out edges into the queue
+\end_layout
+
+\begin_layout LyX-Code
+
+      for(graph_edge* edge: out) {
+\end_layout
+
+\begin_layout LyX-Code
+
+        bfs_queue.push_back(out->get_dest());
+\end_layout
+
+\begin_layout LyX-Code
+
+      }
+\end_layout
+
+\begin_layout LyX-Code
+
+      gdb.free_edge_vector(out);
+\end_layout
+
+\begin_layout LyX-Code
+
+    }
+\end_layout
+
+\begin_layout LyX-Code
+
+  }
+\end_layout
+
+\begin_layout LyX-Code
+
+  // free the vertex
+\end_layout
+
+\begin_layout LyX-Code
+
+  gdb.free_vertex(cur_vertex);
+\end_layout
+
+\begin_layout LyX-Code
+
+}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Coarse-grained API
+\end_layout
+
+\begin_layout Standard
+The coarse grained API provides access to entire shards.
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+size_t graphdb::num_shards();
+\end_layout
+
+\begin_layout LyX-Code
+
+// returns a shard
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_shard* graphdb::get_shard(shard_id_t shard_id);
+\end_layout
+
+\begin_layout LyX-Code
+
+// gets the contents of the shard which are adjacent to some other shard
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_shard* graphdb::get_shard_contents_adj_to(shard_id_t shard_id,
+\end_layout
+
+\begin_layout LyX-Code
+
+						                shared_id_t adjacent_to);
+\end_layout
+
+\begin_layout LyX-Code
+
+// gets a list of vertices in a shard
+\end_layout
+
+\begin_layout LyX-Code
+
+void graphdb::get_shards_vertices(shard_id_t shard_id, 
+\end_layout
+
+\begin_layout LyX-Code
+
+                                  std::vector<graph_vid_t>* ret);
+\end_layout
+
+\begin_layout LyX-Code
+
+void graphdb::free_shard(graph_shard* shard);
+\end_layout
+
+\begin_layout LyX-Code
+
+// returns a list of shards adjacent to a given shard id
+\end_layout
+
+\begin_layout LyX-Code
+
+void graphdb::adjacent_shards(shard_id_t shard_id, 
+\end_layout
+
+\begin_layout LyX-Code
+
+                     std::vector<shard_id_t>* adjacent_shard_ptr);
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Shard object 
+\end_layout
+
+\begin_layout LyX-Code
+This is basically  a graph with graph_vertex and graph_edge.
+\end_layout
+
+\begin_layout LyX-Code
+This object is going to be kind of big, 
+\end_layout
+
+\begin_layout LyX-Code
+so I will not describe it in detail here ...
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage clearpage
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+GraphLabCompute
+\end_layout
+
+\begin_layout Standard
+This is a draft of a compute interface and may change quickly as I figure
+ out new and better ways to implement it.
+ On a high level, it will provide the capability to perform map_reduce over
+ the neighborhood (over just adjacent vertices, or the entire edge scope),
+ as well as a matching transform operation, and a schedule operation.
+\end_layout
+
+\begin_layout Standard
+The key implementation difficulty is that it will be highly desirable to
+ pass additional information to the callback.
+ For instance, if using C++11 Lambdas
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+double scale = 0.85;
+\end_layout
+
+\begin_layout LyX-Code
+
+double PR = 0.15 + context.mapred_in_vertices(
+\end_layout
+
+\begin_layout LyX-Code
+
+                       [=](graph_row& other)->graph_value {
+\end_layout
+
+\begin_layout LyX-Code
+
+                             other.get_field(
+\begin_inset Quotes eld
+\end_inset
+
+pr
+\begin_inset Quotes erd
+\end_inset
+
+).get_double() * scale;
+\end_layout
+
+\begin_layout LyX-Code
+
+                       },
+\end_layout
+
+\begin_layout LyX-Code
+
+                       [](graph_value& result, const graph_value& operand)->void
+ {
+\end_layout
+
+\begin_layout LyX-Code
+
+                             result.set_double(result.get_double() + operand.get_do
+uble());
+\end_layout
+
+\begin_layout LyX-Code
+
+                       }
+\end_layout
+
+\begin_layout LyX-Code
+
+                   )
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Observe that the value of 
+\begin_inset Quotes eld
+\end_inset
+
+scale
+\begin_inset Quotes erd
+\end_inset
+
+ is captured.
+ This is the 
+\begin_inset Quotes eld
+\end_inset
+
+optimal
+\begin_inset Quotes erd
+\end_inset
+
+ way I would like to specify the update function.
+ However, this is not possible to implement because it will be necessary
+ to serialize the closure and send it across the network.
+ However, C++ (or even GCC) does not provide enough access to do this.
+\end_layout
+
+\begin_layout Standard
+The interface described below can pass an additional value through a 
+\begin_inset Quotes eld
+\end_inset
+
+tag
+\begin_inset Quotes erd
+\end_inset
+
+ parameter.
+ This works, but is kind of annoying to use, especially if complex types
+ are to be passed.
+ An alternate non-functional interface based on classes might be possible
+ however:
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+class pagerank_map_reduce: public map_reduce {
+\end_layout
+
+\begin_layout LyX-Code
+
+  public:
+\end_layout
+
+\begin_layout LyX-Code
+
+    double scale;
+\end_layout
+
+\begin_layout LyX-Code
+
+    pagerank_map_reduce(double _scale):scale(_scale) {}
+\end_layout
+
+\begin_layout LyX-Code
+
+     
+\end_layout
+
+\begin_layout LyX-Code
+
+    // serializers
+\end_layout
+
+\begin_layout LyX-Code
+
+    void save(oarchive& oarc) const { oarc << scale; }
+\end_layout
+
+\begin_layout LyX-Code
+
+    void load(iarchive& iarc) { iarc >> scale; }
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+    graph_value map_function(graph_row& other) {
+\end_layout
+
+\begin_layout LyX-Code
+
+      return other.get_field(
+\begin_inset Quotes eld
+\end_inset
+
+pr
+\begin_inset Quotes erd
+\end_inset
+
+).get_double() * scale;
+\end_layout
+
+\begin_layout LyX-Code
+
+    }
+\end_layout
+
+\begin_layout LyX-Code
+
+    void red_function(graph_value& result, 
+\end_layout
+
+\begin_layout LyX-Code
+
+                      const graph_value& operand) {
+\end_layout
+
+\begin_layout LyX-Code
+
+      result.set_double(result.get_double() + operand.get_double());
+\end_layout
+
+\begin_layout LyX-Code
+
+    }
+\end_layout
+
+\begin_layout LyX-Code
+
+};
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+double scale = 0.85;
+\end_layout
+
+\begin_layout LyX-Code
+
+double PR = 0.15 + context.mapred_in_vertices(pagerank_map_reduce(scale));
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Update Function
+\end_layout
+
+\begin_layout Standard
+The interface described here may change as it might be necessary to further
+ wrap say...
+ graph_value to provide higher level access to the data.
+\end_layout
+
+\begin_layout Standard
+The user writes update function of the form:
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+void update_function(compute_context& ctx, modifications& mod) {
+\end_layout
+
+\begin_layout LyX-Code
+
+   ...
+\end_layout
+
+\begin_layout LyX-Code
+
+}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Where 
+\series bold
+compute_context
+\series default
+ has the following functions:
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+// returns the ID of the current vertex
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_vid_t& compute_context::vertex_id()
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// returns the value of the current vertex
+\end_layout
+
+\begin_layout LyX-Code
+
+const graph_value& compute_context::vertex_value()
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// returns the value of an arbitrary vertex
+\end_layout
+
+\begin_layout LyX-Code
+
+const graph_value& compute_context::vertex_value(graph_vid_t)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout Standard
+For expert use, direct graphdb access is also provided.
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+graphdb& compute_context::db();
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The update function 
+\series bold
+should not make direct changes to any data
+\series default
+.
+ It can only return data modifications through the 
+\begin_inset Quotes eld
+\end_inset
+
+modifications
+\begin_inset Quotes erd
+\end_inset
+
+ parameter.
+ The modifications object accepts data modifications of two types.
+ Consistent and Eventual modifications.
+ Consistent modifications are guaranteed to complete immediately after the
+ execution of the update function: allowing all update functions scheduled
+ by this update function to see the new values.
+ Eventual modifications may take some time to complete.
+ See the 
+\begin_inset Quotes eld
+\end_inset
+
+Modifications
+\begin_inset Quotes erd
+\end_inset
+
+ section for details.
+\end_layout
+
+\begin_layout Subsection
+MapReduce
+\end_layout
+
+\begin_layout Standard
+The user defines a map reduce implementation, which must inherit from map_reduce
+_vertices class, or the map_reduce_general class
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+// defines a map reduce over neighboring vertices
+\end_layout
+
+\begin_layout LyX-Code
+
+class map_reduce_vertices {
+\end_layout
+
+\begin_layout LyX-Code
+
+  public:
+\end_layout
+
+\begin_layout LyX-Code
+
+    // serializers
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual void save(oarchive& oarc) const = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual void load(iarchive& iarc) = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual graph_value map_function(graph_row& other) = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+	virtual graph_value reduce_function(graph_value& result, 
+\end_layout
+
+\begin_layout LyX-Code
+
+                                        const graph_value& operand) = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+};
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// defines a map reduce over neighboring edges as well as the
+\end_layout
+
+\begin_layout LyX-Code
+
+// vertices on the endpoints of the edges
+\end_layout
+
+\begin_layout LyX-Code
+
+class map_reduce_general {
+\end_layout
+
+\begin_layout LyX-Code
+
+  public:
+\end_layout
+
+\begin_layout LyX-Code
+
+    // serializers
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual void save(oarchive& oarc) const = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual void load(iarchive& iarc) = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual graph_value map_function(const graph_row& self,
+\end_layout
+
+\begin_layout LyX-Code
+
+                                     graph_row& edge,
+\end_layout
+
+\begin_layout LyX-Code
+
+                                     const graph_row& other,
+\end_layout
+
+\begin_layout LyX-Code
+
+                                     bool in_edge) = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+	virtual graph_value reduce_function(graph_value& result, 
+\end_layout
+
+\begin_layout LyX-Code
+
+                                        const graph_value& operand) = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+};
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The map_reduce function can then be called with:
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+// mr is a subclass of the class map_reduce_vertices 
+\end_layout
+
+\begin_layout LyX-Code
+
+// or the class map_reduce_general 
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_value compute_context::mapred_in_vertices<T>(T& mr);
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_value compute_context::mapred_out_vertices<T>(T& mr);
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_value compute_context::mapred_all_vertices<T>(T& mr);
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout LyX-Code
+ 
+\end_layout
+
+\begin_layout Subsection
+Transform
+\end_layout
+
+\begin_layout Standard
+Transform operations allow the user to modify data on the edges, or on neighbori
+ng vertices.
+ Note the context does not provide transform functions.
+ Transform operations must be pushed into the modification object.
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+// defines a transform over neighboring edges
+\end_layout
+
+\begin_layout LyX-Code
+
+class transform_edge {
+\end_layout
+
+\begin_layout LyX-Code
+
+  public:
+\end_layout
+
+\begin_layout LyX-Code
+
+    // serializers
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual void save(oarchive& oarc) const = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual void load(iarchive& iarc) = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual void transform(graph_row& edge) = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+};
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// defines a general transform which can modify adjacent vertices
+\end_layout
+
+\begin_layout LyX-Code
+
+class transform_general {
+\end_layout
+
+\begin_layout LyX-Code
+
+  public:
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual void save(oarchive& oarc) const = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual void load(iarchive& iarc) = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+    virtual void transform(const graph_row& self,
+\end_layout
+
+\begin_layout LyX-Code
+
+                           graph_row& edge,
+\end_layout
+
+\begin_layout LyX-Code
+
+                           graph_row& other,
+\end_layout
+
+\begin_layout LyX-Code
+
+                           bool in_edge) = 0;
+\end_layout
+
+\begin_layout LyX-Code
+
+};
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout Subsection
+Scheduling Functions
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+void compute_context::schedule_in_vertices();
+\end_layout
+
+\begin_layout LyX-Code
+
+void compute_context::schedule_out_vertices();
+\end_layout
+
+\begin_layout LyX-Code
+
+void compute_context::schedule_all_vertices();
+\end_layout
+
+\begin_layout LyX-Code
+
+void compute_context::schedule_self();
+\end_layout
+
+\begin_layout LyX-Code
+
+// also schedule random?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+We may also add in conditional scheduling functions.
+\end_layout
+
+\begin_layout Subsection
+Modifications
+\end_layout
+
+\begin_layout Standard
+The modification object tracks modifications made to graph data.
+ It has a family of heavily overloaded 
+\begin_inset Quotes eld
+\end_inset
+
+add_*
+\begin_inset Quotes erd
+\end_inset
+
+ functions which registers graph modifications.
+\end_layout
+
+\begin_layout Subsubsection
+
+\series bold
+Consistent Changes
+\end_layout
+
+\begin_layout Standard
+These changes will be commited immediately after the update function terminates
+ and will be visible to all update functions which run as a result of scheduling
+ performed by this update function.
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// modifies the vertex vid with a particular value
+\end_layout
+
+\begin_layout LyX-Code
+
+void modification::add_consistent(graph_vid_t vid, graph_value value);
+\end_layout
+
+\begin_layout LyX-Code
+
+// modifies a vertex from the vertex object
+\end_layout
+
+\begin_layout LyX-Code
+
+void modification::add_consistent(const graph_vertex& edge, graph_value
+ value);
+\end_layout
+
+\begin_layout LyX-Code
+
+// modifies an edge from the edge object
+\end_layout
+
+\begin_layout LyX-Code
+
+void modification::add_consistent((const graph_edge& edge, graph_value value);
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// where T is inherited from transform_edge or transform_general
+\end_layout
+
+\begin_layout LyX-Code
+
+// SFINAE can be used deeper in here to dispatch this to finer grained
+\end_layout
+
+\begin_layout LyX-Code
+
+// overloads if necessary
+\end_layout
+
+\begin_layout LyX-Code
+
+void modification::add_consistent(<T>(const T& transform);
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+void compute_context::schedule_all_vertices();
+\end_layout
+
+\begin_layout LyX-Code
+
+void compute_context::schedule_self();
+\end_layout
+
+\begin_layout LyX-Code
+
+// also schedule random?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+
+\series bold
+Eventual Changes
+\end_layout
+
+\begin_layout Standard
+These changes will be commited eventually after the update function terminates.
+ 
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// modifies the vertex vid with a particular value
+\end_layout
+
+\begin_layout LyX-Code
+
+void modification::add_eventual(graph_vid_t vid, graph_value value);
+\end_layout
+
+\begin_layout LyX-Code
+
+// modifies a vertex from the vertex object
+\end_layout
+
+\begin_layout LyX-Code
+
+void modification::add_eventual(const graph_vertex& edge, graph_value value);
+\end_layout
+
+\begin_layout LyX-Code
+
+// modifies an edge from the edge object
+\end_layout
+
+\begin_layout LyX-Code
+
+void modification::add_eventual((const graph_edge& edge, graph_value value);
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// where T is inherited from transform_edge or transform_general
+\end_layout
+
+\begin_layout LyX-Code
+
+// SFINAE can be used deeper in here to dispatch this to finer grained
+\end_layout
+
+\begin_layout LyX-Code
+
+// overloads if necessary
+\end_layout
+
+\begin_layout LyX-Code
+
+void modification::add_eventual(<T>(const T& transform);
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+
+\series bold
+Scheduling Changes
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+void compute_context::schedule_all_vertices();
+\end_layout
+
+\begin_layout LyX-Code
+
+void compute_context::schedule_self();
+\end_layout
+
+\begin_layout LyX-Code
+
+// also schedule random?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+...Details...
+\end_layout
+
+\begin_layout Standard
+There are some details regarding the wrapping API (i.e.
+ what is written in 
+\begin_inset Quotes eld
+\end_inset
+
+main
+\begin_inset Quotes erd
+\end_inset
+
+) which I am omitting since there are some implementation details which
+ I have not thought about yet.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage clearpage
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Implementation
+\end_layout
+
+\begin_layout Standard
+This section describes one plausible implementation of the system.
+\end_layout
+
+\begin_layout Subsection
+Storage
+\end_layout
+
+\begin_layout Standard
+Storage is split into 2 parts.
+ A 
+\series bold
+vertex storage
+\series default
+, and an 
+\series bold
+edge storage
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+The 
+\series bold
+vertex storage
+\series default
+ is held in a MySQL Cluster NDB table (or really, any fast key-value store)
+ containing the following fields:
+\end_layout
+
+\begin_layout Enumerate
+Vertex ID (Primary Key)
+\end_layout
+
+\begin_layout Enumerate
+Master shard : Integer
+\end_layout
+
+\begin_layout Enumerate
+Mirror shards : Integer List 
+\end_layout
+
+\begin_layout Enumerate
+...vertex data fields...
+\end_layout
+
+\begin_layout Standard
+All vertex data are therefore stored and read directly from the MySQL database.
+ A key-value interface is required for the MySQL database (i.e.
+ HandlerSocket or Memcached (http://dev.mysql.com/tech-resources/articles/nosql-to
+-mysql-with-memcached.html).
+\end_layout
+
+\begin_layout Standard
+An additional set of 
+\series bold
+edge servers
+\series default
+ provide a fault tolerant interface to shards, edge data, and vertex adjacency
+ information.
+ It does so by maintain a fault tolerant mapping of 
+\series bold
+graph shards
+\series default
+ to 
+\series bold
+edge server
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+i.e.
+ using the min-hash trick, shard 
+\begin_inset Formula $i$
+\end_inset
+
+ is replicated on servers with the 3 lowest values of 
+\begin_inset Formula $hash(i,serverIP)$
+\end_inset
+
+.
+ All edge data and structure read/writes are performed Dynamo style to enforce
+ data consistency between all the edge servers.
+ Unlike Dynamo we do not use vector clocks, nor versioning.
+\end_layout
+
+\begin_layout Standard
+(An alternate design is to have structure read/writes be performed Dynamo
+ style, since that must be maintained consistently.
+ While data read/writes only go to 1 node: the machine with lowest 
+\begin_inset Formula $hash(i,serverIP)$
+\end_inset
+
+.
+ This maximizes performance, but at the cost that the failure of a single
+ storage machine may result in some data writes being lost)
+\end_layout
+
+\begin_layout Standard
+The edge servers must instantiate the shard in memory (to support the fine-grain
+ed access API) with periodic writes to disk.
+ 
+\end_layout
+
+\begin_layout Subsubsection
+Insertion
+\end_layout
+
+\begin_layout Standard
+Parallel insertion is tricky since vertex shard information must be 
+\series bold
+atomic
+\series default
+.
+ To properly support parallel insertion, we will probably require a transactiona
+l backend, or an additional set of 
+\series bold
+insertion servers.
+ 
+\series default
+(i.e.
+ server 
+\begin_inset Quotes eld
+\end_inset
+
+VID % K
+\begin_inset Quotes erd
+\end_inset
+
+ manages the insertion of vertex VID thus sequentializing all operations
+ on the same VID)
+\end_layout
+
+\begin_layout Paragraph*
+
+\series bold
+To insert a vertex with id ID with data:
+\end_layout
+
+\begin_layout Standard
+A vertex with ID is inserted into the MySQL table.
+ The master shard is set to an arbitrary value and Mirror shards are set
+ to NULL.
+ An error should be triggered if the vertex already exists.
+ This operation must be 
+\series bold
+atomic
+\series default
+.
+\end_layout
+
+\begin_layout Paragraph*
+
+\series bold
+To insert a edge from A-->B:
+\end_layout
+
+\begin_layout Standard
+Vertex A and B are read from the vertex storage.
+ The streaming partitioning procedure then follows.
+ If both vertex A and B exists, the edge is sent to edge servers managing
+ the appropriate shard in the intersection of A.mirrors and B.mirrors.
+ The mirror list of A and B must be updated appropriately.
+ If A or B does not exist, the missing vertices must be inserted, using
+ the streaming partitioning procedure to determine their shard locations.
+\end_layout
+
+\begin_layout Subsubsection
+Fine Grained API
+\end_layout
+
+\begin_layout Description
+graph_vertex Is basically an interface to the vertex K-V store.
+ Adjacency information go to the edge servers appropriately.
+ 
+\end_layout
+
+\begin_layout Description
+graph_edge Again, nothing revolutionary.
+ Simply an interface to the edge servers.
+ 
+\end_layout
+
+\begin_layout Subsubsection
+Coarse Grained API
+\end_layout
+
+\begin_layout Standard
+Entire shards are communicated from the edge storage to the client.
+ Vertex storage must support bulk read/write requests.
+\end_layout
+
+\begin_layout Subsection
+Computation
+\end_layout
+
+\begin_layout Standard
+...
+ still under design ...
+ However there are 2 basic designs to be explored
+\end_layout
+
+\begin_layout Paragraph*
+If entire graph fits in memory
+\end_layout
+
+\begin_layout Enumerate
+Replicate the entire graph on the computation engine.
+\end_layout
+
+\begin_layout Enumerate
+Use 
+\series bold
+qthreads
+\series default
+ to perform update function computations.
+\end_layout
+
+\begin_layout Paragraph*
+If entire graph does not fits in memory
+\end_layout
+
+\begin_layout Enumerate
+Load subset of shards into memory such that some set of vertices have their
+ compute adjacency structure loaded in distributed memory.
+\end_layout
+
+\begin_layout Enumerate
+Use 
+\series bold
+qthreads
+\series default
+ to perform update function computation on those set of vertices.
+\end_layout
+
+\begin_layout Enumerate
+Repeat on another subset of shards.
+ 
+\end_layout
+
+\begin_layout Standard
+See the next section for details on how this can be done by exploiting a
+ generalization of GraphChi.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage clearpage
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Sharding
+\end_layout
+
+\begin_layout Standard
+We first consider the GraphChi sharding model.
+\end_layout
+
+\begin_layout Standard
+Essentially, if we consider the graph as an adjacency matrix, and we consider
+ what data is loaded at each round of computation, a GraphChi shard is essential
+ly a contiguous block of entries in the adjacency matrix.
+ 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+placement H
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset space \hfill{}
+\end_inset
+
+
+\begin_inset Tabular
+<lyxtabular version="3" rows="5" columns="5">
+<features>
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\begin_inset space \hfill{}
+\end_inset
+
+
+\begin_inset Tabular
+<lyxtabular version="3" rows="5" columns="5">
+<features>
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\begin_inset space \hfill{}
+\end_inset
+
+
+\begin_inset Tabular
+<lyxtabular version="3" rows="5" columns="5">
+<features>
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\begin_inset space \hfill{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption
+
+\begin_layout Plain Layout
+
+\series bold
+GraphChi Sharding
+\series default
+: Shards loaded for first 3 rounds of GraphChi.
+ Each square is a shard.
+ i.e.
+ In round 1, the entire first column and first row of shards is loaded.
+ In round 2, the 2nd column and the 2nd row, etc.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This sharding can be thought of as an extremely constrained vertex seperator
+ where only the shards on the main diagonal store the master vertices, and
+ where edge placement is fixed.
+ The advantage of the GraphChi model is:
+\end_layout
+
+\begin_layout Enumerate
+Minimal random access.
+\end_layout
+
+\begin_layout Enumerate
+The number of additional shards needed to contain the entire adjacency informati
+on of one shard is bounded.
+ (i.e.
+ if I need to run GraphLab on all master vertices within a particular shard,
+ I only need to load a relatively small number of additional shards.)
+\end_layout
+
+\begin_layout Enumerate
+New shards can be added easily by expanding the columns/rows.
+\end_layout
+
+\begin_layout Standard
+The disadvantage is that
+\end_layout
+
+\begin_layout Enumerate
+There is very little freedom for improving the partitioning.
+ The only freedom available is in permuting the vertex IDs.
+\end_layout
+
+\begin_layout Standard
+In the distributed setting, 
+\begin_inset Quotes eld
+\end_inset
+
+random access
+\begin_inset Quotes erd
+\end_inset
+
+ is not a serious issue.
+ However, the 
+\begin_inset Quotes eld
+\end_inset
+
+bounded
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+expandability
+\begin_inset Quotes erd
+\end_inset
+
+ properties are highly desirable since this allows memory utilization to
+ be better controlled.
+ The issue is that in the distributed setting, partitioning quality is important
+, and so the lack of partitioning freedom is a critical issue.
+\end_layout
+
+\begin_layout Subsection
+Generalization
+\end_layout
+
+\begin_layout Standard
+Lets consider the idea of a 
+\begin_inset Quotes eld
+\end_inset
+
+constrained
+\begin_inset Quotes erd
+\end_inset
+
+ partition.
+ In other words, let there be 
+\begin_inset Formula $k$
+\end_inset
+
+ shards numbered from 
+\begin_inset Formula $0$
+\end_inset
+
+ to 
+\begin_inset Formula $k-1$
+\end_inset
+
+.
+ Let each shard 
+\begin_inset Formula $i$
+\end_inset
+
+ be associated with a set of numbers 
+\begin_inset Formula $A_{i}\subseteq\{0..k-1\}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Then we introduce the constraint that if a vertex 
+\begin_inset Formula $v$
+\end_inset
+
+'s master is in shard 
+\begin_inset Formula $i$
+\end_inset
+
+, the mirrors of vertex 
+\begin_inset Formula $v$
+\end_inset
+
+ can only be in shards 
+\begin_inset Formula $A_{i}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+This constraint can be introduced to the current streaming partitioning
+ algorithm trivially.
+ We consider the 3 cases considered by the streaming partitioning algorithm.
+ On insertion of edge 
+\begin_inset Formula $u-v$
+\end_inset
+
+:
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+(Note that the algorithm described here requires the master for a vertex
+ be designated early.
+ However, this is not critical and it is possible to delay the choice with
+ some additional care in the algorithm design)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+If both 
+\begin_inset Formula $u$
+\end_inset
+
+ and 
+\begin_inset Formula $v$
+\end_inset
+
+ unobserved: insert edge arbitrarily.
+\end_layout
+
+\begin_layout Itemize
+If 
+\begin_inset Formula $u$
+\end_inset
+
+ observed and 
+\begin_inset Formula $v$
+\end_inset
+
+ unobserved: We can insert 
+\begin_inset Formula $u-v$
+\end_inset
+
+ into shard 
+\begin_inset Formula $master(u)$
+\end_inset
+
+ or any shard in 
+\begin_inset Formula $A_{master(u)}$
+\end_inset
+
+ which minimizes the objective.
+\end_layout
+
+\begin_layout Itemize
+If both 
+\begin_inset Formula $u$
+\end_inset
+
+ and 
+\begin_inset Formula $v$
+\end_inset
+
+ observed: We can insert 
+\begin_inset Formula $u-v$
+\end_inset
+
+ into any shard in 
+\begin_inset Formula $A_{master(u)}\cap A_{master(v)}$
+\end_inset
+
+ which minimizes the objective.
+\end_layout
+
+\begin_layout Standard
+Now then, we may consider what are appropriate choices for 
+\begin_inset Formula $A_{i}$
+\end_inset
+
+ ?
+\end_layout
+
+\begin_layout Subsubsection
+Feasibility
+\end_layout
+
+\begin_layout Standard
+We pay particular attention to the 3 cases of the streaming partition algorithm.
+ The first 2 cases are always possible regardless of the choice of 
+\begin_inset Formula $A_{i}$
+\end_inset
+
+.
+ However, it is possible for the 3rd case to fail if 
+\begin_inset Formula $A_{master(u)}\cap A_{master(v)}=\emptyset$
+\end_inset
+
+: i.e.
+ there is no valid location to place the edge 
+\begin_inset Formula $u-v$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+We therefore introduce the following 
+\series bold
+feasibility constraint
+\series default
+ for the sets 
+\begin_inset Formula $A_{i}$
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+\forall0\le i<j\le k-1 &  & A_{i}\cap A_{j}\ne\emptyset\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In other words, every set 
+\begin_inset Formula $A_{i}$
+\end_inset
+
+ must intersect every other set 
+\begin_inset Formula $A_{j}$
+\end_inset
+
+.
+ This ensures that the streaming partitioning algorithm will always complete
+ (though balance may no longer be guaranteed).
+\end_layout
+
+\begin_layout Standard
+However, does there exist solutions for 
+\begin_inset Formula $A$
+\end_inset
+
+ which guarantee the 
+\series bold
+feasibility constraint
+\series default
+, other than the trivial solutions 
+\begin_inset Formula $\forall i,j\, A_{i}=A_{j}$
+\end_inset
+
+? 
+\end_layout
+
+\begin_layout Standard
+In particular, we are interested in solutions which provide 
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+uniformity
+\series default
+: All 
+\begin_inset Formula $A_{i}'s$
+\end_inset
+
+ are the same size, or nearly the same size.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+balance
+\series default
+: 
+\begin_inset Formula $\sum\limits _{i}\mathbf{1}\left(s\in A_{i}\right)$
+\end_inset
+
+ are the same or nearly the same for every 
+\begin_inset Formula $s$
+\end_inset
+
+.
+ In other words, I don't get shards which are over or under-represented
+ in the sets 
+\begin_inset Formula $A_{i}$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Standard
+The answer turns out to be indeed 
+\series bold
+yes
+\series default
+, with several interesting implications
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+(Note that having both uniformity and balance do not imply that the partitioning
+ will be balanced)
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Subsubsection
+Solution 1: Perfect Difference Sets
+\end_layout
+
+\begin_layout Standard
+Lets consider the solution form for 
+\begin_inset Formula $A_{i}$
+\end_inset
+
+ where, in Matlab notation, 
+\begin_inset Formula $A_{i}=P+i\,\%\, k$
+\end_inset
+
+ where 
+\begin_inset Formula $P\subseteq\{1..k\}$
+\end_inset
+
+ is some set of integers.
+\end_layout
+
+\begin_layout Standard
+Then where 
+\begin_inset Formula $P$
+\end_inset
+
+ is the 
+\series bold
+perfect difference set
+\series default
+ of order 
+\begin_inset Formula $k$
+\end_inset
+
+, the feasibility constraints are satisfied.
+\end_layout
+
+\begin_layout Standard
+The definition of a perfect difference set 
+\begin_inset Formula $P$
+\end_inset
+
+ of order 
+\begin_inset Formula $k$
+\end_inset
+
+ is that 
+\begin_inset Formula $\forall1\le i\le k\,\exists a,b\in P\, s.t.\, a-b=i\, mod\, k$
+\end_inset
+
+.
+ In words, every number from 1 to 
+\begin_inset Formula $k$
+\end_inset
+
+ can be expressed as a difference (modulo 
+\begin_inset Formula $k$
+\end_inset
+
+) of numbers in 
+\begin_inset Formula $P$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+We omit the rather simple proof that this must satisfy the feasibility constrain
+t.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Example: 
+\begin_inset Formula $k=7$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Then a solution is 
+\begin_inset Formula $P=[1,2,4]$
+\end_inset
+
+ and we have therefore have
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \hfill{}
+\end_inset
+
+
+\begin_inset Formula $A_{0}=[1,2,4]$
+\end_inset
+
+
+\begin_inset space \hfill{}
+\end_inset
+
+
+\begin_inset Formula $A_{1}=[2,3,5]$
+\end_inset
+
+
+\begin_inset space \hfill{}
+\end_inset
+
+
+\begin_inset Formula $A_{2}=[3,4,6]$
+\end_inset
+
+
+\begin_inset space \hfill{}
+\end_inset
+
+
+\begin_inset Formula $A_{3}=[4,5,0]$
+\end_inset
+
+
+\begin_inset space \hfill{}
+\end_inset
+
+
+\begin_inset Formula $A_{4}=[5,6,1]$
+\end_inset
+
+
+\begin_inset space \hfill{}
+\end_inset
+
+
+\begin_inset Formula $A_{5}=[6,0,2]$
+\end_inset
+
+
+\begin_inset space \hfill{}
+\end_inset
+
+
+\begin_inset Formula $A_{6}=[0,1,3]$
+\end_inset
+
+
+\begin_inset space \hfill{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+It is not difficult to verify by hand that this is valid.
+\end_layout
+
+\begin_layout Standard
+The perfect difference set has size about 
+\begin_inset Formula $\sqrt{k}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Subsubsection
+Solution 2: Minimal degree diameter-2 graphs
+\end_layout
+
+\begin_layout Standard
+Consider an auxialiary graph 
+\begin_inset Formula $H=(V,E)$
+\end_inset
+
+ of 
+\begin_inset Formula $k$
+\end_inset
+
+ vertices numbered 
+\begin_inset Formula $0...k-1$
+\end_inset
+
+, where vertex 
+\begin_inset Formula $i$
+\end_inset
+
+ is connected to vertices 
+\begin_inset Formula $A_{i}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Then the feasibility constraint is automatically enforced if 
+\begin_inset Formula $H$
+\end_inset
+
+ has diameter 2.
+\end_layout
+
+\begin_layout Standard
+From the Moore graph bound: a graph of diameter 2 and degree 
+\begin_inset Formula $d$
+\end_inset
+
+ can have at most 
+\begin_inset Formula $d^{2}$
+\end_inset
+
+ vertices (the true bound is slightly tighter than this).
+ 
+\end_layout
+
+\begin_layout Standard
+Therefore, flipping the bound around, each 
+\begin_inset Formula $A_{i}$
+\end_inset
+
+ must have at least 
+\begin_inset Formula $\sqrt{k}$
+\end_inset
+
+ entries.
+ 
+\end_layout
+
+\begin_layout Subsubsection
+Solution 3: Grid
+\end_layout
+
+\begin_layout Standard
+Consider placing the shards in a 2 dimensional grid.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Tabular
+<lyxtabular version="3" rows="5" columns="5">
+<features>
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+5
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+6
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+8
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+11
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+12
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+13
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+14
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+15
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+16
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+17
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+18
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+19
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+20
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+21
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+22
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+23
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+24
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+25
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Then let 
+\begin_inset Formula $A_{i}$
+\end_inset
+
+ be all the shards along the row and column containing 
+\begin_inset Formula $i$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+For instance: 
+\begin_inset Formula $A_{1}=\{2,3,4,5,6,11,16,21\}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+and 
+\begin_inset Formula $A_{14}=\{4,9,11,12,13,15,19,24\}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+It is not hard to see that every 
+\begin_inset Formula $A_{i}$
+\end_inset
+
+ must intersect every 
+\begin_inset Formula $A_{j}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+This is essentially a generalization of the GraphChi sharding procedure
+ where each 
+\begin_inset Formula $A_{i}$
+\end_inset
+
+ has size 
+\begin_inset Formula $2\sqrt{k}-1$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Subsection
+Implications
+\end_layout
+
+\begin_layout Subsubsection
+Communication
+\end_layout
+
+\begin_layout Standard
+Assuming that balance is not an issue, the sharding constraints essentially
+ place upper bounds on communication requirement.
+ Essentially it limits the maximum number of mirrors each vertex can have.
+ For instance, if solutions 1 or 2 are used, it implies that the replication
+ factor for 
+\series bold
+any
+\series default
+ graph on 64 shards is no higher than 8.
+\end_layout
+
+\begin_layout Subsubsection
+Asymptotic Optimality of Grid
+\end_layout
+
+\begin_layout Standard
+Both solution 1 and solution 2 place lower bounds on the size of 
+\begin_inset Formula $A_{i}$
+\end_inset
+
+ to 
+\begin_inset Formula $\sqrt{k}$
+\end_inset
+
+.
+ The GraphChi-like grid solution is therefore no more than a factor of 2
+ from optimality.
+\end_layout
+
+\begin_layout Subsubsection
+Topology aware Partitioning
+\end_layout
+
+\begin_layout Standard
+The constrained streaming partitioning algorithm described in 4.1 can be
+ further extended to use 
+\begin_inset Quotes eld
+\end_inset
+
+soft
+\begin_inset Quotes erd
+\end_inset
+
+ constraints.
+ Instead of placing hard constraints on the mirror set of each shard, we
+ can permit violation at a high cost.
+ This will allow the sets 
+\begin_inset Formula $A_{i}$
+\end_inset
+
+ to be used to describe network topology between shards/machines; penalizing
+ communication which do not follow the network topology.
+\end_layout
+
+\begin_layout Subsection
+Related Work
+\end_layout
+
+\begin_layout Standard
+Link, J.
+ A.
+ B., Wollgarten, C., Schupp, S., & Wehrle, K.
+ (2011).
+ Perfect Difference Sets for Neighbor Discovery: Energy Efficient and Fair.
+ Proceedings of ACM ExtremeCom.
+\end_layout
+
+\begin_layout Standard
+This paper explored the use of perfect difference sets for a sensor network
+ like setting.
+ Essentially, there are 
+\begin_inset Formula $k$
+\end_inset
+
+ sensors, and we would like every sensor to be able to talk to every other
+ sensor.
+ However, it is costly to keep the antennae on.
+ Therefore, we would like a timing procedure where each sensor turns on
+ its antennae at particular times while ensuring that for every pair of
+ sensors, there are always some time for which both sensor's antennaes are
+ on.
+ The solution is essentially exactly the feasibility constraint.
+ The paper describes the use of perfect difference sets, as well as the
+ grid solution and a few other construction strategies.
+ The diameter-2 construction was not considered.
+\end_layout
+
+\end_body
+\end_document

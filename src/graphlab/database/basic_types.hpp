@@ -1,7 +1,7 @@
 #ifndef GRAPHLAB_DATABASE_BASIC_TYPES_HPP
 #define GRAPHLAB_DATABASE_BASIC_TYPES_HPP
-#include <Eigen/Dense>
 #include <string>
+#include <vector>
 #include <stdint.h>
 namespace graphlab {
 
@@ -26,21 +26,17 @@ typedef std::string graph_string_t;
 /// blob field data type
 typedef std::string graph_blob_t;
 
-/**
- * \brief We use the eigen library's vector type to represent
- * mathematical vectors.
- */
+/*
 typedef Eigen::VectorXd graphlab_vecd_t;
 typedef Eigen::VectorXcd graphlab_veccd_t;
 typedef Eigen::VectorXi graphlab_veci_t;
 
-/**
- * \brief We use the eigen library's matrix type to represent
- * matrices.
- */
 typedef Eigen::MatrixXd graphlab_matd_t;
 typedef Eigen::MatrixXcd graphlab_matcd_t;
 typedef Eigen::MatrixXi graphlab_mati_t;
+*/
+
+typedef std::vector<double> graph_d_vector_t;
 
 /// \ingroup group_graph_database
 /// Possible data types for fields
@@ -50,12 +46,7 @@ enum graph_datatypes_enum {
 	DOUBLE_TYPE,
 	STRING_TYPE,
 	BLOB_TYPE,
-	VECI_TYPE,
-	VECD_TYPE,
-	VECCD_TYPE,
-	MATI_TYPE,
-	MATD_TYPE,
-	MATCD_TYPE
+  DOUBLE_VEC_TYPE
 };
 
 /// \ingroup group_graph_database

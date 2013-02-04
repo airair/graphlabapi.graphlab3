@@ -23,6 +23,7 @@
 #ifndef GRAPHLAB_DATABASE_GRAPH_SHARDING_CONSTRAINT_HPP
 #define GRAPHLAB_DATABASE_GRAPH_SHARDING_CONSTRAINT_HPP
 #include <graphlab/database/basic_types.hpp>
+#include <graphlab/logger/assertions.hpp>
 #include <algorithm>
 #include <vector>
 

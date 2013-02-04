@@ -1,4 +1,4 @@
-#include <graphlab/database/graph_database_sharedmem.hpp>
+#include <graphlab/database/sharedmem_database/graph_database_sharedmem.hpp>
 #include <graphlab/logger/assertions.hpp>
 #include <vector>
 using namespace std;

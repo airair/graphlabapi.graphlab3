@@ -4,9 +4,9 @@
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/database/graph_row.hpp>
 #include <graphlab/database/graph_edge.hpp>
-#include <graphlab/database/graph_edge_sharedmem.hpp>
 #include <graphlab/database/graph_vertex.hpp>
-#include <graphlab/database/graph_vertex_index.hpp>
+#include <graphlab/database/sharedmem_database/graph_edge_sharedmem.hpp>
+#include <graphlab/database/sharedmem_database/graph_vertex_index.hpp>
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
 

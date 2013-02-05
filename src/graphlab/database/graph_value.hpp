@@ -1,6 +1,8 @@
 #ifndef GRAPHLAB_DATABASE_GRAPH_VALUE_HPP
 #define GRAPHLAB_DATABASE_GRAPH_VALUE_HPP
 #include <graphlab/database/basic_types.hpp>
+#include <cstdlib>
+#include <cstring>
 namespace graphlab {
 
 /**

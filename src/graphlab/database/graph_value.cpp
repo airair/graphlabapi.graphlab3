@@ -182,20 +182,19 @@ bool graph_value::set_blob(const char* val, size_t length) {
 }
 
 void graph_value::deepcopy(graph_value& out_value) {
- out_value._type = _type;
- out_value._data = _data;
- out_value._old = _old;
- out_value._len = _len;
- out_value._null_value = _null_value;
- out_value._modified = _modified;
- out_value._use_delta_commit = _use_delta_commit;
-  if ((_type == STRING_TYPE || _type == BLOB_TYPE) &&
-      _data.bytes != NULL) {
-    out_value._data.bytes = (char*) malloc(_len);
-    memcpy((void*)(out_value._data.bytes), (void*)(_data.bytes), _len);
+  out_value._type = _type;
+  out_value._data = _data;
+  out_value._old = _old;
+  out_value._len = _len;
+  out_value._null_value = _null_value;
+  out_value._modified = _modified;
+  out_value._use_delta_commit = _use_delta_commit;
+  if ((_type == STRING_TYPE || _type == BLOB_TYPE) && _data.bytes != NULL) {
+	out_value._data.bytes = (char*) malloc(_len);
+	memcpy((void*)(out_value._data.bytes), (void*)(_data.bytes), _len);
 
-    out_value._old.bytes = (char*) malloc(_len);
-    memcpy((void*)(out_value._old.bytes), (void*)(_old.bytes), _len);
+	out_value._old.bytes = (char*) malloc(_len);
+	memcpy((void*)(out_value._old.bytes), (void*)(_old.bytes), _len);
   }
 }
 } // namespace graphlab

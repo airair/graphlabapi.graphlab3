@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <stdint.h>
+
 namespace graphlab {
 
 /// \ingroup group_graph_database

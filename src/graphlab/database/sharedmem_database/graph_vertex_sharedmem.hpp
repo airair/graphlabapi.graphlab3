@@ -13,44 +13,38 @@ namespace graphlab {
 
 class graph_database_sharedmem;
 /**
- * \ingroup group_graph_database
- *  An abstract interface for a vertex of graph.
- *  The interface provides (locally cached) access to the data on the vertex,
- *  and provides control of synchronous and asynchronous modifications to the
- *  vertex. The interface also provides access to adjacency information.
+ * \ingroup group_graph_database_sharedmem
+ *  An shared memory implementation of <code>graph_vertex</code>.
+ *  The vertex data is directly accessible through pointers. 
+ *  Adjacency information is accessible through <code>edge_index</code>
+ *  object passed from the <code>graph_database_sharedmem</code>.
  *
  * This object is not thread-safe, and may not copied.
- *
- * \note For implementors: The interface is designed so that the graph_vertex
- * the graph_vertex can be "lazy" in that it acquires the data on the vertex 
- * (the graph_row object) or the adjacency information (the graph_edge_list), 
- * only when requested.
- *
- * \note This class retains ownership of the pointer returned by data(). 
- * However, this class does not retain ownership of the pointers
- * returned by the get_adj_list() function. This is intentional since it will
- * permit the use of different get_adj_list functions which perform edge
- * subset queries in the future.
  */
 class graph_vertex_sharedmem : public graph_vertex {
  private:
 
+  // Id of the vertex.
   graph_vid_t vid;
 
-  // Cache of the vertex data. 
-  graph_row* cache;
+  // Pointer to the vertex data in the storage.
+  graph_row* vdata;
 
+  // Master shard id of this vertex.
   graph_shard_id_t master;
 
+  // Mirror shards spanned by this vertex.
   boost::unordered_set<graph_shard_id_t> mirrors;
   
-  // Index of the edges
+  // Index of the edges.
   std::vector<graph_edge_index>* edge_index;
 
+  // Pointer to the database.
   graph_database* database;
+
  public:
   /**
-   * Create a graph vertex object 
+   * Creates a graph vertex object 
    */
   graph_vertex_sharedmem(graph_vid_t vid,
                          graph_row* data,
@@ -58,7 +52,7 @@ class graph_vertex_sharedmem : public graph_vertex {
                          const boost::unordered_set<graph_shard_id_t> mirrors,
                          std::vector<graph_edge_index>* eindex,
                          graph_database* db) : 
-      vid(vid), cache(data), master(master), mirrors(mirrors),
+      vid(vid), vdata(data), master(master), mirrors(mirrors),
       edge_index(eindex), database(db) {}
 
   /**
@@ -68,22 +62,13 @@ class graph_vertex_sharedmem : public graph_vertex {
     return vid;
   }
 
-  /** Returns a pointer to the graph_row representing the data
+  /**
+   * Returns a pointer to the graph_row representing the data
    * stored on this vertex. Modifications made to the data, are only committed 
    * to the database through a write_* call.
-   *
-   * \note Note that a pointer to the graph_row is returned. The graph_vertex 
-   * object retains ownership of the graph_row object. If this vertex is freed 
-   * (using \ref graph_database::free_vertex ),  all pointers to the data 
-   * returned by this function are invalidated.
-   *
-   * \note On the first call to data(), or all calls to *_refresh(), the 
-   * graph_vertex performs a synchronous read of the entire row from the
-   * database, and caches it. Repeated calls to data() should always return
-   * the same graph_row pointer.
    */
   graph_row* data() {
-    return cache;
+    return vdata;
   };
 
   // --- synchronization ---
@@ -93,15 +78,11 @@ class graph_vertex_sharedmem : public graph_vertex {
    * This resets the modification and delta flags on all values in the 
    * graph_row.
    *
-   * \note Only values which have been modified should be sent 
-   * (see \ref graph_value) and delta changes should be respected.
-   * The function should also reset the modification flags, delta_commit flags
-   * and update the _old values for each modified graph_value in the 
-   * graph_row.
+   * TODO: check delta commit.
    */ 
   void write_changes() {  
-    for (size_t i = 0; i < cache->num_fields(); i++) {
-      graph_value* val = cache->get_field(i);
+    for (size_t i = 0; i < vdata->num_fields(); i++) {
+      graph_value* val = vdata->get_field(i);
       if (val->get_modified()) {
         val->post_commit_state();
       }
@@ -109,40 +90,20 @@ class graph_vertex_sharedmem : public graph_vertex {
   }
 
   /**
-   * Commits changes made to the data on this vertex asynchronously.
-   * This resets the modification and delta flags on all values in the 
-   * graph_row.
-   *
-   * \note There are no guarantees as to when these modifications will be 
-   * commited. Just that it will be committed eventually. The graph database
-   * may buffer these modifications.
-   *
-   * \note Only values which have been modified should be sent 
-   * (see \ref graph_value) and delta changes should be respected.
-   * The function should also reset the modification flags, delta_commit flags
-   * and update the _old values for each modified graph_value in the 
-   * graph_row.
+   * Same as synchronous commit in shared memory.
    */ 
   void write_changes_async() { 
     write_changes();
   }
 
   /**
-   * Synchronously refreshes the local copy of the data from the database, 
-   * discarding all changes if any. This call may invalidate all previous
-   * graph_row pointers returned by \ref data() . 
-   *
-   * \note The function should also reset the modification flags, delta_commit 
-   * flags and update the _old values for each graph_value in the graph_row.
+   * No effects in shared memory.
    */ 
   void refresh() { }
 
   /**
-   * Synchronously commits all changes made to the data on this vertex, and
-   * refreshes the local copy of the data from the database. Equivalent to a
-   * a call to \ref write_changes() followed by \ref refresh() and may be 
-   * implemented that way. This call may invalidate all previous
-   * graph_row pointers returned by \ref data() . 
+   * Commits the change immediately.
+   * Refresh has no effects in shared memory.
    */ 
   void write_and_refresh() { 
     write_changes();
@@ -186,8 +147,7 @@ class graph_vertex_sharedmem : public graph_vertex {
    *  are not retrieved (for instance, I am only interested in the in edges of 
    *  the vertex).
    *
-   *  if prefetch_data is set, the data on the retrieved edges will already
-   *  be eagerly filled.
+   *  The prefetch behavior is ignored. We always pass the data pointer to the new edge. 
    */ 
   void get_adj_list(graph_shard_id_t shard_id, 
                             bool prefetch_data,
@@ -201,19 +161,13 @@ class graph_vertex_sharedmem : public graph_vertex {
 
     foreach(size_t& idx, index_in) {  
       std::pair<graph_vid_t, graph_vid_t> pair = database->get_shard(shard_id)->edge(idx);
-      graph_row* row = NULL;
-      if (prefetch_data) {
-        row = database->get_shard(shard_id)->edge_data(idx);
-      }
+      graph_row* row  = database->get_shard(shard_id)->edge_data(idx);
       out_inadj->push_back(new graph_edge_sharedmem(pair.first, pair.second, row, shard_id, database)); 
     }
 
     foreach(size_t& idx, index_out) {  
       std::pair<graph_vid_t, graph_vid_t> pair = database->get_shard(shard_id)->edge(idx);
-      graph_row* row = NULL;
-      if (prefetch_data) {
-        row = database->get_shard(shard_id)->edge_data(idx);
-      }
+      graph_row* row = database->get_shard(shard_id)->edge_data(idx);
       out_outadj->push_back(new graph_edge_sharedmem(pair.first, pair.second, row, shard_id, database)); 
     }
   }

@@ -15,35 +15,43 @@
 namespace graphlab {
 /**
  * \ingroup group_graph_database_sharedmem
- * An shared memory implementation of a graph database
+ * An shared memory implementation of a graph database.  
+ * This class implements the <code>graph_database</code> interface
+ * as a shared memory instance.
  */
 class graph_database_sharedmem : public graph_database {
 
-  // schema for vertex and edge datatypes
+  // Schema for vertex and edge datatypes
   std::vector<graph_field> vertex_fields;
   std::vector<graph_field> edge_fields;
 
-  // simulates backend storage of data
+  // Simulates backend shard storage
   std::vector<graph_shard> shards;
 
   // Array stores the vertex data.
   std::vector<graph_row*> vertex_store; 
 
-  // dependencies between shards
+  // Dependencies between shards
   sharding_constraint sharding_graph;
 
-  // index service for fine grained queries 
+  // Index for fine grained vertex look up. 
   graph_vertex_index vertex_index;
+  // An array of length equals num_shards. <code>edge_indes[i]</code> is the index
+  // for fine grained edge look up on <code>shards[i]</code>
   std::vector<graph_edge_index> edge_index;
 
-  // index service for vertex-shard query 
+  // Map from vertex id to its master shard
   boost::unordered_map<graph_vid_t, graph_shard_id_t> vid2master;
-  boost::unordered_map<graph_shard_id_t, std::vector<graph_vid_t> > master2vid;
+  // Map from vertex id to its mirror shards
   boost::unordered_map<graph_vid_t, boost::unordered_set<graph_shard_id_t> > vid2mirrors;
 
   size_t _num_edges;
 
  public:
+  /**
+   * Creates a shared memory graph database with fixed vertex and edge schemas. 
+   * Shards are constructed with a grid depedency.
+   */
    graph_database_sharedmem(std::vector<graph_field> vertex_fields,
                             std::vector<graph_field> edge_fields,
                             size_t numshards) :sharding_graph(numshards, "grid") { 
@@ -52,6 +60,9 @@ class graph_database_sharedmem : public graph_database {
      edge_index.resize(numshards);
    }
 
+   /**
+    * Destroy the database, free all vertex and edge data from memory.
+    */
    virtual ~graph_database_sharedmem() {
      for (size_t i = 0; i < shards.size(); ++i) {
        shards[i].clear();
@@ -94,7 +105,9 @@ class graph_database_sharedmem : public graph_database {
 
   // -------- Fine grained API ------------
 
-  /** returns a vertex in ret_vertex for a queried vid. Returns NULL on failure
+  /**
+   * Returns a graph_vertex object for the queried vid. Returns NULL on failure
+   * The vertex data is passed eagerly as a pointer. Adjacency information is passed through the <code>edge_index</code>. 
    * The returned vertex pointer must be freed using free_vertex
    */
   graph_vertex* get_vertex(graph_vid_t vid) {
@@ -131,7 +144,8 @@ class graph_database_sharedmem : public graph_database {
   };
 
   /**
-   * Frees a vertex object
+   * Frees a vertex object.
+   * The associated data is not freed. 
    */
   void free_vertex(graph_vertex* vertex) {
     delete vertex;
@@ -139,7 +153,8 @@ class graph_database_sharedmem : public graph_database {
   };
 
   /**
-   * Frees a single edge object
+   * Frees a single edge object.
+   * The associated data is not freed. 
    */
   void free_edge(graph_edge* edge) {
     delete edge;
@@ -164,27 +179,26 @@ class graph_database_sharedmem : public graph_database {
   size_t num_shards() { return shards.size(); }
   
   /**
-   * Synchronously obtains a shard from the database.
-   * Returns NULL on failure
+   * Returns a shallow copy of the shard from storage.
    */
   graph_shard* get_shard(graph_shard_id_t shard_id) {
     return new graph_shard(shards[shard_id]);
   }
                           
   /**
-   * Gets the contents of the shard which are adjacent to some other shard
-   * Returns NULL on failure
+   * Gets the contents of the shard which are adjacent to some other shard.
+   * Creats a new shard with only the relevant edges, and no vertices.
+   * It makes a copy of the edge data from the original shard, and fills in the <code>shard_impl.edgeid</code>
+   * with the index from the original shard.
+   * Returns NULL on failure.
    */
   graph_shard* get_shard_contents_adj_to(graph_shard_id_t shard_id,
                                                  graph_shard_id_t adjacent_to) {
-    // not implemented
-    ASSERT_TRUE(false);
-
-    // graph_shard* shard = new graph_shard();
     graph_shard_impl shard_impl; 
     shard_impl.shard_id = adjacent_to;
 
-    const std::vector<graph_vid_t>& vids = master2vid[shard_id]; 
+    const std::vector<graph_vid_t>& vids = shards[shard_id].shard_impl.vertex;
+    // for each vertex in shard_id, iterates over its mirrors, and copy its adjacent edges. 
     for (size_t i = 0; i < vids.size(); i++) {
       if (vid2mirrors[vids[i]].find(adjacent_to) != vid2mirrors[vids[i]].end()) {
         std::vector<size_t> index_in;
@@ -216,7 +230,8 @@ class graph_database_sharedmem : public graph_database {
   }
 
   /**
-   * Frees a shard.
+   * Frees a shard. Frees all edge and vertex data from the memory. 
+   * All pointers to the data in the shard will be invalid. 
    */  
   void free_shard(graph_shard* shard) {
     shard->clear();
@@ -250,8 +265,11 @@ class graph_database_sharedmem : public graph_database {
       }
     }
 
-    bool commit_to_remote = shard->shard_impl.edgeid.size() > 0;
     // commit edge data
+    // if the shard to commit is a derived shard, we need to overwrite 
+    // the corresponding edges in the original shard
+    bool commit_to_remote = shard->shard_impl.edgeid.size() > 0;
+
     for (size_t i = 0; i < shard->num_edges(); i++) {
       graph_row* local = shard->edge_data(i);
       graph_row* origin = commit_to_remote ? shards[id].edge_data(shard->shard_impl.edgeid[i]) : NULL;
@@ -271,14 +289,16 @@ class graph_database_sharedmem : public graph_database {
 // ----------- Modification API -----------------
   /*
    * Insert the vertex v into a shard = hash(v) as master
+   * The insertion updates the global <code>vertex_store</code> as well as the master shard.
+   * The corresponding <code>vid2master</code> and <code>vertex_index</code> are updated.
    * Return false if v is already inserted.
    */
-  bool add_vertex(graph_vid_t vid) {
+  bool add_vertex(graph_vid_t vid, graph_row* data=NULL) {
     if (vertex_index.has_vertex(vid)) {
       return false;
     }
     // create a new row of all null values.
-    graph_row* row = new graph_row(this, vertex_fields);
+    graph_row* row = (data==NULL) ? new graph_row(this, vertex_fields) : data;
     row->_is_vertex = true;
     vertex_store.push_back(row);
     
@@ -287,7 +307,6 @@ class graph_database_sharedmem : public graph_database {
     graph_shard_id_t master = vid_hash(vid) % num_shards(); 
     shards[master].shard_impl.add_vertex(vid, row);
     vid2master[vid] = master;
-    master2vid[master].push_back(vid);
 
     // update vertex index 
     vertex_index.add_vertex(vid, row, vertex_store.size()-1);
@@ -295,15 +314,16 @@ class graph_database_sharedmem : public graph_database {
   }
 
   /**
-   * Insert an edge from source to target with empty value.
-   * Also insert vertex copies into the corresponding shards.
+   * Insert an edge from source to target with given value.
+   * This will add vertex to the master shards if they were not added before.
+   * The corresponding vertex mirrors and edge index are updated.
    */
-  void add_edge(graph_vid_t source, graph_vid_t target) {
+  void add_edge(graph_vid_t source, graph_vid_t target, graph_row* data=NULL) {
     boost::hash<std::pair<graph_vid_t, graph_vid_t> > edge_hash;
     graph_shard_id_t shardid = edge_hash(std::pair<graph_vid_t, graph_vid_t>(source, target)) % shards.size();
 
     // create a new row of all null values
-    graph_row* row = new graph_row(this, edge_fields);
+    graph_row* row = (data==NULL) ? new graph_row(this, edge_fields) : data;
     row->_is_vertex = false;
     size_t pos = shards[shardid].shard_impl.add_edge(source, target, row);
     _num_edges++;

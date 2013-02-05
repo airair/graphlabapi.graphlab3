@@ -12,6 +12,8 @@
 #include <mongo/client/dbclient.h>
 #include <mongo/util/net/hostandport.h>
 #include <boost/foreach.hpp>
+#include <boost/thread.hpp>
+
 
 #define KEYATTR_NAME "_id"
 #define VALUEATTR_NAME "value"
@@ -31,7 +33,8 @@ void kvstore_mongodb::set(const key_type key, const value_type &value) {
 }
 
 void kvstore_mongodb::background_set(const key_type key, const value_type &value) {
-  set(key, value);
+  boost::thread t(&kvstore_base::set, this, key, value);
+  t.detach();
 }
 
 bool kvstore_mongodb::get(const key_type key, value_type &value) {
@@ -66,9 +69,21 @@ std::vector<value_type> kvstore_mongodb::range_get(const key_type key_lo, const 
   return result;
 }
 
+void kvstore_mongodb::background_get_thread(boost::promise<std::pair<bool, value_type> > promise, const key_type key) {
+  mongo::BSONObj query = BSON(KEYATTR_NAME << key);
+  mongo::BSONObj result = _conn.findOne(_ns, query);
+  bool empty = result.isEmpty();
+  value_type value;
+  if (!empty)
+    value = result.getStringField(VALUEATTR_NAME);
+  promise.set_value(std::pair<bool, value_type>(empty, value));
+}
+
 boost::unique_future<std::pair<bool, value_type> > kvstore_mongodb::background_get(const key_type key) {
-  boost::unique_future<std::pair<bool, value_type> > result;
-  return result;
+  boost::promise<std::pair<bool, value_type> > promise;
+  boost::thread t(&kvstore_mongodb::background_get_thread, this, promise, key);
+  t.detach();
+  return promise.future;
 }
 
 boost::unique_future<std::vector<std::pair<bool, value_type> > > kvstore_mongodb::background_bulk_get(const std::vector<key_type> &keys) {

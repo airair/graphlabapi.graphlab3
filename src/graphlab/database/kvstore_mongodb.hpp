@@ -37,6 +37,7 @@ private:
   mongo::DBClientConnection _conn;
   std::string _ns;
 
+  void background_get_thread(boost::promise<std::pair<bool, value_type> > promise, const key_type key);
 };
 
 }

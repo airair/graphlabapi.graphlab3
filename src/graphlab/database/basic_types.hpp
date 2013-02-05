@@ -10,6 +10,7 @@ namespace graphlab {
 /// identifies a vertex id
 // typedef __uint128_t graph_vid_t;
 typedef uint64_t graph_vid_t;
+typedef uint64_t graph_eid_t;
 
 /// \ingroup group_graph_database
 /// integer field data type 

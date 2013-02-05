@@ -7,6 +7,7 @@
 #include <graphlab/database/graph_vertex.hpp>
 #include <graphlab/database/sharedmem_database/graph_edge_sharedmem.hpp>
 #include <graphlab/database/sharedmem_database/graph_vertex_index.hpp>
+#include <boost/unordered_set.hpp>
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
 
@@ -33,22 +34,32 @@ class graph_database_sharedmem;
  */
 class graph_vertex_sharedmem : public graph_vertex {
  private:
+
   graph_vid_t vid;
+
   // Cache of the vertex data. 
   graph_row* cache;
+
+  graph_shard_id_t master;
+
+  boost::unordered_set<graph_shard_id_t> mirrors;
+  
   // Index of the edges
   std::vector<graph_edge_index>* edge_index;
-  graph_database* database;
 
+  graph_database* database;
  public:
   /**
    * Create a graph vertex object 
    */
   graph_vertex_sharedmem(graph_vid_t vid,
                          graph_row* data,
+                         graph_shard_id_t master,
+                         const boost::unordered_set<graph_shard_id_t> mirrors,
                          std::vector<graph_edge_index>* eindex,
                          graph_database* db) : 
-      vid(vid), cache(data), edge_index(eindex), database(db) {}
+      vid(vid), cache(data), master(master), mirrors(mirrors),
+      edge_index(eindex), database(db) {}
 
   /**
    * Returns the ID of the vertex
@@ -143,26 +154,21 @@ class graph_vertex_sharedmem : public graph_vertex {
    * Returns the ID of the shard that owns this vertex
    */
   graph_shard_id_t master_shard() {
-    // not implemented
-    ASSERT_TRUE(false);
-    return -1;
+    return master;
   };
 
   /**
    * returns the number of shards this vertex spans
    */
   size_t get_num_shards() {
-    // not implemented
-    ASSERT_TRUE(false);
-   return -1;
+    return mirrors.size() + 1;
   };
 
   /**
    * returns a vector containing the shard IDs this vertex spans
    */
   std::vector<graph_shard_id_t> get_shard_list() {
-    ASSERT_TRUE(false);
-    return std::vector<graph_shard_id_t>();
+    return std::vector<graph_shard_id_t>(mirrors.begin(), mirrors.end());
   };
 
   // --- adjacency ---

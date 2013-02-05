@@ -18,20 +18,28 @@ namespace graphlab {
  * An shared memory implementation of a graph database
  */
 class graph_database_sharedmem : public graph_database {
+
   // schema for vertex and edge datatypes
   std::vector<graph_field> vertex_fields;
   std::vector<graph_field> edge_fields;
 
   // simulates backend storage of data
   std::vector<graph_shard> shards;
+
   // Array stores the vertex data.
   std::vector<graph_row*> vertex_store; 
+
   // dependencies between shards
   sharding_constraint sharding_graph;
 
   // index service for fine grained queries 
   graph_vertex_index vertex_index;
   std::vector<graph_edge_index> edge_index;
+
+  // index service for vertex-shard query 
+  boost::unordered_map<graph_vid_t, graph_shard_id_t> vid2master;
+  boost::unordered_map<graph_shard_id_t, std::vector<graph_vid_t> > master2vid;
+  boost::unordered_map<graph_vid_t, boost::unordered_set<graph_shard_id_t> > vid2mirrors;
 
   size_t _num_edges;
 
@@ -91,7 +99,7 @@ class graph_database_sharedmem : public graph_database {
    */
   graph_vertex* get_vertex(graph_vid_t vid) {
     size_t idx = vertex_index.get_index(vid);
-    return (new graph_vertex_sharedmem(vid, vertex_store[idx], &edge_index, this));
+    return (new graph_vertex_sharedmem(vid, vertex_store[idx], vid2master[vid], vid2mirrors[vid], &edge_index, this));
   };
 
   /**
@@ -155,13 +163,12 @@ class graph_database_sharedmem : public graph_database {
    */
   size_t num_shards() { return shards.size(); }
   
-  
   /**
    * Synchronously obtains a shard from the database.
    * Returns NULL on failure
    */
   graph_shard* get_shard(graph_shard_id_t shard_id) {
-    return &shards[shard_id];
+    return new graph_shard(shards[shard_id]);
   }
                           
   /**
@@ -172,13 +179,49 @@ class graph_database_sharedmem : public graph_database {
                                                  graph_shard_id_t adjacent_to) {
     // not implemented
     ASSERT_TRUE(false);
-    return NULL;
+
+    // graph_shard* shard = new graph_shard();
+    graph_shard_impl shard_impl; 
+    shard_impl.shard_id = adjacent_to;
+
+    const std::vector<graph_vid_t>& vids = master2vid[shard_id]; 
+    for (size_t i = 0; i < vids.size(); i++) {
+      if (vid2mirrors[vids[i]].find(adjacent_to) != vid2mirrors[vids[i]].end()) {
+        std::vector<size_t> index_in;
+        std::vector<size_t> index_out;
+        edge_index[adjacent_to].get_edge_index(index_in, index_out, true, true, vids[i]);
+        
+        // copy incoming edges vids[i]
+        for (size_t j = 0; j < index_in.size(); j++) {
+          std::pair<graph_vid_t, graph_vid_t> e = shards[adjacent_to].edge(index_in[j]);
+          graph_row* data = shards[adjacent_to].edge_data(index_in[j]);
+          graph_row* data_copy = new graph_row();
+          data->deepcopy(*data_copy);
+          shard_impl.add_edge(e.first, e.second, data_copy);
+          shard_impl.edgeid.push_back(index_in[j]);
+        }
+
+        // copy outgoing edges of vids[i]
+        for (size_t j = 0; j < index_out.size(); j++) {
+          std::pair<graph_vid_t, graph_vid_t> e = shards[adjacent_to].edge(index_out[j]);
+          graph_row* data = shards[adjacent_to].edge_data(index_out[j]);
+          graph_row* data_copy = new graph_row();
+          data->deepcopy(*data_copy);
+          shard_impl.add_edge(e.first, e.second, data_copy);
+          shard_impl.edgeid.push_back(index_out[j]);
+        }
+      }
+    }
+    return new graph_shard(shard_impl);
   }
+
   /**
    * Frees a shard.
    */  
   void free_shard(graph_shard* shard) {
     shard->clear();
+    delete(shard);
+    shard = NULL;
   }
   
   /** 
@@ -194,8 +237,35 @@ class graph_database_sharedmem : public graph_database {
    * in the shard, resetting all modification flags.
    */
   void commit_shard(graph_shard* shard) {
-    // not implemented 
-    ASSERT_TRUE(false);
+    graph_shard_id_t id = shard->id();
+
+    // commit vertex data
+    for (size_t i = 0; i < shard->num_vertices(); i++) {
+      graph_row* row = shard->vertex_data(i);
+      for (size_t j = 0; j < row->num_fields(); j++) {
+        graph_value* val = row->get_field(j);
+        if (val->get_modified()) {
+          val->post_commit_state();
+        }
+      }
+    }
+
+    bool commit_to_remote = shard->shard_impl.edgeid.size() > 0;
+    // commit edge data
+    for (size_t i = 0; i < shard->num_edges(); i++) {
+      graph_row* local = shard->edge_data(i);
+      graph_row* origin = commit_to_remote ? shards[id].edge_data(shard->shard_impl.edgeid[i]) : NULL;
+      for (size_t j = 0; j < local->num_fields(); j++) {
+        graph_value* val = local->get_field(j);
+        if (val->get_modified()) {
+          val->post_commit_state();
+          if (origin != NULL) {
+            origin->get_field(j)->free_data();
+            val->deepcopy(*origin->get_field(j));
+          }
+        }
+      }
+    }
   }
 
 // ----------- Modification API -----------------
@@ -211,6 +281,14 @@ class graph_database_sharedmem : public graph_database {
     graph_row* row = new graph_row(this, vertex_fields);
     row->_is_vertex = true;
     vertex_store.push_back(row);
+    
+    // assign a master shard of the vertex
+    boost::hash<graph_vid_t> vid_hash;
+    graph_shard_id_t master = vid_hash(vid) % num_shards(); 
+    shards[master].shard_impl.add_vertex(vid, row);
+    vid2master[vid] = master;
+    master2vid[master].push_back(vid);
+
     // update vertex index 
     vertex_index.add_vertex(vid, row, vertex_store.size()-1);
     return true;
@@ -227,20 +305,30 @@ class graph_database_sharedmem : public graph_database {
     // create a new row of all null values
     graph_row* row = new graph_row(this, edge_fields);
     row->_is_vertex = false;
-    size_t pos = get_shard(shardid)->add_edge(source, target, row);
+    size_t pos = shards[shardid].shard_impl.add_edge(source, target, row);
     _num_edges++;
 
     // update_edge_index
     edge_index[shardid].add_edge(source, target, pos);
 
-    // add source vertex to the shard if it was not there before
+    // Add vertices to master shards 
     if (!vertex_index.has_vertex(source)) {
       add_vertex(source);
     }
-
-    // add target vertex to the shard  if it was not there before
     if (!vertex_index.has_vertex(target)) {
       add_vertex(target);
+    }
+
+    // Add vertices to mirror shards 
+    if ((vid2master[source] != shardid) && 
+        (vid2mirrors[source].find(shardid) == vid2mirrors[source].end())) {
+    //   shards[shardid].add_vertex(source, vertex_store[vertex_index.get_index(source)]);
+      vid2mirrors[source].insert(shardid);
+    }
+    if ((vid2master[target] != shardid) && 
+        (vid2mirrors[target].find(shardid) == vid2mirrors[target].end())) {
+    //   shards[shardid].add_vertex(target, vertex_store[vertex_index.get_index(target)]);
+      vid2mirrors[target].insert(shardid);
     }
   }
 };

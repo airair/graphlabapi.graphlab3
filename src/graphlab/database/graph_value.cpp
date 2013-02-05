@@ -19,11 +19,16 @@ graph_value::~graph_value() {
 
 
 void graph_value::free_data() {
-  if ((_type == STRING_TYPE || _type == BLOB_TYPE) &&
-      _data.bytes != NULL) {
-    free(_data.bytes);
-    _data.bytes = NULL;
-    _len = 0;
+  if ((_type == STRING_TYPE || _type == BLOB_TYPE)) { 
+      if (_data.bytes != NULL) {
+        free(_data.bytes);
+        _data.bytes = NULL;
+        _len = 0;
+      }
+      if (_old.bytes != NULL) {
+        free(_old.bytes);
+        _old.bytes = NULL;
+      }
   }
 }
 
@@ -181,6 +186,9 @@ bool graph_value::set_blob(const char* val, size_t length) {
   }
 }
 
+/**
+ * Make a deep copy into out_value. Assuming out_value is empty.
+ */
 void graph_value::deepcopy(graph_value& out_value) {
   out_value._type = _type;
   out_value._data = _data;

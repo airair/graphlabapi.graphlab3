@@ -8,6 +8,7 @@
 
 // forward declaration
 class graph_database;
+class graph_database_sharedmem;
 
 namespace graphlab {
 
@@ -32,16 +33,28 @@ namespace graphlab {
  * 
  * \note The graph_shard is a friend of graph_database and thus a friend
  * of all descendents of the graph_database
+ *
+ * \note Only information of the master vertices are stored within the shard.
+ *
+ * \note Special case: A shard fetched through <cod>graph_database::get_shard_contents_adj_to</code> does not have vertex information.
  */
 class graph_shard {
  private:
    graph_shard_impl shard_impl;
 
-   graph_shard(const graph_shard_impl& shard_impl): shard_impl(shard_impl) { }
  public:
-
-
    graph_shard() { }
+
+   graph_shard(const graph_shard_impl& shard_impl): shard_impl(shard_impl) { }
+
+   /**
+    * Returns the id of this shard.
+    * Id is -1 if this is a derived shard.
+    */
+   inline graph_shard_id_t id() {
+     return shard_impl.shard_id;
+   }
+
   /**
    * Returns the number of vertices in this shard
    */ 
@@ -99,45 +112,22 @@ class graph_shard {
 
 // ----------- Modification API -----------------
   /**
-   * Clear the content of this shard. Remove all vertex and edge info.
+   * Clear the content of this shard. Remove all vertex and edge data.
+   * Will fail when this is a derived shard.
    */
   inline void clear() {
-      // delete[] shard_impl.vertex;
-      // delete[] shard_impl.num_in_edges;
-      // delete[] shard_impl.num_out_edges;
-      // delete[] shard_impl.edge;
       for (size_t i = 0; i < num_vertices(); ++i) {
         shard_impl.vertex_data[i]->_values.clear();
       }
-      // delete[] shard_impl.vertex_data;
       for (size_t i = 0; i < num_edges(); ++i) {
         shard_impl.edge_data[i]->_values.clear();
       }
-      // delete[] shard_impl.edge_data;
-  }
-
-  /**
-   * Insert a (vid, pair) into the shard. Return the position of the vertex in the shard.
-   * */
-  inline size_t add_vertex(graph_vid_t vid, graph_row* data) {
-    size_t pos = (shard_impl.num_vertices++);
-    shard_impl.vertex.push_back(vid);
-    shard_impl.vertex_data.push_back(data);
-    return pos;
-  }
-
-  /**
-   * Insert a (vid, pair) into the shard. Return the position of the vertex in the shard.
-   * */
-  inline size_t add_edge(graph_vid_t source, graph_vid_t target, graph_row* data) {
-    size_t pos = (shard_impl.num_edges++);
-    shard_impl.edge.push_back(std::pair<graph_vid_t, graph_vid_t>(source, target));
-    shard_impl.edge_data.push_back(data);
-    return pos;
+      shard_impl.num_vertices = shard_impl.num_edges = 0;
   }
 
 
  private:
+
   // copy constructor deleted. It is not safe to copy this object.
   // graph_shard(const graph_shard&) { }
 
@@ -145,6 +135,7 @@ class graph_shard {
   // graph_shard& operator=(const graph_shard&) { return *this; }
 
   friend class graph_database;
+  friend class graph_database_sharedmem;
 };
 
 } // namespace graphlab 

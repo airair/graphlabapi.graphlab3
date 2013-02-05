@@ -9,8 +9,19 @@
 #include <boost/unordered_map.hpp>
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
+  /** 
+   * \ingroup group_graph_database_sharedmem
+   * An index on vertex id. 
+   *
+   * This class provides adjacency look up in one shard.
+   */
   class graph_edge_index {
    public:
+     /**
+      * Fills in the query vid's incoming and outgoing edge index (in this shard)
+      * into <code>in</code> and <code>out</code> vectors.
+      * Skip the incoming (or outgoing) edge if getIn(or getOut) is false.
+      */
      void get_edge_index (std::vector<size_t>& in,
                           std::vector<size_t>& out,
                           bool getIn,
@@ -24,6 +35,9 @@ namespace graphlab {
        }
      }
 
+     /**
+      * Update the index by adding an edge with (source, target, pos) in this shard. 
+      */
     void add_edge(graph_vid_t source, graph_vid_t target, size_t pos) {
       outEdges[source].push_back(pos);
       inEdges[target].push_back(pos);

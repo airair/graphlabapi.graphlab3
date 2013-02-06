@@ -33,6 +33,8 @@ public:
   virtual boost::unique_future<std::vector<std::pair<bool, value_type> > > background_bulk_get(const std::vector<key_type> &keys);
   virtual boost::unique_future<std::vector<value_type> > background_range_get(const key_type key_lo, const key_type key_hi);
 
+  virtual remove_all();
+
 private:
   mongo::DBClientConnection _conn;
   std::string _ns;

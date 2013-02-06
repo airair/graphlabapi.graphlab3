@@ -62,7 +62,7 @@ void graph_row::deepcopy(graph_row& out_row) {
   out_row._values.resize(num_fields());
   for (size_t i = 0; i < num_fields(); i++) {
     _values[i].deepcopy(out_row._values[i]);
-    _data[i] = &(_values[i]);
+    out_row._data[i] = &(out_row._values[i]);
   }
 }
 } // namespace graphlab

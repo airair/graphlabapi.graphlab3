@@ -54,7 +54,8 @@ class graph_database_sharedmem : public graph_database {
    */
    graph_database_sharedmem(std::vector<graph_field> vertex_fields,
                             std::vector<graph_field> edge_fields,
-                            size_t numshards) :sharding_graph(numshards, "grid") { 
+                            size_t numshards) : 
+       vertex_fields(vertex_fields), edge_fields(edge_fields), sharding_graph(numshards, "grid") { 
      _num_edges = 0; 
      shards.resize(numshards);
      edge_index.resize(numshards);
@@ -179,10 +180,13 @@ class graph_database_sharedmem : public graph_database {
   size_t num_shards() { return shards.size(); }
   
   /**
-   * Returns a shallow copy of the shard from storage.
+   * Returns a deep copy of the shard from storage.
+   * The returned pointer should be freed by free_shard;
    */
   graph_shard* get_shard(graph_shard_id_t shard_id) {
-    return new graph_shard(shards[shard_id]);
+    graph_shard_impl newshardimpl;
+    shards[shard_id].shard_impl.deepcopy(newshardimpl);
+    return new graph_shard(newshardimpl);
   }
                           
   /**
@@ -268,19 +272,20 @@ class graph_database_sharedmem : public graph_database {
     // commit edge data
     // if the shard to commit is a derived shard, we need to overwrite 
     // the corresponding edges in the original shard
-    bool commit_to_remote = shard->shard_impl.edgeid.size() > 0;
+    bool derivedshard = shard->shard_impl.edgeid.size() > 0;
 
     for (size_t i = 0; i < shard->num_edges(); i++) {
       graph_row* local = shard->edge_data(i);
-      graph_row* origin = commit_to_remote ? shards[id].edge_data(shard->shard_impl.edgeid[i]) : NULL;
+
+      graph_row* origin = derivedshard ? shards[id].edge_data(shard->shard_impl.edgeid[i]) : shards[id].edge_data(i);
+      ASSERT_TRUE(origin != NULL);
+
       for (size_t j = 0; j < local->num_fields(); j++) {
         graph_value* val = local->get_field(j);
         if (val->get_modified()) {
           val->post_commit_state();
-          if (origin != NULL) {
-            origin->get_field(j)->free_data();
-            val->deepcopy(*origin->get_field(j));
-          }
+          origin->get_field(j)->free_data();
+          val->deepcopy(*origin->get_field(j));
         }
       }
     }

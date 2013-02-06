@@ -234,9 +234,9 @@ Let the original replication factor be
 \begin_inset Formula \begin{eqnarray*}
 \frac{r'}{r} & = & \frac{k\left(1-\frac{\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}{|V|}\right)}{p\left(1-\frac{\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}}{|V|}\right)}\\
  & = & \frac{k}{p}\times\frac{|V|-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}{|V|-\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}}\\
- & \le & \frac{k}{p}\times\frac{|V|-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}+\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}}{|V|}\\
- & = & \frac{k}{p}\times\left(1+\frac{\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}{|V|}\right)\\
- & \le & \frac{k}{p}\times\left(1+\frac{\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}}{|V|}\right)\\
+ & = & \frac{k}{p}\times\frac{|V|-\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}+\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}{|V|-\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}}\\
+ & = & \frac{k}{p}\times\left(1+\frac{\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}{|V|-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}\right)\\
+ & \le & \frac{k}{p}\times\left(1+1\right)\\
  & \le & 2\frac{k}{p}\end{eqnarray*}
 
 \end_inset
@@ -254,19 +254,7 @@ r' & \le & \frac{2k}{p}r\end{eqnarray*}
 \end_layout
 
 \begin_layout Standard
-\begin_inset Formula $\frac{a}{b}\le\frac{a+x}{b+x}$
-\end_inset
 
-
-\end_layout
-
-\begin_layout Standard
-The right side is kind of a bugger to analyse, and does not simplify easily.
- 
-\end_layout
-
-\begin_layout Standard
-However, we can approximate it by simply taking a small number of terms.
 \end_layout
 
 \begin_layout Standard

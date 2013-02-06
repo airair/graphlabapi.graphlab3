@@ -1,5 +1,6 @@
 #include <graphlab/database/graph_row.hpp>
 #include <graphlab/database/graph_database.hpp>
+#include <graphlab/logger/assertions.hpp>
 
 namespace graphlab {
 
@@ -59,10 +60,13 @@ void graph_row::shallowcopy(graph_row& out_row) {
 void graph_row::deepcopy(graph_row& out_row) {
   out_row._database = _database;
   out_row._is_vertex = _is_vertex;
-  out_row._values.resize(num_fields());
+
+  ASSERT_TRUE(out_row._values == NULL);
+  out_row._values = (graph_value*)malloc(sizeof(graph_value) * num_fields());
+  out_row._data.resize(num_fields());
   for (size_t i = 0; i < num_fields(); i++) {
-    _values[i].deepcopy(out_row._values[i]);
-    out_row._data[i] = &(out_row._values[i]);
+    _data[i]->deepcopy(out_row._values[i]);
+    out_row._data[i] = out_row._values + i;
   }
 }
 } // namespace graphlab

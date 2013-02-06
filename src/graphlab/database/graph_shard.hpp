@@ -46,6 +46,15 @@ class graph_shard {
    graph_shard() { }
 
    graph_shard(const graph_shard_impl& shard_impl): shard_impl(shard_impl) { }
+   
+   ~graph_shard() {
+      for (size_t i = 0; i < num_vertices(); ++i) {
+         delete(shard_impl.vertex_data[i]);
+      }
+      for (size_t i = 0; i < num_edges(); ++i) {
+         delete(shard_impl.edge_data[i]);
+      }
+   }
 
    /**
     * Returns the id of this shard.
@@ -83,16 +92,18 @@ class graph_shard {
    * shard. This counts the total number of out edges of this vertex in the graph.
    * num_out_edges(i) is the number of out edges of the vertex with ID vertex(i)
    * i must range from 0 to num_vertices() - 1 inclusive.
+   * \note Deprecated because shard only store master vertices.
    */
-  inline size_t num_out_edges(size_t i) { return shard_impl.num_out_edges[i]; }
+  // inline size_t num_out_edges(size_t i) { return shard_impl.num_out_edges[i]; }
   
   /**
    * Returns the number of in edges of the vertex in the i'th position in this
    * shard. This counts the total number of in edges of this vertex in the graph.
    * num_in_edges(i) is the number of in edges of the vertex with ID vertex(i)
    * i must range from 0 to num_vertices() - 1 inclusive.
+   * \note Deprecated because shard only store master vertices.
    */
-  inline size_t num_in_edges(size_t i) { return shard_impl.num_in_edges[i]; }
+  // inline size_t num_in_edges(size_t i) { return shard_impl.num_in_edges[i]; }
 
   /**
    * Returns edge in the j'th position in this shard.
@@ -113,15 +124,21 @@ class graph_shard {
 // ----------- Modification API -----------------
   /**
    * Clear the content of this shard. Remove all vertex and edge data.
-   * Will fail when this is a derived shard.
    */
   inline void clear() {
-      for (size_t i = 0; i < num_vertices(); ++i) {
-        shard_impl.vertex_data[i]->_values.clear();
-      }
-      for (size_t i = 0; i < num_edges(); ++i) {
-        shard_impl.edge_data[i]->_values.clear();
-      }
+      // for (size_t i = 0; i < num_vertices(); ++i) {
+      //    free(shard_impl.vertex_data[i]);
+      // }
+      // for (size_t i = 0; i < num_edges(); ++i) {
+      //    free(shard_impl.edge_data[i]);
+      // }
+      shard_impl.vertex.clear();
+      shard_impl.edge.clear();
+      shard_impl.edgeid.clear();
+      shard_impl.vertex_data.clear();
+      shard_impl.edge_data.clear();
+      // shard_impl.num_out_edges.clear();
+      // shard_impl.num_in_edges.clear();
       shard_impl.num_vertices = shard_impl.num_edges = 0;
   }
 
@@ -129,10 +146,10 @@ class graph_shard {
  private:
 
   // copy constructor deleted. It is not safe to copy this object.
-  // graph_shard(const graph_shard&) { }
+  graph_shard(const graph_shard&) { }
 
   // assignment operator deleted. It is not safe to copy this object.
-  // graph_shard& operator=(const graph_shard&) { return *this; }
+  graph_shard& operator=(const graph_shard&) { return *this; }
 
   friend class graph_database;
   friend class graph_database_sharedmem;

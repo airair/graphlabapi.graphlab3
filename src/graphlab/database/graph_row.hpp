@@ -32,26 +32,38 @@ class graph_row {
   /// An array of all the values on this row
   std::vector<graph_value*> _data;
 
-  graph_row() {}
+  graph_row() {
+    _database= NULL;
+  }
 
-  // Create an row with all NULL values in the given fields
+  // Create a row with all NULL values in the given fields
   graph_row(graph_database* database, std::vector<graph_field>& fields) :
     _database(database) {
+    _values = (graph_value*)malloc(sizeof(graph_value)*fields.size());
     for (size_t i = 0; i < fields.size(); i++) {
-      graph_value* val = new graph_value();
-      val->_type = fields[i].type;
-      if (val->_type == STRING_TYPE || val->_type == BLOB_TYPE) {
-        val->_len=0;
-      } else if (val->_type == DOUBLE_TYPE) {
-        val->_len=sizeof(graph_double_t);
+      graph_value& val = _values[i];
+      val._type = fields[i].type;
+      val._null_value = true;
+      val._modified = false;
+      val._use_delta_commit = false;
+      memset(&val._data, 0, sizeof(val._data));
+      memset(&val._old, 0, sizeof(val._old));
+      if (val._type == STRING_TYPE || val._type == BLOB_TYPE) {
+        val._len=0;
+      } else if (val._type == DOUBLE_TYPE) {
+        val._len=sizeof(graph_double_t);
       } else {
-        val->_len=sizeof(graph_int_t);
+        val._len=sizeof(graph_int_t);
       }
-      _data.push_back(val);
+      _data.push_back(_values + i);
     }
   }
 
-  ~graph_row() {}
+  ~graph_row() {
+    if (_values != NULL) {
+      free(_values);
+    }
+  }
   
   /// If true, this represents a vertex; if false, this represents an edge.
   bool _is_vertex;
@@ -107,7 +119,7 @@ class graph_row {
   void shallowcopy(graph_row& out_row);
 
   /**
-   * Makes a deep copy of this row into out_row. 
+   * Makes a deep copy of this row into out_row. Ignore all fields in out_row.
    */
   void deepcopy (graph_row& out_row);
 
@@ -120,7 +132,7 @@ class graph_row {
   graph_row& operator=(const graph_row&) { return *this; }
 
   // Stores the graph values for the row. Could be empty if it is a shallow copy. 
-  std::vector<graph_value> _values;
+  graph_value* _values;
 
   friend class graph_database;
   friend class graph_shard;

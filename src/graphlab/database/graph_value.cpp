@@ -187,7 +187,7 @@ bool graph_value::set_blob(const char* val, size_t length) {
 }
 
 /**
- * Make a deep copy into out_value. Assuming out_value is empty.
+ * Make a deep copy into out_value. Ignore all fields in the out_value.
  */
 void graph_value::deepcopy(graph_value& out_value) {
   out_value._type = _type;

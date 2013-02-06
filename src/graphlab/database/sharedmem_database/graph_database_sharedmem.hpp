@@ -26,7 +26,7 @@ class graph_database_sharedmem : public graph_database {
   std::vector<graph_field> edge_fields;
 
   // Simulates backend shard storage
-  std::vector<graph_shard> shards;
+  graph_shard* shards;
 
   // Array stores the vertex data.
   std::vector<graph_row*> vertex_store; 
@@ -46,6 +46,7 @@ class graph_database_sharedmem : public graph_database {
   boost::unordered_map<graph_vid_t, boost::unordered_set<graph_shard_id_t> > vid2mirrors;
 
   size_t _num_edges;
+  size_t _num_shards;
 
  public:
   /**
@@ -55,9 +56,16 @@ class graph_database_sharedmem : public graph_database {
    graph_database_sharedmem(std::vector<graph_field> vertex_fields,
                             std::vector<graph_field> edge_fields,
                             size_t numshards) : 
-       vertex_fields(vertex_fields), edge_fields(edge_fields), sharding_graph(numshards, "grid") { 
+       vertex_fields(vertex_fields), edge_fields(edge_fields), sharding_graph(numshards, "grid"),
+ _num_shards(numshards) { 
      _num_edges = 0; 
-     shards.resize(numshards);
+     shards = (graph_shard*)malloc(sizeof(graph_shard) * numshards);
+     for (size_t i = 0; i < numshards; i++) {
+       memset(&shards[i], 0, sizeof(graph_shard));
+       shards[i].shard_impl.shard_id = i;
+       // shards[i].shard_impl.num_vertices = 0;
+       // shards[i].shard_impl.num_edges= 0;
+     }
      edge_index.resize(numshards);
    }
 
@@ -65,12 +73,10 @@ class graph_database_sharedmem : public graph_database {
     * Destroy the database, free all vertex and edge data from memory.
     */
    virtual ~graph_database_sharedmem() {
-     for (size_t i = 0; i < shards.size(); ++i) {
+     for (size_t i = 0; i < num_shards(); ++i) {
        shards[i].clear();
      }
-     for (size_t i = 0; i < vertex_store.size(); i++) {
-       vertex_store[i]->_data.clear();
-     }
+     free(shards);
    }
 
   /**
@@ -177,17 +183,25 @@ class graph_database_sharedmem : public graph_database {
   /**
    * Returns the number of shards in the database
    */
-  size_t num_shards() { return shards.size(); }
+  size_t num_shards() { return _num_shards; }
   
   /**
-   * Returns a deep copy of the shard from storage.
-   * The returned pointer should be freed by free_shard;
+   * Returns a reference of the shard from storage.
    */
   graph_shard* get_shard(graph_shard_id_t shard_id) {
+    return &shards[shard_id];
+  }
+
+  /**
+   * Returns a deep copy of the shard from storage.
+   * The returned pointer should be freed by <code>free_shard</code>
+   */
+  graph_shard* get_shard_copy(graph_shard_id_t shard_id) {
     graph_shard_impl newshardimpl;
     shards[shard_id].shard_impl.deepcopy(newshardimpl);
     return new graph_shard(newshardimpl);
   }
+
                           
   /**
    * Gets the contents of the shard which are adjacent to some other shard.
@@ -325,7 +339,7 @@ class graph_database_sharedmem : public graph_database {
    */
   void add_edge(graph_vid_t source, graph_vid_t target, graph_row* data=NULL) {
     boost::hash<std::pair<graph_vid_t, graph_vid_t> > edge_hash;
-    graph_shard_id_t shardid = edge_hash(std::pair<graph_vid_t, graph_vid_t>(source, target)) % shards.size();
+    graph_shard_id_t shardid = edge_hash(std::pair<graph_vid_t, graph_vid_t>(source, target)) % num_shards();
 
     // create a new row of all null values
     graph_row* row = (data==NULL) ? new graph_row(this, edge_fields) : data;

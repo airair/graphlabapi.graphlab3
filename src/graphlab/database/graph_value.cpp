@@ -116,7 +116,7 @@ bool graph_value::set_integer(graph_int_t val) {
   if (type() == INT_TYPE) {
     // if the modified flag was already set, leave it.
     // otherwise, set it only if the value changed.
-    _modified = (_modified || _data.int_value != val);
+    _modified = (_modified || _data.int_value != val || _null_value);
     _data.int_value = val;
     _null_value = false;
     return true;
@@ -129,7 +129,7 @@ bool graph_value::set_double(graph_double_t val) {
   if (type() == DOUBLE_TYPE) {
     // if the modified flag was already set, leave it.
     // otherwise, set it only if the value changed.
-    _modified = (_modified || _data.int_value != val);
+    _modified = (_modified || _data.double_value != val || _null_value);
     _data.double_value = val;
     _null_value = false;
     return true;

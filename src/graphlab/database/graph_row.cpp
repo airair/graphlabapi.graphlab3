@@ -15,7 +15,7 @@ int graph_row::get_field_pos(const char* fieldname) {
 } 
 
 graph_value* graph_row::get_field(size_t fieldpos) {
-  if (fieldpos < _data.size()) return _data[fieldpos];
+  if (fieldpos < num_fields()) return _data + fieldpos;
   else return NULL; 
 }
 
@@ -55,18 +55,17 @@ void graph_row::shallowcopy(graph_row& out_row) {
   out_row._database = _database;
   out_row._data = _data;
   out_row._is_vertex = _is_vertex;
+  out_row._nfields = _nfields;
 }
 
 void graph_row::deepcopy(graph_row& out_row) {
   out_row._database = _database;
   out_row._is_vertex = _is_vertex;
+  out_row._nfields = _nfields;
 
-  ASSERT_TRUE(out_row._values == NULL);
-  out_row._values = (graph_value*)malloc(sizeof(graph_value) * num_fields());
-  out_row._data.resize(num_fields());
+  out_row._data = new graph_value[num_fields()];
   for (size_t i = 0; i < num_fields(); i++) {
-    _data[i]->deepcopy(out_row._values[i]);
-    out_row._data[i] = out_row._values + i;
+    _data[i].deepcopy(out_row._data[i]);
   }
 }
 } // namespace graphlab

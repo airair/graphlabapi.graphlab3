@@ -5,6 +5,7 @@
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/database/graph_field.hpp>
 #include <graphlab/database/graph_value.hpp>
+#include <graphlab/logger/assertions.hpp>
 
 namespace graphlab {
 
@@ -30,24 +31,23 @@ class graph_row {
   graph_database* _database;
   
   /// An array of all the values on this row
-  std::vector<graph_value*> _data;
+  graph_value* _data;
+
+  size_t _nfields;
 
   graph_row() {
     _database= NULL;
+    _data = NULL;
+    _nfields = 0;
   }
 
   // Create a row with all NULL values in the given fields
   graph_row(graph_database* database, std::vector<graph_field>& fields) :
-    _database(database) {
-    _values = (graph_value*)malloc(sizeof(graph_value)*fields.size());
+    _database(database), _nfields(fields.size()) {
+    _data =  new graph_value[fields.size()];
     for (size_t i = 0; i < fields.size(); i++) {
-      graph_value& val = _values[i];
+      graph_value& val = _data[i];
       val._type = fields[i].type;
-      val._null_value = true;
-      val._modified = false;
-      val._use_delta_commit = false;
-      memset(&val._data, 0, sizeof(val._data));
-      memset(&val._old, 0, sizeof(val._old));
       if (val._type == STRING_TYPE || val._type == BLOB_TYPE) {
         val._len=0;
       } else if (val._type == DOUBLE_TYPE) {
@@ -55,15 +55,10 @@ class graph_row {
       } else {
         val._len=sizeof(graph_int_t);
       }
-      _data.push_back(_values + i);
     }
   }
 
-  ~graph_row() {
-    if (_values != NULL) {
-      free(_values);
-    }
-  }
+  ~graph_row() {}
   
   /// If true, this represents a vertex; if false, this represents an edge.
   bool _is_vertex;
@@ -71,7 +66,7 @@ class graph_row {
 
   /// Returns the number of fields on this row
   inline size_t num_fields() const {
-    return _data.size();
+    return _nfields; 
   }
 
   /** 
@@ -132,7 +127,7 @@ class graph_row {
   graph_row& operator=(const graph_row&) { return *this; }
 
   // Stores the graph values for the row. Could be empty if it is a shallow copy. 
-  graph_value* _values;
+  // graph_value* _values;
 
   friend class graph_database;
   friend class graph_shard;

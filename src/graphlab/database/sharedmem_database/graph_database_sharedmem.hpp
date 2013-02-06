@@ -59,9 +59,8 @@ class graph_database_sharedmem : public graph_database {
        vertex_fields(vertex_fields), edge_fields(edge_fields), sharding_graph(numshards, "grid"),
  _num_shards(numshards) { 
      _num_edges = 0; 
-     shards = (graph_shard*)malloc(sizeof(graph_shard) * numshards);
+     shards = new graph_shard[numshards];
      for (size_t i = 0; i < numshards; i++) {
-       memset(&shards[i], 0, sizeof(graph_shard));
        shards[i].shard_impl.shard_id = i;
        // shards[i].shard_impl.num_vertices = 0;
        // shards[i].shard_impl.num_edges= 0;
@@ -73,10 +72,7 @@ class graph_database_sharedmem : public graph_database {
     * Destroy the database, free all vertex and edge data from memory.
     */
    virtual ~graph_database_sharedmem() {
-     for (size_t i = 0; i < num_shards(); ++i) {
-       shards[i].clear();
-     }
-     free(shards);
+     delete[] shards;
    }
 
   /**

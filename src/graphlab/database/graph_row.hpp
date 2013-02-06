@@ -5,6 +5,7 @@
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/database/graph_field.hpp>
 #include <graphlab/database/graph_value.hpp>
+
 namespace graphlab {
 
 // forward declaration of the graph database
@@ -39,6 +40,13 @@ class graph_row {
     for (size_t i = 0; i < fields.size(); i++) {
       graph_value* val = new graph_value();
       val->_type = fields[i].type;
+      if (val->_type == STRING_TYPE || val->_type == BLOB_TYPE) {
+        val->_len=0;
+      } else if (val->_type == DOUBLE_TYPE) {
+        val->_len=sizeof(graph_double_t);
+      } else {
+        val->_len=sizeof(graph_int_t);
+      }
       _data.push_back(val);
     }
   }
@@ -104,8 +112,6 @@ class graph_row {
   void deepcopy (graph_row& out_row);
 
 
-
-
  private:
   // copy constructor deleted. It is not safe to copy this object.
   graph_row(const graph_row&) { }
@@ -120,8 +126,5 @@ class graph_row {
   friend class graph_shard;
 };
 
-
-
 } // namespace graphlab 
-
 #endif

@@ -93,6 +93,37 @@ struct graph_shard_impl {
     return pos;
   }
 
+
+  /**
+   * Make a deep copy of this shard
+   */
+  void deepcopy(graph_shard_impl& other) {
+    other.shard_id = shard_id;
+    other.num_vertices = num_vertices;
+    other.num_edges = num_edges;
+    other.vertex = vertex;
+    other.num_out_edges = num_out_edges;
+    other.num_in_edges = num_in_edges;
+    other.edge = edge;
+    other.edgeid = edgeid;
+
+    other.edge_data.resize(edge_data.size());
+    std::vector<graph_row>* new_edge_data = new std::vector<graph_row>();
+    new_edge_data->resize(edge_data.size());
+
+    for (size_t i = 0; i < edge_data.size(); i++) {
+      edge_data[i]->deepcopy(new_edge_data->at(i));
+      other.edge_data[i] = &(new_edge_data->at(i));
+    }
+
+    other.vertex_data.resize(vertex_data.size());
+    std::vector<graph_row>* new_vertex_data = new std::vector<graph_row>();
+    new_vertex_data->resize(vertex_data.size());
+    for (size_t i = 0; i < vertex_data.size(); i++) {
+      vertex_data[i]->deepcopy(new_vertex_data->at(i));
+      other.vertex_data[i] = &(new_vertex_data->at(i));
+    }
+  }
 };
 } // namespace graphlab
 #endif

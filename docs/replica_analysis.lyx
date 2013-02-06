@@ -235,9 +235,56 @@ Let the original replication factor be
 \frac{r'}{r} & = & \frac{k\left(1-\frac{\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}{|V|}\right)}{p\left(1-\frac{\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}}{|V|}\right)}\\
  & = & \frac{k}{p}\times\frac{|V|-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}{|V|-\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}}\\
  & = & \frac{k}{p}\times\frac{|V|-\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}+\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}{|V|-\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}}\\
- & = & \frac{k}{p}\times\left(1+\frac{\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}{|V|-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}\right)\\
- & \le & \frac{k}{p}\times\left(1+1\right)\\
- & \le & 2\frac{k}{p}\end{eqnarray*}
+ & = & \frac{k}{p}\times\left(1+\frac{\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}{|V|-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}\right)\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Note that 
+\begin_inset Formula \begin{eqnarray*}
+\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}} & > & 0\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+and
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}} & < & |V|-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Therefore 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+\frac{\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}{|V|-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}} & < & 1\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+We must therefore have
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+\frac{r'}{r} & \le & \frac{2k}{p}\end{eqnarray*}
 
 \end_inset
 
@@ -250,10 +297,6 @@ r' & \le & \frac{2k}{p}r\end{eqnarray*}
 
 \end_inset
 
-
-\end_layout
-
-\begin_layout Standard
 
 \end_layout
 

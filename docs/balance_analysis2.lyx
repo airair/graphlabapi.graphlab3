@@ -209,76 +209,6 @@ Assume that the degree of each vertex is iid generated from
 
 \end_layout
 
-\begin_layout Enumerate
-Assume a conditional uniform dispersal criterion:
-\begin_inset Newline newline
-\end_inset
-
-
-\family roman
-\series medium
-\shape up
-\size normal
-\emph off
-\bar no
-\noun off
-\color none
-
-\begin_inset Formula $\forall a\,\forall s\in S_{a}\backslash a\,\sum\limits _{b=1}^{p}\frac{\mathbf{1}(s\in A_{a}\cap A_{b})}{|A_{a}\cap A_{b}|}=q$
-\end_inset
-
-
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Formula $\forall a\,\sum\limits _{b=1}^{p}\frac{\mathbf{1}(a\in A_{a}\cap A_{b})}{|A_{a}\cap A_{b}|}=r$
-\end_inset
-
-
-\begin_inset Newline newline
-\end_inset
-
-This condition is somewhat complicated to explain.
- But essentially, it means that if I give the procedure a single star graph
- where the center of the star is say located in shard 
-\begin_inset Formula $i$
-\end_inset
-
-, and the neighbors of the star are uniformly drawn from the remaining vertices.
- Then I expect shard 
-\begin_inset Formula $i$
-\end_inset
-
- to contain 
-\begin_inset Formula $\frac{r}{r+(|A_{i}|-1)q}$
-\end_inset
-
- of the edges, and each shard in 
-\begin_inset Formula $A_{i}\backslash i$
-\end_inset
-
- to contain 
-\begin_inset Formula $\frac{q}{r+(|A_{i}|-1)q}$
-\end_inset
-
- of the edges.
-\begin_inset Newline newline
-\end_inset
-
-This turns out to be not so important.
- It has a minor effect on balance, but not hugely so.
- We do require that 
-\begin_inset Formula $r>0$
-\end_inset
-
- and 
-\begin_inset Formula $q>0$
-\end_inset
-
-
-\end_layout
-
 \begin_layout Standard
 
 \series bold
@@ -309,8 +239,7 @@ Lets define an additional set of random variables
 
 \begin_layout Standard
 \begin_inset Formula \begin{eqnarray*}
-n_{i} & \sim & \sum_{i=1}^{|V|/p}Zipf(\alpha,N)\\
-\end{eqnarray*}
+n_{i} & \sim & \sum_{i=1}^{|V|/p}Zipf(\alpha,N)\end{eqnarray*}
 
 \end_inset
 
@@ -341,65 +270,32 @@ Let
 \end_inset
 
 .
-\end_layout
-
-\begin_layout Standard
-We must have
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula \begin{eqnarray*}
-E(s_{i}) & = & \frac{q}{r+(|A_{i}|-1)q}\sum_{i\in A_{i}\backslash i}E(n_{i})+\frac{r}{r+(|A_{i}|-1)q}\sum_{i\in A_{i}\backslash i}E(n_{i})\end{eqnarray*}
-
+ Optimally, we would like the max order statistic of 
+\begin_inset Formula $s_{i}$
 \end_inset
 
-
-\end_layout
-
-\begin_layout Standard
-Now, unfortunately the expected number is quite useless.
- Since it will obviously be uniform.
-\end_layout
-
-\begin_layout Standard
-Now, the question is, what is 
-\begin_inset Formula $E(s_{(p)})$
-\end_inset
-
-, or the expected maximum size of a shard? This statement is unfortunately
- very difficult to answer since 
+.
+ However, that is very difficult since 
 \begin_inset Formula $s_{i}'s$
 \end_inset
 
- are not independent due to their relation to 
-\begin_inset Formula $n$
-\end_inset
-
-.
- And conditioning on 
-\begin_inset Formula $n$
-\end_inset
-
- makes the power law analysis useless.
+ are not independent.
 \end_layout
 
 \begin_layout Standard
-However, we may instead consider variance to mean ratio
-\begin_inset Formula $Var(s)/E(s)$
+They are independent given 
+\begin_inset Formula $n$
 \end_inset
 
-.
- (Optimally, we do want 
-\begin_inset Formula $std(s)/E(s)$
-\end_inset
-
- instead)
+ however.
 \end_layout
 
 \begin_layout Standard
+We will therefore compute 
+\begin_inset Formula $Var(s_{i})$
+\end_inset
 
-\series bold
-Auxiliary 2
+
 \end_layout
 
 \begin_layout Standard
@@ -491,7 +387,12 @@ Var(s_{i}|n) & = & \sum\limits _{a\in B_{i}}\frac{n_{a}(\left|S_{a}\cap S_{i}\ri
 \end_layout
 
 \begin_layout Standard
-Now, to eliminate the conditional using the law of total variance:
+Now, to eliminate the conditional using the law of total variance to integrate
+ through 
+\begin_inset Formula $n$
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
@@ -525,36 +426,23 @@ The mean of
 \end_layout
 
 \begin_layout Standard
-Note that both 
-\begin_inset Formula $H_{N,\alpha-1}$
+Let 
+\begin_inset Formula $\mu=\frac{H_{N,\alpha-1}}{H_{N,\alpha}}$
 \end_inset
 
  and 
-\begin_inset Formula $H_{N,\alpha-2}$
+\begin_inset Formula $\sigma^{2}=\frac{H_{N,\alpha-2}}{H_{N,\alpha}}-\left(\frac{H_{N,\alpha-1}}{H_{N,\alpha}}\right)^{2}$
 \end_inset
 
- goes to infinity with 
-\begin_inset Formula $N$
-\end_inset
 
- as 
-\begin_inset Formula $\alpha<1$
-\end_inset
-
- or 
-\begin_inset Formula $\alpha<2$
-\end_inset
-
- respectively.
- But they are finite for finite N.
 \end_layout
 
 \begin_layout Standard
 \begin_inset Formula \begin{eqnarray*}
- & = & \sum\limits _{a\in B_{i}}\frac{(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}\frac{|V|}{p}\frac{H_{N,\alpha-1}}{H_{N,\alpha}}+\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}\frac{|V|}{p}\left(\frac{H_{N,\alpha-2}}{H_{N,\alpha}}-\left(\frac{H_{N,\alpha-1}}{H_{N,\alpha}}\right)^{2}\right)\\
- & = & \sum\limits _{a\in B_{i}}\frac{(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}\frac{|V|}{p}\frac{H_{N,\alpha-1}}{H_{N,\alpha}}+\frac{|V|}{p}\left(\frac{H_{N,\alpha-2}}{H_{N,\alpha}}-\left(\frac{H_{N,\alpha-1}}{H_{N,\alpha}}\right)^{2}\right)\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}\\
- & = & \frac{|V|}{p}\frac{H_{N,\alpha-1}}{H_{N,\alpha}}\sum\limits _{a\in B_{i}}\frac{(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}+\frac{|V|}{p}\left(\frac{H_{N,\alpha-2}}{H_{N,\alpha}}-\left(\frac{H_{N,\alpha-1}}{H_{N,\alpha}}\right)^{2}\right)\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}\\
- &  & \frac{|V|}{p}\left(\frac{H_{N,\alpha-1}}{H_{N,\alpha}}\sum\limits _{a\in B_{i}}\frac{(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}+\left(\frac{H_{N,\alpha-2}}{H_{N,\alpha}}-\left(\frac{H_{N,\alpha-1}}{H_{N,\alpha}}\right)^{2}\right)\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}\right)\end{eqnarray*}
+ & = & \sum\limits _{a\in B_{i}}\frac{(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}\frac{|V|}{p}\mu+\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}\frac{|V|}{p}\sigma^{2}\\
+ & = & \sum\limits _{a\in B_{i}}\frac{(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}\frac{|V|}{p}\mu+\frac{|V|}{p}\sigma^{2}\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}\\
+ & = & \frac{|V|}{p}\mu\sum\limits _{a\in B_{i}}\frac{(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}+\frac{|V|}{p}\sigma^{2}\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}\\
+ &  & \frac{|V|}{p}\left(\mu\sum\limits _{a\in B_{i}}\frac{(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}+\sigma^{2}\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}\right)\end{eqnarray*}
 
 \end_inset
 
@@ -562,22 +450,57 @@ Note that both
 \end_layout
 
 \begin_layout Standard
-Written in an alternate way
+Written in an alternate way.
 \end_layout
 
 \begin_layout Standard
 \begin_inset Formula \begin{eqnarray*}
- &  & \frac{|V|}{p}\left(E(z)\sum\limits _{a\in B_{i}}\frac{(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}+Var(z)\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}\right)\end{eqnarray*}
+Var(s_{i}) & = & \frac{|V|}{p}\left(\mu\sum\limits _{a\in B_{i}}\frac{(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}+\sigma^{2}\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}\right)\\
+ & = & \frac{|V|}{p}\left(\mu\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|}-\mu\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}+\sigma^{2}\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}\right)\\
+ & = & \frac{|V|}{p}\left(\mu\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|}+\left(\sigma^{2}-\mu\right)\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}\right)\end{eqnarray*}
 
 \end_inset
 
 
+\end_layout
+
+\begin_layout Standard
+This decreases quadratically with increasing sizes of intersections.
 \end_layout
 
 \begin_layout Standard
 It is a sort of weighted combination between the means and the variances
  of the zipf variable.
  In any case, it decreases rapidly with increasing intersection sizes.
+\end_layout
+
+\begin_layout Standard
+The variance to mean ratio is 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+ &  & 1+\frac{\left(\sigma^{2}-\mu\right)\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}}{\mu\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|}}\\
+ & = & 1+\left(\frac{\sigma^{2}}{\mu}-1\right)\frac{\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}}{\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|}}\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Which decreases linearly with the size of intersections.
+ (if the size of the intersection is a constant t)
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+ &  & =1+\left(\frac{\sigma^{2}}{\mu}-1\right)\frac{1}{t}\\
+\end{eqnarray*}
+
+\end_inset
+
+
 \end_layout
 
 \end_body

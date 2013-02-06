@@ -12,10 +12,12 @@
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
   /** 
-   * \ingroup group_graph_database
+   * \ingroup group_graph_database_sharedmem
    * An index on vertex id. 
    *
-   * Provide lookup for the vertex locations in a shard. 
+   * This class provide lookup for the vertex locations in a shard. 
+   * The primary key is the vid. TODO: add support for secondary keys specified in the 
+   * <code>graph_field</code>.
    */
   class graph_vertex_index {
    public:
@@ -31,6 +33,7 @@ namespace graphlab {
        return index_map[vid];
      } 
 
+     // Update the index by adding a vertex
      bool add_vertex(graph_vid_t vid, graph_row* value, size_t pos) {
        if (has_vertex(vid)) {
          return false;

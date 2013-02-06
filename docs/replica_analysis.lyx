@@ -1,0 +1,358 @@
+#LyX 1.6.7 created this file. For more info see http://www.lyx.org/
+\lyxformat 345
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\language english
+\inputencoding auto
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry true
+\use_amsmath 1
+\use_esint 1
+\cite_engine basic
+\use_bibtopic false
+\paperorientation portrait
+\leftmargin 1in
+\topmargin 1in
+\rightmargin 1in
+\bottommargin 1in
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\defskip medskip
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\author "" 
+\author "" 
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+A collection of 
+\begin_inset Formula $p$
+\end_inset
+
+ sets labelled 
+\begin_inset Formula $A_{1}$
+\end_inset
+
+ to 
+\begin_inset Formula $A_{p}$
+\end_inset
+
+ are defined where 
+\begin_inset Formula $A_{i}\subseteq[1...p]$
+\end_inset
+
+ and 
+\begin_inset Formula $\forall i,j\, A_{i}\cap A_{j}\ne\emptyset$
+\end_inset
+
+.
+ Also 
+\begin_inset Formula $i\in A_{i}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Consider the procedure where the master of vertex 
+\begin_inset Formula $v$
+\end_inset
+
+ is placed uniformly at random among the shards.
+ And let edge 
+\begin_inset Formula $i-j$
+\end_inset
+
+ are placed uniformly at random in a shard in 
+\begin_inset Formula $A_{Master(i)}\cap A_{Master(j)}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Assume the following structure for A
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+1: Uniform Dispersal
+\end_layout
+
+\begin_layout Standard
+
+\family roman
+\series medium
+\shape up
+\size normal
+\emph off
+\bar no
+\noun off
+\color none
+\begin_inset Formula $\sum\limits _{a=1}^{p}\sum\limits _{b=1}^{p}\frac{\mathbf{1}(s\in A_{a}\cap A_{b})}{|A_{a}\cap A_{b}|}=p$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Assume that all 
+\begin_inset Formula $A$
+\end_inset
+
+'s have the same size.
+ Let that be 
+\begin_inset Formula $k$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+2: Uniform Conditional Dispersal
+\end_layout
+
+\begin_layout Standard
+There exists some 
+\begin_inset Formula $q$
+\end_inset
+
+ such that
+\end_layout
+
+\begin_layout Standard
+
+\family roman
+\series medium
+\shape up
+\size normal
+\emph off
+\bar no
+\noun off
+\color none
+\begin_inset Formula $\forall a\,\forall s\in S_{a}\backslash a\,\sum\limits _{b=1}^{p}\frac{\mathbf{1}(s\in A_{a}\cap A_{b})}{|A_{a}\cap A_{b}|}=q$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\family roman
+\series medium
+\shape up
+\size normal
+\emph off
+\bar no
+\noun off
+\color none
+\begin_inset Formula $\forall a\,\sum\limits _{b=1}^{p}\frac{\mathbf{1}(a\in A_{a}\cap A_{b})}{|A_{a}\cap A_{b}|}=q$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This essentially means that for every vertex in shard 
+\begin_inset Formula $i$
+\end_inset
+
+, there is a uniform probability of any of its edges landing in any shard
+ in 
+\begin_inset Formula $S_{i}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+The replication analysis then follows equivalently as in the original OSDI
+ paper.
+\end_layout
+
+\begin_layout Standard
+
+\family roman
+\series medium
+\shape up
+\size normal
+\emph off
+\bar no
+\noun off
+\color none
+\begin_inset Formula \begin{eqnarray*}
+ &  & =k\left(1-\frac{\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}{|V|}\right)\\
+\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The improvement in replication is:
+\end_layout
+
+\begin_layout Standard
+Let the original replication factor be 
+\begin_inset Formula $r$
+\end_inset
+
+ and the new replication factor be 
+\begin_inset Formula $r'$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+\frac{r'}{r} & = & \frac{k\left(1-\frac{\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}{|V|}\right)}{p\left(1-\frac{\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}}{|V|}\right)}\\
+ & = & \frac{k}{p}\times\frac{|V|-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}{|V|-\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}}\\
+ & = & \frac{k}{p}\times\frac{|V|-\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}+\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}{|V|-\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}}\\
+ & = & \frac{k}{p}\times\left(1+\frac{\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}{|V|-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}\right)\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Note that 
+\begin_inset Formula \begin{eqnarray*}
+\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}} & > & 0\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+and
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}} & < & |V|-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Therefore 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+\frac{\sum\limits _{v}\left(1-\frac{1}{p}\right)^{d_{v}}-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}}{|V|-\sum\limits _{v}\left(1-\frac{1}{k}\right)^{d_{v}}} & < & 1\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+We must therefore have
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+\frac{r'}{r} & \le & \frac{2k}{p}\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+r' & \le & \frac{2k}{p}r\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+i.e.
+ for 
+\begin_inset Formula $k=2\sqrt{p}$
+\end_inset
+
+, we must have 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+r' & \le & \frac{4}{\sqrt{p}}r\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+i.e.
+ for 
+\begin_inset Formula $k=\sqrt{p}$
+\end_inset
+
+, we must have 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+r' & \le & \frac{2}{\sqrt{p}}r\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+i.e.
+ switching to the grid formulation decreases the replication by at least
+ 
+\begin_inset Formula $\frac{\sqrt{p}}{4}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The PDS formulation decreases the replication by at least 
+\begin_inset Formula $\frac{\sqrt{p}}{2}$
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document

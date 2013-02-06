@@ -44,14 +44,16 @@ struct graph_shard_impl {
   /**
    * A array of length num_vertices where <code>num_out_edges[i]</code> is the number 
    * number of out edges of vertex <code>vertices[i]</code> in the graph.
+   * \note Deprecated because shard only store master vertices.
    */
-  std::vector<size_t> num_out_edges;
+  // std::vector<size_t> num_out_edges;
 
   /**
    * An array of length num_vertices where <code>num_in_edges[i]</code> is the number 
    * number of in edges of vertex <code>vertices[i]</code> in the graph.
+   * \note Deprecated because shard only store master vertices.
    */
-  std::vector<size_t> num_in_edges;
+  // std::vector<size_t> num_in_edges;
 
 
   /**
@@ -95,33 +97,32 @@ struct graph_shard_impl {
 
 
   /**
-   * Make a deep copy of this shard
+   * Make a deep copy of this shard into out.
    */
-  void deepcopy(graph_shard_impl& other) {
-    other.shard_id = shard_id;
-    other.num_vertices = num_vertices;
-    other.num_edges = num_edges;
-    other.vertex = vertex;
-    other.num_out_edges = num_out_edges;
-    other.num_in_edges = num_in_edges;
-    other.edge = edge;
-    other.edgeid = edgeid;
+  void deepcopy(graph_shard_impl& out) {
+    out.shard_id = shard_id;
+    out.num_vertices = num_vertices;
+    out.num_edges = num_edges;
+    out.vertex = vertex;
+    // out.num_out_edges = num_out_edges;
+    // out.num_in_edges = num_in_edges;
+    out.edge = edge;
+    out.edgeid = edgeid;
 
-    other.edge_data.resize(edge_data.size());
-    std::vector<graph_row>* new_edge_data = new std::vector<graph_row>();
-    new_edge_data->resize(edge_data.size());
-
+    // make a deep copy of all edge data.
+    out.edge_data.resize(edge_data.size());
+    graph_row* new_edge_data = (graph_row*)(malloc(sizeof(graph_row)*edge_data.size()));
     for (size_t i = 0; i < edge_data.size(); i++) {
-      edge_data[i]->deepcopy(new_edge_data->at(i));
-      other.edge_data[i] = &(new_edge_data->at(i));
+      edge_data[i]->deepcopy(new_edge_data[i]);
+      out.edge_data[i] = new_edge_data + i;
     }
 
-    other.vertex_data.resize(vertex_data.size());
-    std::vector<graph_row>* new_vertex_data = new std::vector<graph_row>();
-    new_vertex_data->resize(vertex_data.size());
+    // make a deep copy of all vertexdata.
+    out.vertex_data.resize(vertex_data.size());
+    graph_row* new_vertex_data = (graph_row*)(malloc(sizeof(graph_row)*vertex_data.size()));
     for (size_t i = 0; i < vertex_data.size(); i++) {
-      vertex_data[i]->deepcopy(new_vertex_data->at(i));
-      other.vertex_data[i] = &(new_vertex_data->at(i));
+      vertex_data[i]->deepcopy(new_vertex_data[i]);
+      out.vertex_data[i] = new_vertex_data + i;
     }
   }
 };

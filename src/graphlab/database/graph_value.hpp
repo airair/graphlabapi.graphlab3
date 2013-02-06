@@ -251,7 +251,7 @@ class graph_value {
       _old = _data;
     } else if ((_type == STRING_TYPE || _type == BLOB_TYPE) && _data.bytes != NULL) {
       _old.bytes = reinterpret_cast<char*>(realloc(_old.bytes, _len));
-      memcpy(_data.bytes, _data.bytes, _len);
+      memcpy(_old.bytes, _data.bytes, _len);
     }
     _modified = false;
   }
@@ -261,10 +261,10 @@ class graph_value {
 
  private:
   // copy constructor deleted. It is not safe to copy this object.
-  // graph_value(const graph_value&) { } 
+  graph_value(const graph_value&) { } 
 
   // assignment operator deleted. It is not safe to copy this object.
-  // graph_value& operator=(const graph_value&) { return *this; }
+  graph_value& operator=(const graph_value&) { return *this; }
 
 };
 

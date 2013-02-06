@@ -128,6 +128,7 @@ void testAddEdge() {
       db.free_edge_vector(&outadjs[j]);
       db.free_edge_vector(&outadjs[j]);
     }
+    db.free_vertex(v);
   }
 }
 
@@ -135,9 +136,10 @@ void testAddEdge() {
 /**
  * Test gettting shards
  */
-void testGettingShards() {
+void testShardAPI() {
   vector<graphlab::graph_field> vertexfields;
   vector<graphlab::graph_field> edgefields;
+  vertexfields.push_back(graphlab::graph_field("url", graphlab::STRING_TYPE));
   edgefields.push_back(graphlab::graph_field("weight", graphlab::DOUBLE_TYPE));
   size_t nshards = 16;
   graphlab::graph_database_sharedmem db(vertexfields, edgefields, nshards);
@@ -151,12 +153,12 @@ void testGettingShards() {
     db.add_edge(source, target);
   }
 
-  // Count the number of edges in the shards
+  // Count the number of vertices/edges in the shards
   size_t vtotal = 0;
   size_t etotal = 0;
   std::vector<graphlab::graph_shard*> shards;
   for (size_t i = 0; i < db.num_shards(); i++) {
-    graphlab::graph_shard* shard = db.get_shard(i); 
+    graphlab::graph_shard* shard = db.get_shard_copy(i); 
     shards.push_back(shard);
     vtotal += shard->num_vertices();
     etotal += shard->num_edges();
@@ -165,7 +167,35 @@ void testGettingShards() {
   ASSERT_EQ(etotal, db.num_edges());
 
 
+  // Transform vertex by setting the url field 
   for (size_t i = 0; i < shards.size(); i++) {
+    for (size_t j = 0; j < shards[i]->num_vertices(); j++) {
+      shards[i]->vertex_data(j)->get_field("url")->
+          set_string("http://" + boost::lexical_cast<string>(shards[i]->vertex(j)));
+    }
+  }
+
+  // Transform edge by setting the weight field
+  boost::unordered_map<graphlab::graph_vid_t, size_t> outedges;
+  for (size_t i = 0; i < shards.size(); i++) {
+    for (size_t j = 0; j < shards[i]->num_edges(); j++) {
+      std::pair<graphlab::graph_vid_t, graphlab::graph_vid_t> pair = shards[i]->edge(j);
+      outedges[pair.first]++;
+    }
+  }
+  for (size_t i = 0; i < shards.size(); i++) {
+    for (size_t j = 0; j < shards[i]->num_edges(); j++) {
+      std::pair<graphlab::graph_vid_t, graphlab::graph_vid_t> pair = shards[i]->edge(j);
+      graphlab::graph_value* val = shards[i]->edge_data(j)->get_field("weight");
+      ASSERT_TRUE(val != NULL);
+      ASSERT_TRUE(val->is_null());
+      val->set_double(1.0/outedges[pair.first]);
+    }
+  }
+
+  // Commit all changes;
+  for (size_t i = 0; i < shards.size(); i++) {
+    db.commit_shard(shards[i]);
     db.free_shard(shards[i]);
   }
 }
@@ -173,5 +203,6 @@ void testGettingShards() {
 int main(int argc, char** argv) {
   testAddVertex();
   testAddEdge();
+  testShardAPI();
   return 0;
 }

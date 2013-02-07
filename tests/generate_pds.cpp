@@ -1,17 +1,17 @@
 #include <iostream>
 #include <vector>
 using namespace std;
-bool test_seq(int a, int b, int c, int q, std::vector<int>& result) {
+bool test_seq(int a, int b, int c, int p, std::vector<int>& result) {
   std::vector<int> res;
-  int pdslength = q*q + q + 1;
+  int pdslength = p*p + p + 1;
   res.resize(pdslength + 3);
   res[0] = 0; res[1] = 0; res[2] = 1;
   int ctr = 2;
   for (int i = 3; i < res.size(); ++i) {
     res[i] = a * res[i - 1] + b * res[i - 2] + c * res[i - 3];
-    res[i] = res[i] % q;
+    res[i] = res[i] % p;
     ctr += (res[i] == 0);
-    if (i < pdslength && ctr > q + 1) return false;
+    if (i < pdslength && ctr > p + 1) return false;
   }
   if (res[pdslength] == 0 && res[pdslength + 1] == 0){ // && res[pdslength + 2] == 1) {
     // we are good to go
@@ -21,7 +21,7 @@ bool test_seq(int a, int b, int c, int q, std::vector<int>& result) {
         result.push_back(i);
       }
     }
-    if (result.size() != q + 1) {
+    if (result.size() != p + 1) {
       result.clear();
       return false;
     }
@@ -33,20 +33,20 @@ bool test_seq(int a, int b, int c, int q, std::vector<int>& result) {
 }
 
 
-std::vector<int> find_pds(int q) {
+std::vector<int> find_pds(int p) {
   std::vector<int> res;
-  int p = q;
-  int pdslength = p *p + p + 1;
-  for (int a = 0; a < q; ++a) {
-    for (int b = 0; b < q; ++b) {
+  for (int a = 0; a < p; ++a) {
+    for (int b = 0; b < p; ++b) {
       if (b == 0 && a == 0) continue;
-      for (int c = 1; c < q; ++c) {
-        if (test_seq(a,b,c,q,res)) {
+      for (int c = 1; c < p; ++c) {
+        res.clear();
+        if (test_seq(a,b,c,p,res)) {
           return res;
         }
       }
     }
   } 
+  return res;
 }
 
 int main(int argc, char** argv) {

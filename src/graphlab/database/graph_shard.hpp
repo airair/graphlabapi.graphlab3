@@ -45,16 +45,9 @@ class graph_shard {
  public:
    graph_shard() { }
 
-   graph_shard(const graph_shard_impl& shard_impl): shard_impl(shard_impl) { }
+   // graph_shard(const graph_shard_impl& shard_impl): shard_impl(shard_impl) { }
    
-   ~graph_shard() {
-      for (size_t i = 0; i < num_vertices(); ++i) {
-         delete(shard_impl.vertex_data[i]);
-      }
-      for (size_t i = 0; i < num_edges(); ++i) {
-         delete(shard_impl.edge_data[i]);
-      }
-   }
+   ~graph_shard() {}
 
    /**
     * Returns the id of this shard.
@@ -85,7 +78,7 @@ class graph_shard {
    * vertex_data(i) corresponds to the data on the vertex with ID vertex(i)
    * i must range from 0 to num_vertices() - 1 inclusive.
    */
-  inline graph_row* vertex_data(size_t i) { return shard_impl.vertex_data[i]; }
+  inline graph_row* vertex_data(size_t i) { return shard_impl.vertex_data + i; }
   
   /**
    * Returns the number of out edges of the vertex in the i'th position in this
@@ -118,7 +111,7 @@ class graph_shard {
    * edge_data(i) corresponds to the data on the edge edge(i)
    * i must range from 0 to num_edges() - 1 inclusive.
    */
-  inline graph_row* edge_data(size_t i) { return shard_impl.edge_data[i]; }
+  inline graph_row* edge_data(size_t i) { return shard_impl.edge_data + i; }
 
 
 // ----------- Modification API -----------------
@@ -126,20 +119,7 @@ class graph_shard {
    * Clear the content of this shard. Remove all vertex and edge data.
    */
   inline void clear() {
-      // for (size_t i = 0; i < num_vertices(); ++i) {
-      //    free(shard_impl.vertex_data[i]);
-      // }
-      // for (size_t i = 0; i < num_edges(); ++i) {
-      //    free(shard_impl.edge_data[i]);
-      // }
-      shard_impl.vertex.clear();
-      shard_impl.edge.clear();
-      shard_impl.edgeid.clear();
-      shard_impl.vertex_data.clear();
-      shard_impl.edge_data.clear();
-      // shard_impl.num_out_edges.clear();
-      // shard_impl.num_in_edges.clear();
-      shard_impl.num_vertices = shard_impl.num_edges = 0;
+    shard_impl.clear();
   }
 
 

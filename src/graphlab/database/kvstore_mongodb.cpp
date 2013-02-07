@@ -36,7 +36,7 @@ void kvstore_mongodb::remove_all() {
 }
 
 void kvstore_mongodb::set(const key_type key, const value_type &value) {
-  _conn.update(_ns, BSON(KEYATTR_NAME << key), BSON(KEYATTR_NAME << key << VALUEATTR_NAME << value), true);
+  _conn.update(_ns, BSON(KEYATTR_NAME << (long long) key), BSON(KEYATTR_NAME << (long long) key << VALUEATTR_NAME << value), true);
 }
 
 void kvstore_mongodb::background_set(const key_type key, const value_type &value) {
@@ -45,7 +45,7 @@ void kvstore_mongodb::background_set(const key_type key, const value_type &value
 }
 
 bool kvstore_mongodb::get(const key_type key, value_type &value) {
-  mongo::BSONObj query = BSON(KEYATTR_NAME << key);
+  mongo::BSONObj query = BSON(KEYATTR_NAME << (long long) key);
   mongo::BSONObj result = _conn.findOne(_ns, query);
   if (result.isEmpty()) {
     return false;
@@ -67,7 +67,7 @@ std::vector<std::pair<bool, value_type> > kvstore_mongodb::bulk_get(const std::v
 }
 
 std::vector<value_type> kvstore_mongodb::range_get(const key_type key_lo, const key_type key_hi) {
-  mongo::BSONObj query = BSON(KEYATTR_NAME << mongo::GTE << key_lo << mongo::LT << key_hi);
+  mongo::BSONObj query = BSON(KEYATTR_NAME << mongo::GTE << (long long) key_lo << mongo::LT << (long long) key_hi);
   std::vector<value_type> result;
   std::auto_ptr<mongo::DBClientCursor> cursor = _conn.query(_ns, query);
   while (cursor->more()) {
@@ -77,7 +77,7 @@ std::vector<value_type> kvstore_mongodb::range_get(const key_type key_lo, const 
 }
 
 std::pair<bool, value_type> kvstore_mongodb::background_get_thread(const key_type key) {
-  mongo::BSONObj query = BSON(KEYATTR_NAME << key);
+  mongo::BSONObj query = BSON(KEYATTR_NAME << (long long) key);
   mongo::BSONObj result = _conn.findOne(_ns, query);
   bool empty = result.isEmpty();
   value_type value;
@@ -87,27 +87,30 @@ std::pair<bool, value_type> kvstore_mongodb::background_get_thread(const key_typ
 }
 
 boost::unique_future<std::pair<bool, value_type> > kvstore_mongodb::background_get(const key_type key) {
-  boost::packaged_task<std::pair<bool, value_type>> pt(boost::bind(&kvstore_mongodb::background_get_thread, this, key));
-  boost::unique_future<std::pair<bool, value_type> > result = pt.get_future();
+  boost::packaged_task<std::pair<bool, value_type> > pt(boost::bind(&kvstore_mongodb::background_get_thread, this, key));
+  boost::detail::thread_move_t<boost::unique_future<std::pair<bool, value_type> > > result = pt.get_future();
   boost::thread t(boost::move(pt));
   t.detach();
-  return result;
+
+  return boost::unique_future<std::pair<bool, value_type> >(result);
 }
 
 boost::unique_future<std::vector<std::pair<bool, value_type> > > kvstore_mongodb::background_bulk_get(const std::vector<key_type> &keys) {
   boost::packaged_task<std::vector<std::pair<bool, value_type> > > pt(boost::bind(&kvstore_base::bulk_get, this, keys));
-  boost::unique_future<std::vector<std::pair<bool, value_type> > > result = pt.get_future();
+  boost::detail::thread_move_t<boost::unique_future<std::vector<std::pair<bool, value_type> > > > result = pt.get_future();
   boost::thread t(boost::move(pt));
   t.detach();
-  return result;
+
+  return boost::unique_future<std::vector<std::pair<bool, value_type> > >(result);
 }
 
 boost::unique_future<std::vector<value_type> > kvstore_mongodb::background_range_get(const key_type key_lo, const key_type key_hi) {
-  boost::packaged_task<std::vector<value_type> > pt(boost::bind(&kvstore_base::bulk_get, this, key_lo, key_hi));
-  boost::unique_future<std::vector<value_type> > result = pt.get_future();
+  boost::packaged_task<std::vector<value_type> > pt(boost::bind(&kvstore_base::range_get, this, key_lo, key_hi));
+  boost::detail::thread_move_t<boost::unique_future<std::vector<value_type> > > result = pt.get_future();
   boost::thread t(boost::move(pt));
   t.detach();
-  return result;
+
+  return boost::unique_future<std::vector<value_type> >(result);
 }
 
 }

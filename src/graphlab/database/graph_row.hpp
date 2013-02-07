@@ -143,7 +143,7 @@ class graph_row {
 
   friend class graph_database;
   friend class graph_database_sharedmem;
-  friend class graph_shard_impl;
+  friend struct graph_shard_impl;
 };
 } // namespace graphlab 
 #endif

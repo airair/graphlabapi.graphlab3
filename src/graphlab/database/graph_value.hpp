@@ -74,7 +74,6 @@ class graph_value {
   /// Destructor. Frees the data if it is a string / blob
   ~graph_value();
 
-
   /// Frees the data pointer resetting it to NULL if it is a string / blob.
   void free_data();
 

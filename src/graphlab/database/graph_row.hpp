@@ -18,6 +18,11 @@ class graph_database;
  * It allows query for individual entries (columns) in the row,
  * as well as various meta-data.
  *
+ * \note 
+ * This object may or may not be responsible of the data. If <code>_own_data</code>
+ * is set, then it maintians the ownership of the data, and will free the data in its deconstructor.
+ * Normally, graph_row that owns the data is stored in the <code>graph_shard</code>.
+ *
  * This object is not thread-safe, and may not copied.
  *
  * \note
@@ -39,14 +44,10 @@ class graph_row {
   /// Number of fields in the row.
   size_t _nfields;
 
-  graph_row() {
-    _database= NULL;
-    _data = NULL;
-    _nfields = 0;
-    _own_data = false;
-  }
+  /// Empty constructor 
+  graph_row() : _database(NULL), _data(NULL), _own_data(false), _nfields(0) { }
 
-  // Create a row with all NULL values in the given fields.
+  /// Given fields metadata, creates a row with NULL values in the given fields.
   graph_row(graph_database* database, std::vector<graph_field>& fields) :
     _database(database), _own_data(true), _nfields(fields.size()) {
     _data =  new graph_value[fields.size()];
@@ -63,6 +64,7 @@ class graph_row {
     }
   }
 
+  /// Destructor. Frees the values if <code>_own_data</code> is true.
   ~graph_row() {
     if (_own_data) {
       delete[] _data;
@@ -125,17 +127,17 @@ class graph_row {
   graph_row& operator=(const graph_row&) { return *this; }
 
   /**
-   * Makes a shallow copy of this row into out_row and keep the data ownership. 
+   * Makes a shallow copy of this row into out_row and retains the data ownership. 
    */
   void shallowcopy(graph_row& out_row);
 
   /**
-   * Makes a deep copy of this row into out_row. Ignore all fields in out_row.
+   * Makes a deep copy of this row into out_row, which owns the copied data.
    */
   void deepcopy (graph_row& out_row);
 
   /**
-   * Makes a copy of this row into out_row and transfer the data ownership. 
+   * Makes a copy of this row into out_row and transfer the data ownership to out_row. 
    */
   void copy_transfer_owner(graph_row& out_row);
 
@@ -143,6 +145,5 @@ class graph_row {
   friend class graph_database_sharedmem;
   friend class graph_shard_impl;
 };
-
 } // namespace graphlab 
 #endif

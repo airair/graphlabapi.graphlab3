@@ -45,7 +45,6 @@ class graph_shard {
  public:
    graph_shard() { }
 
-   // graph_shard(const graph_shard_impl& shard_impl): shard_impl(shard_impl) { }
    
    ~graph_shard() {}
 

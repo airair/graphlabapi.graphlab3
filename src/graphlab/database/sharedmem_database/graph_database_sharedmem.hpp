@@ -171,7 +171,7 @@ class graph_database_sharedmem : public graph_database {
   }
   
   /**
-   * Frees a collection of edges. The vector will be cleared. on return.
+   * Frees a collection of edges. The vector will be cleared on return.
    */
   void free_edge_vector(std::vector<graph_edge*>* edgelist) {
     foreach(graph_edge*& e, *edgelist)
@@ -322,6 +322,7 @@ class graph_database_sharedmem : public graph_database {
     if (vertex_index.has_vertex(vid)) {
       return false;
     }
+
     // create a new row of all null values.
     graph_row* row = (data==NULL) ? new graph_row(this, vertex_fields) : data;
     row->_is_vertex = true;
@@ -329,6 +330,9 @@ class graph_database_sharedmem : public graph_database {
     // assign a master shard of the vertex
     boost::hash<graph_vid_t> vid_hash;
     graph_shard_id_t master = vid_hash(vid) % num_shards(); 
+
+    // Insert into shard. This operation transfers the data ownership to the row in the shard
+    // so that we can free the row at the end of the function.
     size_t ptr = shards[master].shard_impl.add_vertex(vid, row);
     vid2master[vid] = master;
     vertex_store.push_back(shards[master].vertex_data(ptr));
@@ -352,6 +356,9 @@ class graph_database_sharedmem : public graph_database {
     // create a new row of all null values
     graph_row* row = (data==NULL) ? new graph_row(this, edge_fields) : data;
     row->_is_vertex = false;
+
+    // Insert into shard. This operation transfers the data ownership to the row in the shard
+    // so that we can free the row at the end of the function.
     size_t pos = shards[shardid].shard_impl.add_edge(source, target, row);
     _num_edges++;
 

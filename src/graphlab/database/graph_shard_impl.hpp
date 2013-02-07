@@ -9,16 +9,38 @@ namespace graphlab {
 /**
  * \ingroup group_graph_database
  * The private contents of the graph_shard.
+ *
+ * This object is responsible for allocating and deleting
+ * the edge data as well as the vertex data it masters.
+ *
+ * \note
+ *  This object is not thread safe and may not be copied.
+ *
+ * \note
+ *  A deepcopy of this object can be made on purpose by calling <code>deepcopy()</code>.
+ *  The copied shard content will have the same shard id, and a copy of edge/vertex data.
+ *
+ * \note
+ *  <code>edgeid</code> is used to maintian the shard specific edge id.
+ *  Normally, the <code>edgeid</code> is the same as the index of the edge, thus is not instantiated eagerly. 
+ *  When a subset of edges in this shard are selected to form a new shard (for example through <code>graph_database_sharedmem::get_adjacent_content()</code>),  the edgeid[i] for the ith edge in the new shard is equal to the index of that edge in the parent shard. This internal id relative to the parent edge is useful when committing the changes from child to its parent.
+ *
  */
 struct graph_shard_impl {
+  /**
+   * Creates an empty shard.
+   */
   graph_shard_impl() {
     num_vertices = num_edges = 0;
-    _vdata_capacity = 100;
-    _edata_capacity = 1000;
+    _vdata_capacity = 1000;
+    _edata_capacity = 10000;
     vertex_data = new graph_row[_vdata_capacity];
     edge_data = new graph_row[_edata_capacity];
   }
 
+  /**
+   * Deconstructor. Free the edge and vertex data.
+   */
   ~graph_shard_impl() {
     delete[] vertex_data;
     delete[] edge_data;
@@ -28,6 +50,7 @@ struct graph_shard_impl {
    * the ID of the current shard 
    */
   graph_shard_id_t shard_id;
+
   /** 
    * The number of vertices in this shard
    */
@@ -95,7 +118,7 @@ struct graph_shard_impl {
 
   /**
    * Insert a (vid, row) into the shard. Return the position of the vertex in the shard.
-   * For optimization purpose, the data owner ship of row is transfered. 
+   * For optimization purpose, the data ownership of row is transfered. 
    * */
   inline size_t add_vertex(graph_vid_t vid, graph_row* row) {
     ASSERT_TRUE(row->_own_data);
@@ -120,7 +143,7 @@ struct graph_shard_impl {
 
   /**
    * Insert a (source, target, row) into the shard. Return the position of the edge in the shard.
-   * For optimization purpose, the data owner ship of row is transfered.
+   * For optimization purpose, the data ownership of row is transfered.
    * */
   inline size_t add_edge(graph_vid_t source, graph_vid_t target, graph_row* row) {
     size_t pos = num_edges;
@@ -151,8 +174,6 @@ struct graph_shard_impl {
     out.num_vertices = num_vertices;
     out.num_edges = num_edges;
     out.vertex = vertex;
-    // out.num_out_edges = num_out_edges;
-    // out.num_in_edges = num_in_edges;
     out.edge = edge;
     out.edgeid = edgeid;
 

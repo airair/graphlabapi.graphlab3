@@ -31,6 +31,14 @@ public:
   virtual boost::unique_future<std::pair<bool,value_type>> background_get(const key_type key) = 0;
   virtual boost::unique_future<std::vector<std::pair<bool, value_type> > > background_bulk_get(const std::vector<key_type> &keys) = 0;
   virtual boost::unique_future<std::vector<value_type> > background_range_get(const key_type key_lo, const key_type key_hi) = 0;
+
+  virtual void remove_all() = 0;
+//  virtual void remove(const key_type key) = 0;
+//  virtual void background_remove(const key_type key) = 0;
+//  virtual void range_remove(const key_type key_lo, const key_type key_hi) = 0;
+//  virtual void background_range_remove(const key_type key_low, const key_type key_hi) = 0;
+//  virtual void bulk_remove(const std::vector<key_type> &keys) = 0;
+//  virtual void background_bulk_remove(const std::vector<key_type> &keys) = 0;
 };
 
 }

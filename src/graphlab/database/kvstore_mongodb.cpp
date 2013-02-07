@@ -13,6 +13,7 @@
 #include <mongo/util/net/hostandport.h>
 #include <boost/foreach.hpp>
 #include <boost/thread.hpp>
+#include <boost/move/move.hpp>
 
 
 #define KEYATTR_NAME "_id"
@@ -23,9 +24,15 @@ namespace graphlab {
 kvstore_mongodb::kvstore_mongodb(std::string addr, int port, std::string ns) : _ns(ns) {
   std::string error_msg;
   ASSERT_TRUE(_conn.connect(mongo::HostAndPort(addr, port), error_msg));
+  _conn.createCollection(_ns);
 }
 
 kvstore_mongodb::~kvstore_mongodb() {
+}
+
+void kvstore_mongodb::remove_all() {
+  _conn.dropCollection(_ns);
+  _conn.createCollection(_ns);
 }
 
 void kvstore_mongodb::set(const key_type key, const value_type &value) {
@@ -82,18 +89,24 @@ std::pair<bool, value_type> kvstore_mongodb::background_get_thread(const key_typ
 boost::unique_future<std::pair<bool, value_type> > kvstore_mongodb::background_get(const key_type key) {
   boost::packaged_task<std::pair<bool, value_type>> pt(boost::bind(&kvstore_mongodb::background_get_thread, this, key));
   boost::unique_future<std::pair<bool, value_type> > result = pt.get_future();
-  boost::thread t(boost::ref(pt));
+  boost::thread t(boost::move(pt));
   t.detach();
   return result;
 }
 
 boost::unique_future<std::vector<std::pair<bool, value_type> > > kvstore_mongodb::background_bulk_get(const std::vector<key_type> &keys) {
-  boost::unique_future<std::vector<std::pair<bool, value_type> > > result;
+  boost::packaged_task<std::vector<std::pair<bool, value_type> > > pt(boost::bind(&kvstore_base::bulk_get, this, keys));
+  boost::unique_future<std::vector<std::pair<bool, value_type> > > result = pt.get_future();
+  boost::thread t(boost::move(pt));
+  t.detach();
   return result;
 }
 
 boost::unique_future<std::vector<value_type> > kvstore_mongodb::background_range_get(const key_type key_lo, const key_type key_hi) {
-  boost::unique_future<std::vector<value_type> > result;
+  boost::packaged_task<std::vector<value_type> > pt(boost::bind(&kvstore_base::bulk_get, this, key_lo, key_hi));
+  boost::unique_future<std::vector<value_type> > result = pt.get_future();
+  boost::thread t(boost::move(pt));
+  t.detach();
   return result;
 }
 

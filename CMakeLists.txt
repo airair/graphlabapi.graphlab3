@@ -129,6 +129,7 @@ ExternalProject_Add(boost
   --with-libraries=iostreams
   --with-libraries=date_time
   --with-libraries=random
+  --with-libraries=thread
   --prefix=<INSTALL_DIR>
   BUILD_COMMAND  
   C_INCLUDE_PATH=${GraphLab_SOURCE_DIR}/deps/local/include 
@@ -141,6 +142,7 @@ set(BOOST_ROOT ${GraphLab_SOURCE_DIR}/deps/local )
 set(BOOST_LIBS_DIR ${GraphLab_SOURCE_DIR}/deps/local/lib)
 set(Boost_LIBRARIES 
   ${BOOST_LIBS_DIR}/libboost_filesystem.a 
+  ${BOOST_LIBS_DIR}/libboost_thread.a
   ${BOOST_LIBS_DIR}/libboost_program_options.a
   ${BOOST_LIBS_DIR}/libboost_system.a 
   ${BOOST_LIBS_DIR}/libboost_iostreams.a 

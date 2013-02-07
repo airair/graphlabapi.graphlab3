@@ -5,8 +5,8 @@
  *      Author: svilen
  */
 
-#ifndef GRAPHLAB_DATABASE_KVSTORE_BASE.HPP
-#define GRAPHLAB_DATABASE_KVSTORE_BASE.HPP
+#ifndef GRAPHLAB_DATABASE_KVSTORE_BASE_HPP
+#define GRAPHLAB_DATABASE_KVSTORE_BASE_HPP
 
 #include <stdint.h>
 #include <string>
@@ -28,7 +28,7 @@ public:
   virtual std::vector<std::pair<bool, value_type> > bulk_get(const std::vector<key_type> &keys) = 0;
   virtual std::vector<value_type> range_get(const key_type key_lo, const key_type key_hi) = 0;
 
-  virtual boost::unique_future<std::pair<bool,value_type>> background_get(const key_type key) = 0;
+  virtual boost::unique_future<std::pair<bool,value_type> > background_get(const key_type key) = 0;
   virtual boost::unique_future<std::vector<std::pair<bool, value_type> > > background_bulk_get(const std::vector<key_type> &keys) = 0;
   virtual boost::unique_future<std::vector<value_type> > background_range_get(const key_type key_lo, const key_type key_hi) = 0;
 

@@ -5,10 +5,11 @@
  *      Author: svilen
  */
 
-#ifndef GRAPHLAB_DATABASE_KVSTORE_MONGODB.HPP
-#define GRAPHLAB_DATABASE_KVSTORE_MONGODB.HPP
+#ifndef GRAPHLAB_DATABASE_KVSTORE_MONGODB_HPP
+#define GRAPHLAB_DATABASE_KVSTORE_MONGODB_HPP
 
 #include <mongo/client/dbclient.h>
+#include <graphlab/database/kvstore_base.hpp>
 
 namespace graphlab {
 
@@ -18,7 +19,10 @@ namespace graphlab {
 
 class kvstore_mongodb: public kvstore_base {
 public:
-  kvstore_mongodb(): kvstore_mongodb(MONGODB_DEFAULT_ADDR, MONGODB_DEFAULT_PORT, MONGODB_DEFAULT_NAMESPACE) {}
+  kvstore_mongodb() {
+    kvstore_mongodb(MONGODB_DEFAULT_ADDR, MONGODB_DEFAULT_PORT, MONGODB_DEFAULT_NAMESPACE);
+  }
+
   kvstore_mongodb(std::string addr, int port, std::string ns);
   virtual ~kvstore_mongodb();
 
@@ -33,13 +37,13 @@ public:
   virtual boost::unique_future<std::vector<std::pair<bool, value_type> > > background_bulk_get(const std::vector<key_type> &keys);
   virtual boost::unique_future<std::vector<value_type> > background_range_get(const key_type key_lo, const key_type key_hi);
 
-  virtual remove_all();
+  virtual void remove_all();
 
 private:
   mongo::DBClientConnection _conn;
   std::string _ns;
 
-  std::pair<bool, value_type> kvstore_mongodb::background_get_thread(const key_type key);
+  std::pair<bool, value_type> background_get_thread(const key_type key);
 };
 
 }

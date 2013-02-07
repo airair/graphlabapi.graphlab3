@@ -29,6 +29,9 @@ namespace graphlab {
  */
 class graph_vertex {
  public:
+
+  inline virtual ~graph_vertex() { }
+
   /**
    * Returns the ID of the vertex
    */

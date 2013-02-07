@@ -52,20 +52,25 @@ std::string graph_row::get_field_metadata(size_t fieldpos) {
 }
 
 void graph_row::shallowcopy(graph_row& out_row) {
-  out_row._database = _database;
-  out_row._data = _data;
-  out_row._is_vertex = _is_vertex;
-  out_row._nfields = _nfields;
+  memcpy(&out_row, this, sizeof(graph_row));
+  out_row._own_data = false;
 }
 
 void graph_row::deepcopy(graph_row& out_row) {
   out_row._database = _database;
   out_row._is_vertex = _is_vertex;
   out_row._nfields = _nfields;
-
+  out_row._own_data = true;
   out_row._data = new graph_value[num_fields()];
   for (size_t i = 0; i < num_fields(); i++) {
     _data[i].deepcopy(out_row._data[i]);
   }
 }
+
+void graph_row::copy_transfer_owner(graph_row& out_row) {
+  ASSERT_TRUE(_own_data);
+  memcpy(&out_row, this, sizeof(graph_row));
+  _own_data = false;
+}
+
 } // namespace graphlab

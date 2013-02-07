@@ -33,17 +33,22 @@ class graph_row {
   /// An array of all the values on this row
   graph_value* _data;
 
+  /// If true, this row is responsible for data allocation. 
+  bool _own_data;
+
+  /// Number of fields in the row.
   size_t _nfields;
 
   graph_row() {
     _database= NULL;
     _data = NULL;
     _nfields = 0;
+    _own_data = false;
   }
 
-  // Create a row with all NULL values in the given fields
+  // Create a row with all NULL values in the given fields.
   graph_row(graph_database* database, std::vector<graph_field>& fields) :
-    _database(database), _nfields(fields.size()) {
+    _database(database), _own_data(true), _nfields(fields.size()) {
     _data =  new graph_value[fields.size()];
     for (size_t i = 0; i < fields.size(); i++) {
       graph_value& val = _data[i];
@@ -58,7 +63,11 @@ class graph_row {
     }
   }
 
-  ~graph_row() {}
+  ~graph_row() {
+    if (_own_data) {
+      delete[] _data;
+    }
+  }
   
   /// If true, this represents a vertex; if false, this represents an edge.
   bool _is_vertex;
@@ -82,7 +91,6 @@ class graph_row {
   inline bool is_edge() const {
     return !_is_vertex;
   }
-
 
   /**
    * Returns the position of a particular field name.
@@ -108,16 +116,6 @@ class graph_row {
    */
   std::string get_field_metadata(size_t fieldpos);
 
-  /**
-   * Makes a shallow copy of this row into out_row. 
-   */
-  void shallowcopy(graph_row& out_row);
-
-  /**
-   * Makes a deep copy of this row into out_row. Ignore all fields in out_row.
-   */
-  void deepcopy (graph_row& out_row);
-
 
  private:
   // copy constructor deleted. It is not safe to copy this object.
@@ -126,11 +124,24 @@ class graph_row {
   // assignment operator deleted. It is not safe to copy this object.
   graph_row& operator=(const graph_row&) { return *this; }
 
-  // Stores the graph values for the row. Could be empty if it is a shallow copy. 
-  // graph_value* _values;
+  /**
+   * Makes a shallow copy of this row into out_row and keep the data ownership. 
+   */
+  void shallowcopy(graph_row& out_row);
+
+  /**
+   * Makes a deep copy of this row into out_row. Ignore all fields in out_row.
+   */
+  void deepcopy (graph_row& out_row);
+
+  /**
+   * Makes a copy of this row into out_row and transfer the data ownership. 
+   */
+  void copy_transfer_owner(graph_row& out_row);
 
   friend class graph_database;
-  friend class graph_shard;
+  friend class graph_database_sharedmem;
+  friend class graph_shard_impl;
 };
 
 } // namespace graphlab 

@@ -8,7 +8,6 @@
 #include <graphlab/database/graph_shard.hpp>
 #include <graphlab/logger/assertions.hpp>
 #include <boost/unordered_map.hpp>
-#include <boost/unordered_set.hpp>
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
   /** 

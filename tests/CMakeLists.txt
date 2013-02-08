@@ -2,8 +2,7 @@ project(tests)
 add_graphlab_executable(zookeeper_test zookeeper_test.cpp)
 
 add_graphlab_executable(graph_database_test graph_database_test.cpp)
-##target_link_libraries(graph_database_test mongoclient boost_thread-mt boost_filesystem-mt boost_system-mt)
-##target_link_libraries(graph_database_test mongoclient boost_thread-mt boost_filesystem-mt boost_program_options-mt boost_system-mt)
+target_link_libraries(graph_database_test mongoclient boost_filesystem-mt)
 
 add_graphlab_executable(comm_test comm_test.cpp)
 

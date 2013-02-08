@@ -1,30 +1,21 @@
 /*
- * kvstore_mongodb.cpp
+ * kvstore_mysql.hpp
  *
- *  Created on: Feb 4, 2013
+ *  Created on: Feb 7, 2013
  *      Author: svilen
  */
 
-#ifndef GRAPHLAB_DATABASE_KVSTORE_MONGODB_HPP
-#define GRAPHLAB_DATABASE_KVSTORE_MONGODB_HPP
+#ifndef GRAPHLAB_DATABASE_KVSTORE_MYSQL_HPP
+#define GRAPHLAB_DATABASE_KVSTORE_MYSQL_HPP
 
-#include <mongo/client/dbclient.h>
 #include <graphlab/database/kvstore_base.hpp>
 
 namespace graphlab {
 
-const char* MONGODB_DEFAULT_ADDR = "127.0.0.1";
-const int MONGODB_DEFAULT_PORT = 27017;
-const char* MONGODB_DEFAULT_NAMESPACE = "graphlab";
-
-class kvstore_mongodb: public kvstore_base {
+class kvstore_mysql: public kvstore_base {
 public:
-  kvstore_mongodb() {
-    kvstore_mongodb(MONGODB_DEFAULT_ADDR, MONGODB_DEFAULT_PORT, MONGODB_DEFAULT_NAMESPACE);
-  }
-
-  kvstore_mongodb(std::string addr, int port, std::string ns);
-  virtual ~kvstore_mongodb();
+  kvstore_mysql();
+  virtual ~kvstore_mysql();
 
   virtual void set(const key_type key, const value_type &value);
   virtual void background_set(const key_type key, const value_type &value);
@@ -40,13 +31,9 @@ public:
   virtual void remove_all();
 
 private:
-  mongo::DBClientConnection _conn;
-  std::string _ns;
-
-  std::pair<bool, value_type> background_get_thread(const key_type key);
 };
 
 }
 
-#endif
+
 

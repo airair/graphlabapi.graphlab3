@@ -109,6 +109,20 @@ ExternalProject_Add(libbz2
   BUILD_COMMAND make install PREFIX=<INSTALL_DIR>
   INSTALL_COMMAND "" )
 
+# libbz  =================================================================
+ExternalProject_Add(mongoclient
+  PREFIX ${GraphLab_SOURCE_DIR}/deps/mongoclient
+  URL http://graphlab.org/deps/mongo-cxx-driver-nightly-2013-2-7.tar.gz
+  URL_MD5 c24ba8b84e133169064a6472670fd480 
+  INSTALL_DIR ${GraphLab_SOURCE_DIR}/deps/local
+  CONFIGURE_COMMAND ""
+  BUILD_IN_SOURCE 1
+  BUILD_COMMAND ./scons.py --extrapath=<INSTALL_DIR> --prefix=<INSTALL_DIR>
+  INSTALL_COMMAND ./scons.py --extrapath=<INSTALL_DIR> --prefix=<INSTALL_DIR> install
+  ) 
+set(Mongo_LIBRARIES
+    ${GraphLab_SOURCE_DIR}/deps/local/lib/libmongoclient.a)
+
 
 
 
@@ -310,8 +324,9 @@ macro(requires_core_deps NAME)
     tcmalloc
     qthread
     event
-    event_pthreads)
-  add_dependencies(${NAME} boost libtcmalloc zookeeper qthreads)
+    event_pthreads
+    ${Mongo_LIBRARIES})
+  add_dependencies(${NAME} boost libtcmalloc zookeeper qthreads mongoclient)
   if(MPI_FOUND)
     target_link_libraries(${NAME} ${MPI_LIBRARIES})
   endif(MPI_FOUND)

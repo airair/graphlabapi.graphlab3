@@ -1,5 +1,6 @@
 #include <graphlab/database/graph_database.hpp>
 #include <graphlab/database/kvstore_mongodb.cpp>
+#include <graphlab/database/kvstore_mysql.cpp>
 
 int main(int argc, char** argv) {
   graphlab::kvstore_mongodb kv_mongo;

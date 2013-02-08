@@ -11,11 +11,13 @@
 #include <mysql5/mysql/mysql.h>
 #include <mysql5/mysql/mysqld_error.h>
 #include <mysql5/mysql/my_global.h>
+#include <mysql5/mysql/storage/ndb/ndb_types.h>
 
 namespace graphlab {
 
 const std::string mysql_db_name = "graphlab_db";
 const std::string mysql_table_name = "graphlab_kv";
+const std::string mysql_index_name = "graphlab_index";
 const char* mysql_default_connstr = "localhost:1186";
 const char* mysql_default_sock = "/tmp/mysql.sock";
 const char* mysql_default_addr = "localhost";
@@ -37,6 +39,8 @@ kvstore_mysql::kvstore_mysql() {
   mysql_query(&mysql, ("CREATE TABLE "+mysql_table_name+" ("+mysql_keyattr_name+" INT UNSIGNED NOT NULL PRIMARY KEY, "+
                                                            mysql_valueattr_name+" BLOB NOT NULL) ENGINE=NDB").c_str());
 
+  mysql_query(&mysql, ("CREATE UNIQUE INDEX "+mysql_index_name+" ON "+mysql_table_name+"("+mysql_keyattr_name+")").c_str());
+
   Ndb_cluster_connection cluster_connection(mysql_default_connstr);
   ASSERT_FALSE(cluster_connection.connect(4, 5, 1));
   ASSERT_FALSE(cluster_connection.wait_until_ready(30, 0));
@@ -45,7 +49,11 @@ kvstore_mysql::kvstore_mysql() {
   ASSERT_FALSE(_ndb->init(1024));
 
   const NdbDictionary::Dictionary* dict = _ndb->getDictionary();
-  _table = dict->getTable("api_simple");
+
+  _index = dict->getIndex(mysql_index_name.c_str(), mysql_table_name.c_str());
+  ASSERT_TRUE(_index != NULL);
+
+  _table = dict->getTable(mysql_table_name.c_str());
   ASSERT_TRUE(_table != NULL);
 
   printf("MySQL connection open\n");
@@ -62,12 +70,13 @@ void kvstore_mysql::set(const key_type key, const value_type &value) {
   NdbTransaction *trans = _ndb->startTransaction();
   ASSERT_TRUE(trans != NULL);
 
-  NdbOperation *op = trans->getNdbOperation(_table);
+  NdbOperation *op = trans->getNdbIndexOperation(_index);
   ASSERT_TRUE(op != NULL);
 
   op->writeTuple();
   op->equal(mysql_keyattr_name, (int) key);
-  op->setValue(mysql_valueattr_name, value.c_str());
+  NdbBlob *blob_handle = op->getBlobHandle(mysql_valueattr_name);
+  blob_handle->setValue((void *) value.data(), value.length());
 
   ASSERT_FALSE(trans->execute(NdbTransaction::Commit) == -1);
 
@@ -75,19 +84,29 @@ void kvstore_mysql::set(const key_type key, const value_type &value) {
 }
 
 bool kvstore_mysql::get(const key_type key, value_type &value) {
+  void *blob_data;
+  Uint64 blob_size;
+
   NdbTransaction *trans = _ndb->startTransaction();
   ASSERT_TRUE(trans != NULL);
 
-  NdbOperation *op = trans->getNdbOperation(_table);
+  NdbOperation *op = trans->getNdbIndexOperation(_index);
   ASSERT_TRUE(op != NULL);
 
   op->readTuple();
   op->equal(mysql_keyattr_name, (int) key);
-  value = std::string(op->getValue(mysql_valueattr_name, NULL)->aRef());
+  NdbBlob *blob_handle = op->getBlobHandle(mysql_valueattr_name);
+  blob_handle->getLength(blob_size);
+  blob_data = malloc(blob_size);
+  blob_handle->getValue(blob_data, blob_size);
 
   ASSERT_FALSE(trans->execute(NdbTransaction::NoCommit) == -1);
 
   bool found = (trans->getNdbError().classification == NdbError::NoError);
+  if (found) {
+    value = std::string((char *) blob_data, blob_size);
+  }
+
   _ndb->closeTransaction(trans);
 
   return found;
@@ -95,11 +114,42 @@ bool kvstore_mysql::get(const key_type key, value_type &value) {
 
 std::vector<value_type> kvstore_mysql::range_get(const key_type key_lo, const key_type key_hi) {
   std::vector<value_type> result;
+
+  NdbTransaction *trans = _ndb->startTransaction();
+  ASSERT_TRUE(trans != NULL);
+
+  NdbOperation *op = trans->getNdbIndexScanOperation(_index, _table);
+  ASSERT_TRUE(op != NULL);
+
+  // to fill
+//  op->readTuple();
+//  op->equal(mysql_keyattr_name, (int) key);
+//  value = std::string(op->getValue(mysql_valueattr_name, NULL)->aRef());
+
+  ASSERT_FALSE(trans->execute(NdbTransaction::NoCommit) == -1);
+
+  _ndb->closeTransaction(trans);
+
   return result;
 }
 
 std::pair<bool, value_type> kvstore_mysql::background_get_thread(const key_type key) {
-  return std::pair<bool, value_type>();
+  NdbTransaction *trans = _ndb->startTransaction();
+  ASSERT_TRUE(trans != NULL);
+
+  NdbOperation *op = trans->getNdbIndexOperation(_index);
+  ASSERT_TRUE(op != NULL);
+
+  op->readTuple();
+  op->equal(mysql_keyattr_name, (int) key);
+  std::string value(op->getValue(mysql_valueattr_name, NULL)->aRef());
+
+  ASSERT_FALSE(trans->execute(NdbTransaction::NoCommit) == -1);
+
+  bool found = (trans->getNdbError().classification == NdbError::NoError);
+  _ndb->closeTransaction(trans);
+
+  return std::pair<bool, value_type>(found, value);
 }
 
 void kvstore_mysql::remove_all() {

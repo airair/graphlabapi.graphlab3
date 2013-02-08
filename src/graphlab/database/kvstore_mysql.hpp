@@ -30,6 +30,7 @@ public:
 private:
   Ndb *_ndb;
   const NdbDictionary::Table *_table;
+  const NdbDictionary::Index *_index;
 };
 
 }

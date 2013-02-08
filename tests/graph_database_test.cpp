@@ -11,7 +11,7 @@ int main(int argc, char** argv) {
     k = random() % 100;
     v = "test";
     printf("Trying %lld, %s\n", k, v.c_str());
-    kv_mongo.set(k, v);
+    kv_mongo.background_set(k, v);
 //    kv_mongo.get(k, v1);
 //    if (v != v1) {
 //      printf("Problem!");

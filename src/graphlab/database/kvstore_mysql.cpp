@@ -7,14 +7,10 @@
 
 #include <graphlab/database/kvstore_mysql.hpp>
 #include <graphlab/logger/assertions.hpp>
-#include <boost/foreach.hpp>
-#include <boost/thread.hpp>
-#include <boost/move/move.hpp>
 
 #include <mysql5/mysql/mysql.h>
 #include <mysql5/mysql/mysqld_error.h>
 #include <mysql5/mysql/my_global.h>
-//#include <mysql5/mysql/storage/ndb/ndb_init.h>
 
 namespace graphlab {
 
@@ -50,24 +46,26 @@ kvstore_mysql::kvstore_mysql() {
 
   const NdbDictionary::Dictionary* dict = _ndb->getDictionary();
   _table = dict->getTable("api_simple");
+  ASSERT_TRUE(_table != NULL);
+
+  printf("MySQL connection open\n");
 }
 
 kvstore_mysql::~kvstore_mysql() {
   ndb_end(0);
   delete _ndb;
   _ndb = NULL;
+  printf("MySQL connection closed\n");
 }
 
 void kvstore_mysql::set(const key_type key, const value_type &value) {
-  ASSERT_TRUE(_table != NULL);
-
   NdbTransaction *trans = _ndb->startTransaction();
   ASSERT_TRUE(trans != NULL);
 
   NdbOperation *op = trans->getNdbOperation(_table);
   ASSERT_TRUE(op != NULL);
 
-  op->updateTuple();
+  op->writeTuple();
   op->equal(mysql_keyattr_name, (int) key);
   op->setValue(mysql_valueattr_name, value.c_str());
 
@@ -76,18 +74,23 @@ void kvstore_mysql::set(const key_type key, const value_type &value) {
   _ndb->closeTransaction(trans);
 }
 
-void kvstore_mysql::background_set(const key_type key, const value_type &value) {
-  boost::thread t(&kvstore_base::set, this, key, value);
-  t.detach();
-}
-
 bool kvstore_mysql::get(const key_type key, value_type &value) {
-  return false;
-}
+  NdbTransaction *trans = _ndb->startTransaction();
+  ASSERT_TRUE(trans != NULL);
 
-std::vector<std::pair<bool, value_type> > kvstore_mysql::bulk_get(const std::vector<key_type> &keys) {
-  std::vector<std::pair<bool, value_type> > result;
-  return result;
+  NdbOperation *op = trans->getNdbOperation(_table);
+  ASSERT_TRUE(op != NULL);
+
+  op->readTuple();
+  op->equal(mysql_keyattr_name, (int) key);
+  value = std::string(op->getValue(mysql_valueattr_name, NULL)->aRef());
+
+  ASSERT_FALSE(trans->execute(NdbTransaction::NoCommit) == -1);
+
+  bool found = (trans->getNdbError().classification == NdbError::NoError);
+  _ndb->closeTransaction(trans);
+
+  return found;
 }
 
 std::vector<value_type> kvstore_mysql::range_get(const key_type key_lo, const key_type key_hi) {
@@ -97,33 +100,6 @@ std::vector<value_type> kvstore_mysql::range_get(const key_type key_lo, const ke
 
 std::pair<bool, value_type> kvstore_mysql::background_get_thread(const key_type key) {
   return std::pair<bool, value_type>();
-}
-
-boost::unique_future<std::pair<bool, value_type> > kvstore_mysql::background_get(const key_type key) {
-  boost::packaged_task<std::pair<bool, value_type> > pt(boost::bind(&kvstore_mysql::background_get_thread, this, key));
-  boost::detail::thread_move_t<boost::unique_future<std::pair<bool, value_type> > > result = pt.get_future();
-  boost::thread t(boost::move(pt));
-  t.detach();
-
-  return boost::unique_future<std::pair<bool, value_type> >(result);
-}
-
-boost::unique_future<std::vector<std::pair<bool, value_type> > > kvstore_mysql::background_bulk_get(const std::vector<key_type> &keys) {
-  boost::packaged_task<std::vector<std::pair<bool, value_type> > > pt(boost::bind(&kvstore_base::bulk_get, this, keys));
-  boost::detail::thread_move_t<boost::unique_future<std::vector<std::pair<bool, value_type> > > > result = pt.get_future();
-  boost::thread t(boost::move(pt));
-  t.detach();
-
-  return boost::unique_future<std::vector<std::pair<bool, value_type> > >(result);
-}
-
-boost::unique_future<std::vector<value_type> > kvstore_mysql::background_range_get(const key_type key_lo, const key_type key_hi) {
-  boost::packaged_task<std::vector<value_type> > pt(boost::bind(&kvstore_base::range_get, this, key_lo, key_hi));
-  boost::detail::thread_move_t<boost::unique_future<std::vector<value_type> > > result = pt.get_future();
-  boost::thread t(boost::move(pt));
-  t.detach();
-
-  return boost::unique_future<std::vector<value_type> >(result);
 }
 
 void kvstore_mysql::remove_all() {

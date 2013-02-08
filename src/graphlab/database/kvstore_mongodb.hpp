@@ -27,23 +27,17 @@ public:
   virtual ~kvstore_mongodb();
 
   virtual void set(const key_type key, const value_type &value);
-  virtual void background_set(const key_type key, const value_type &value);
 
   virtual bool get(const key_type key, value_type &value);
-  virtual std::vector<std::pair<bool, value_type> > bulk_get(const std::vector<key_type> &keys);
   virtual std::vector<value_type> range_get(const key_type key_lo, const key_type key_hi);
 
-  virtual boost::unique_future<std::pair<bool, value_type> > background_get(const key_type key);
-  virtual boost::unique_future<std::vector<std::pair<bool, value_type> > > background_bulk_get(const std::vector<key_type> &keys);
-  virtual boost::unique_future<std::vector<value_type> > background_range_get(const key_type key_lo, const key_type key_hi);
+  std::pair<bool, value_type> background_get_thread(const key_type key);
 
   virtual void remove_all();
 
 private:
   mongo::DBClientConnection _conn;
   std::string _ns;
-
-  std::pair<bool, value_type> background_get_thread(const key_type key);
 };
 
 }

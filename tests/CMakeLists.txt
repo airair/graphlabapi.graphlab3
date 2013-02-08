@@ -2,7 +2,11 @@ project(tests)
 add_graphlab_executable(zookeeper_test zookeeper_test.cpp)
 
 add_graphlab_executable(graph_database_test graph_database_test.cpp)
-target_link_libraries(graph_database_test mongoclient boost_filesystem-mt)
+set(MACPORTS_INCLUDE /opt/local/include)
+set(MYSQL_INCLUDE ${MACPORTS_INCLUDE}/mysql5/mysql)
+set(MYSQL_NDB ${MYSQL_INCLUDE}/storage/ndb)
+include_directories(${MYSQL_INCLUDE} ${MYSQL_NDB} ${MYSQL_NDB}/ndbapi)
+target_link_libraries(graph_database_test mongoclient mysqlclient ndbclient boost_filesystem-mt)
 
 add_graphlab_executable(comm_test comm_test.cpp)
 

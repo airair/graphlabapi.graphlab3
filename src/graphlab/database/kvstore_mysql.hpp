@@ -9,6 +9,7 @@
 #define GRAPHLAB_DATABASE_KVSTORE_MYSQL_HPP
 
 #include <graphlab/database/kvstore_base.hpp>
+#include <mysql5/mysql/storage/ndb/ndbapi/NdbApi.hpp>
 
 namespace graphlab {
 
@@ -31,9 +32,13 @@ public:
   virtual void remove_all();
 
 private:
+  Ndb *_ndb;
+  const NdbDictionary::Table *_table;
+
+  std::pair<bool, value_type> background_get_thread(const key_type key);
 };
 
 }
 
-
+#endif
 

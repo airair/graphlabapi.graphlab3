@@ -1,0 +1,9 @@
+/**
+
+\defgroup util GraphLab Utility Classes and Functions
+\defgroup random Random Number Generators
+\defgroup group_serialization Serialization
+\defgroup httpserver Metrics Reporting Webserver
+\defgroup group_graph_database Graph Database
+
+*/

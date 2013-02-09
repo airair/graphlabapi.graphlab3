@@ -3,6 +3,9 @@
 #include <utility>
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/database/graph_row.hpp>
+#include <graphlab/database/graph_vertex_index.hpp>
+#include <graphlab/database/graph_edge_index.hpp>
+#include <boost/unordered_set.hpp>
 
 namespace graphlab {
 
@@ -27,6 +30,7 @@ namespace graphlab {
  *
  */
 struct graph_shard_impl {
+
   /**
    * Creates an empty shard.
    */
@@ -65,11 +69,11 @@ struct graph_shard_impl {
    * The capacity of vertex data
    */
   size_t _vdata_capacity;
+
   /**
    * The initial capacity of edge data
    */
   size_t _edata_capacity;
-
 
   /**
    * An array of the vertex IDs in this shard. 
@@ -102,6 +106,16 @@ struct graph_shard_impl {
    */
   graph_row* edge_data;
 
+  graph_edge_index edge_index;
+
+  graph_vertex_index vertex_index;
+
+  /**
+   * An array of length num_vertices where vertex_mirrors[i] stores 
+   * the mirrors of vertex[i].
+   */ 
+  std::vector<boost::unordered_set<graph_shard_id_t> > vertex_mirrors;
+
 
   /**
    * Clear all the information in the shard. Keep the shard_id.
@@ -124,6 +138,7 @@ struct graph_shard_impl {
     ASSERT_TRUE(row->_own_data);
     size_t pos = num_vertices;
     vertex.push_back(vid);
+    vertex_mirrors.push_back(boost::unordered_set<graph_shard_id_t>());
 
     // resize array, double the capacity.
     if (pos == _vdata_capacity) {
@@ -137,8 +152,23 @@ struct graph_shard_impl {
     }
 
     row->copy_transfer_owner(vertex_data[pos]);
+
     num_vertices++;
+
+    // update vertex index
+    vertex_index.add_vertex(vid, &vertex_data[pos], pos);
+
     return pos;
+  }
+
+
+  /**
+   */
+  inline void add_vertex_mirror(graph_vid_t v, graph_shard_id_t mirror_id) {
+    if (mirror_id == shard_id)
+      return;
+    size_t pos = vertex_index.get_index(v);
+    vertex_mirrors[pos].insert(mirror_id);
   }
 
   /**
@@ -161,6 +191,7 @@ struct graph_shard_impl {
     }
 
     row->copy_transfer_owner(edge_data[pos]);
+    edge_index.add_edge(source,target, pos);
     num_edges++;
     return pos;
   }
@@ -176,6 +207,9 @@ struct graph_shard_impl {
     out.vertex = vertex;
     out.edge = edge;
     out.edgeid = edgeid;
+    out.vertex_index = vertex_index;
+    out.edge_index = edge_index;
+    out.vertex_mirrors = vertex_mirrors;
 
     // Resize the vertex data array.
     if (out._vdata_capacity <= num_vertices) {

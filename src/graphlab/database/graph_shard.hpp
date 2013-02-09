@@ -78,6 +78,35 @@ class graph_shard {
    * i must range from 0 to num_vertices() - 1 inclusive.
    */
   inline graph_row* vertex_data(size_t i) { return shard_impl.vertex_data + i; }
+
+   /**
+    * Return true if the vertex with vid is owned by this shard.
+    */
+   inline bool has_vertex(const graph_vid_t& vid) {
+     return shard_impl.vertex_index.has_vertex(vid);
+   }
+
+  /**
+    * Return true if the vertex with vid is owned by this shard.
+    */
+   inline boost::unordered_set<graph_shard_id_t> get_mirrors(const graph_vid_t& vid) {
+     size_t pos = shard_impl.vertex_index.get_index(vid);
+     return shard_impl.vertex_mirrors[pos];
+   }
+
+
+   /**
+    * Returns the data of vertex with vid. Return NULL if there is no vertex 
+    * data associated with vid in this shard.
+    */
+   inline graph_row* vertex_data_by_id (const graph_vid_t& vid) {
+     if (has_vertex(vid)) {
+       return vertex_data(shard_impl.vertex_index.get_index(vid));
+     } else {
+       return NULL;
+     }
+   }
+
   
   /**
    * Returns the number of out edges of the vertex in the i'th position in this
@@ -133,6 +162,5 @@ class graph_shard {
   friend class graph_database;
   friend class graph_database_sharedmem;
 };
-
 } // namespace graphlab 
 #endif

@@ -6,7 +6,7 @@
 #include <graphlab/database/graph_edge.hpp>
 #include <graphlab/database/graph_vertex.hpp>
 #include <graphlab/database/sharedmem_database/graph_edge_sharedmem.hpp>
-#include <graphlab/database/sharedmem_database/graph_vertex_index.hpp>
+#include <graphlab/database/graph_vertex_index.hpp>
 #include <boost/unordered_set.hpp>
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
@@ -37,7 +37,7 @@ class graph_vertex_sharedmem : public graph_vertex {
   boost::unordered_set<graph_shard_id_t> mirrors;
   
   // Index of the edges.
-  std::vector<graph_edge_index>* edge_index;
+  std::vector<graph_edge_index*> edge_index;
 
   // Pointer to the database.
   graph_database* database;
@@ -49,8 +49,8 @@ class graph_vertex_sharedmem : public graph_vertex {
   graph_vertex_sharedmem(graph_vid_t vid,
                          graph_row* data,
                          graph_shard_id_t master,
-                         const boost::unordered_set<graph_shard_id_t> mirrors,
-                         std::vector<graph_edge_index>* eindex,
+                         const boost::unordered_set<graph_shard_id_t>& mirrors,
+                         const std::vector<graph_edge_index*>& eindex,
                          graph_database* db) : 
       vid(vid), vdata(data), master(master), mirrors(mirrors),
       edge_index(eindex), database(db) {}
@@ -157,7 +157,7 @@ class graph_vertex_sharedmem : public graph_vertex {
     std::vector<size_t> index_out;
     bool getIn = out_inadj!=NULL;
     bool getOut = out_outadj!=NULL;
-    edge_index->at(shard_id).get_edge_index(index_in, index_out, getIn, getOut, vid);
+    edge_index[shard_id]->get_edge_index(index_in, index_out, getIn, getOut, vid);
 
     foreach(size_t& idx, index_in) {  
       std::pair<graph_vid_t, graph_vid_t> pair = database->get_shard(shard_id)->edge(idx);

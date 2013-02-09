@@ -84,9 +84,6 @@ void kvstore_mysql::set(const key_type key, const value_type &value) {
 }
 
 bool kvstore_mysql::get(const key_type key, value_type &value) {
-  void *blob_data;
-  Uint64 blob_size;
-
   NdbTransaction *trans = _ndb->startTransaction();
   ASSERT_TRUE(trans != NULL);
 
@@ -96,15 +93,19 @@ bool kvstore_mysql::get(const key_type key, value_type &value) {
   op->readTuple();
   op->equal(mysql_keyattr_name, (int) key);
   NdbBlob *blob_handle = op->getBlobHandle(mysql_valueattr_name);
-  blob_handle->getLength(blob_size);
-  blob_data = malloc(blob_size);
-  blob_handle->getValue(blob_data, blob_size);
 
   ASSERT_FALSE(trans->execute(NdbTransaction::NoCommit) == -1);
 
   bool found = (trans->getNdbError().classification == NdbError::NoError);
   if (found) {
+    Uint64 blob_size;
+    void *blob_data;
+
+    blob_handle->getLength(blob_size);
+    blob_data = malloc(blob_size);
+    blob_handle->getValue(blob_data, blob_size);
     value = std::string((char *) blob_data, blob_size);
+    free(blob_data);
   }
 
   _ndb->closeTransaction(trans);
@@ -118,15 +119,29 @@ std::vector<value_type> kvstore_mysql::range_get(const key_type key_lo, const ke
   NdbTransaction *trans = _ndb->startTransaction();
   ASSERT_TRUE(trans != NULL);
 
-  NdbOperation *op = trans->getNdbIndexScanOperation(_index, _table);
+  NdbIndexScanOperation *op = trans->getNdbIndexScanOperation(_index, _table);
   ASSERT_TRUE(op != NULL);
 
-  // to fill
-//  op->readTuple();
-//  op->equal(mysql_keyattr_name, (int) key);
-//  value = std::string(op->getValue(mysql_valueattr_name, NULL)->aRef());
+  op->readTuples();
+  op->setBound(mysql_keyattr_name, NdbIndexScanOperation::BoundGE, &key_lo);
+  op->setBound(mysql_keyattr_name, NdbIndexScanOperation::BoundLE, &key_hi);
+  NdbBlob *blob_handle = op->getBlobHandle(mysql_valueattr_name);
 
   ASSERT_FALSE(trans->execute(NdbTransaction::NoCommit) == -1);
+
+  Uint64 blob_size;
+  void *blob_data;
+
+  blob_handle = blob_handle->blobsFirstBlob();
+  while (blob_handle) {
+    blob_handle->getLength(blob_size);
+    blob_data = malloc(blob_size);
+    blob_handle->getValue(blob_data, blob_size);
+    result.push_back(std::string((char *) blob_data, blob_size));
+    free(blob_data);
+
+    blob_handle = blob_handle->blobsNextBlob();
+  }
 
   _ndb->closeTransaction(trans);
 

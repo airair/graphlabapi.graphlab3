@@ -2,6 +2,8 @@ project(GraphLab)
 
 add_library(graphlab3 STATIC
             zookeeper/server_list.cpp
+            zookeeper/key_value.cpp
+            zookeeper/zookeeper_common.cpp
             util/event_log.cpp
             util/fs_util.cpp
             util/hdfs.cpp

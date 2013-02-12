@@ -1,8 +1,11 @@
+#ifndef GRAPHLAB_ZOOKEEPER_SERVER_LIST_HPP
+#define GRAPHLAB_ZOOKEEPER_SERVER_LIST_HPP
+
 #include <set>
 #include <vector>
 #include <string>
 #include <boost/function.hpp>
-#include <graphlab/parallel/pthread_tools.hpp>
+#include <boost/thread/recursive_mutex.hpp>
 extern "C" {
 #include <zookeeper/zookeeper.h>
 }
@@ -51,8 +54,6 @@ class server_list {
    * namespace which changed, and the new list of servers in the name space.
    * Calling this function will a NULL argument deletes
    * the callback. Note that the callback may be triggered in a different thread. 
-   * Callingwatch_changes or stop_watching from within the callback 
-   * will cause a deadlock.
    */
   void set_callback(boost::function<void(server_list* cur, 
                                          std::string name_space,
@@ -63,12 +64,7 @@ class server_list {
   std::string prefix, serveridentifier;
   zhandle_t* handle;
 
-  // create a directory
-  void create_dir(std::string name);
-  // delete a directory
-  void delete_dir(std::string dir);
-
-  mutex watchlock;
+  boost::recursive_mutex watchlock;
   std::set<std::string> watches;
 
   boost::function<void(server_list*, std::string, std::vector<std::string>)> callback;
@@ -86,3 +82,4 @@ class server_list {
 
 } // namespace zookeeper 
 } // namespace graphlab
+#endif

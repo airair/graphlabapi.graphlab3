@@ -13,6 +13,8 @@
 
 namespace graphlab {
 
+const int mysql_max_blob_size = 65535;
+
 class kvstore_mysql: public kvstore_base {
 public:
   kvstore_mysql();

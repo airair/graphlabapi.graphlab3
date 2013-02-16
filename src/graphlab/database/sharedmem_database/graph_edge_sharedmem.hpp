@@ -6,7 +6,7 @@
 namespace graphlab {
 
 /**
- * \ingroup group_graph_database_sharedmem
+ * \ingroup group_graph_database
  *  An shared memory implementation of <code>graph_edge</code>.
  *  The edge data is directly accessible through pointers. 
  *

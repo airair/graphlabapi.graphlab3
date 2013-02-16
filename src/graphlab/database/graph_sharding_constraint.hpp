@@ -32,6 +32,7 @@ namespace graphlab {
     size_t nshards;
     std::vector<std::vector<graph_shard_id_t> > constraint_graph;
    public:
+    sharding_constraint() {}
     sharding_constraint(size_t num_shards, std::string method) {
       nshards = num_shards;
       // ignore the method arg for now, only construct grid graph. 

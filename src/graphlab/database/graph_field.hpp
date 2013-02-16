@@ -2,6 +2,7 @@
 #define GRAPHLAB_DATABASE_GRAPH_FIELD_HPP
 #include <string>
 #include <graphlab/database/basic_types.hpp>
+#include <graphlab/serialization/is_pod.hpp>
 
 namespace graphlab {
 
@@ -11,7 +12,7 @@ namespace graphlab {
  * Provides information such as the name of the field, the datatype
  * as well as several other properties.
  */
-struct graph_field {
+struct graph_field: public IS_POD_TYPE {
   std::string name;
   bool is_indexed;
   graph_datatypes_enum type;

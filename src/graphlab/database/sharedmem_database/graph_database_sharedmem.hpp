@@ -12,7 +12,7 @@
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
 /**
- * \ingroup group_graph_database_sharedmem
+ * \ingroup group_graph_database
  * An shared memory implementation of a graph database.  
  * This class implements the <code>graph_database</code> interface
  * as a shared memory instance.
@@ -41,6 +41,7 @@ class graph_database_sharedmem : public graph_database {
   size_t _num_shards;
 
  public:
+  graph_database_sharedmem() { }
   /**
    * Creates a shared memory graph database with fixed vertex and edge schemas. 
    * Shards are constructed with a grid depedency.

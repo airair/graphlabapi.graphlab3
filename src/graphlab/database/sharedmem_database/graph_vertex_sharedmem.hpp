@@ -13,7 +13,7 @@ namespace graphlab {
 
 class graph_database_sharedmem;
 /**
- * \ingroup group_graph_database_sharedmem
+ * \ingroup group_graph_database
  *  An shared memory implementation of <code>graph_vertex</code>.
  *  The vertex data is directly accessible through pointers. 
  *  Adjacency information is accessible through <code>edge_index</code>

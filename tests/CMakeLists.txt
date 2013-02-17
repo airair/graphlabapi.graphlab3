@@ -8,7 +8,7 @@ set(MACPORTS_INCLUDE /opt/local/include)
 set(MYSQL_INCLUDE ${MACPORTS_INCLUDE}/mysql5/mysql)
 set(MYSQL_NDB ${MYSQL_INCLUDE}/storage/ndb)
 include_directories(${MYSQL_INCLUDE} ${MYSQL_NDB} ${MYSQL_NDB}/ndbapi)
-target_link_libraries(graph_database_test mongoclient mysqlclient_r mysqld dl ndbclient z m ssl crypto mystrings boost_filesystem-mt)
+target_link_libraries(graph_database_test mysqlclient_r mysqld dl ndbclient z m ssl crypto mystrings boost_filesystem-mt)
 
 add_graphlab_executable(comm_test comm_test.cpp)
 

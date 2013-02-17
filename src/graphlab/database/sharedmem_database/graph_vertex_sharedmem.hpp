@@ -162,13 +162,13 @@ class graph_vertex_sharedmem : public graph_vertex {
     foreach(size_t& idx, index_in) {  
       std::pair<graph_vid_t, graph_vid_t> pair = database->get_shard(shard_id)->edge(idx);
       graph_row* row  = database->get_shard(shard_id)->edge_data(idx);
-      out_inadj->push_back(new graph_edge_sharedmem(pair.first, pair.second, row, shard_id, database)); 
+      out_inadj->push_back(new graph_edge_sharedmem(pair.first, pair.second, idx, row, shard_id, database)); 
     }
 
     foreach(size_t& idx, index_out) {  
       std::pair<graph_vid_t, graph_vid_t> pair = database->get_shard(shard_id)->edge(idx);
       graph_row* row = database->get_shard(shard_id)->edge_data(idx);
-      out_outadj->push_back(new graph_edge_sharedmem(pair.first, pair.second, row, shard_id, database)); 
+      out_outadj->push_back(new graph_edge_sharedmem(pair.first, pair.second, idx, row, shard_id, database)); 
     }
   }
 }; // end of class

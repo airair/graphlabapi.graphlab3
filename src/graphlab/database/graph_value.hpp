@@ -1,6 +1,9 @@
 #ifndef GRAPHLAB_DATABASE_GRAPH_VALUE_HPP
 #define GRAPHLAB_DATABASE_GRAPH_VALUE_HPP
 #include <graphlab/database/basic_types.hpp>
+#include <graphlab/serialization/iarchive.hpp>
+#include <graphlab/serialization/oarchive.hpp>
+#include <graphlab/database/basic_types.hpp>
 #include <cstdlib>
 #include <cstring>
 namespace graphlab {
@@ -246,6 +249,29 @@ class graph_value {
       _old = _data;
     } 
     _modified = false;
+  }
+
+  void save(oarchive& oarc) const {
+    oarc << _type << _null_value << _use_delta_commit << _len;
+    if (!_null_value) {
+      if (is_scalar_graph_datatype(_type)) {
+        oarc.write((char*)(&_data), _len);
+      } else {
+        oarc.write(_data.bytes, _len);
+      }
+    }
+  }
+
+  void load(iarchive& iarc) {
+    iarc >> _type >> _null_value >> _use_delta_commit >> _len;
+     if (!_null_value) {
+       if (is_scalar_graph_datatype(_type)) {
+          iarc.read((char*)(&_data), _len);
+       } else {
+          _data.bytes = (char*)malloc(_len);
+          iarc.read(_data.bytes, _len);
+       }
+     }
   }
 
   // Deepcopy into out_value. 

@@ -20,6 +20,8 @@ struct graph_field: public IS_POD_TYPE {
 
   graph_field(std::string name, graph_datatypes_enum type) :
      name(name), type(type) {} 
+
+  graph_field() {}
 };
 
 } // namespace graphlab

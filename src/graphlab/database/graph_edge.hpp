@@ -26,6 +26,13 @@ class graph_edge {
    */
   graph_vid_t get_dest();
 
+  /**
+   * Returns the internal id of this edge
+   * The id is the unique index of this edge with respect to a shard.
+   */
+  graph_eid_t get_id();
+
+
   /** Returns a pointer to the graph_row representing the data
    * stored on this edge. Modifications made to the data, are only committed 
    * to the database through a write_* call.

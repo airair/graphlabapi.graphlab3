@@ -5,6 +5,8 @@
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/database/graph_field.hpp>
 #include <graphlab/database/graph_value.hpp>
+#include <graphlab/serialization/iarchive.hpp>
+#include <graphlab/serialization/oarchive.hpp>
 #include <graphlab/logger/assertions.hpp>
 
 namespace graphlab {
@@ -118,6 +120,22 @@ class graph_row {
    */
   std::string get_field_metadata(size_t fieldpos);
 
+
+  void save (oarchive& oarc) const {
+    oarc << _nfields;
+    for (size_t i = 0; i < _nfields; i++) {
+      oarc << _data[i];
+    }
+  }
+
+  void load (iarchive& iarc) {
+    iarc >> _nfields;
+    _own_data = true;
+    _data = new graph_value[_nfields];
+    for (size_t i = 0; i < _nfields; i++) {
+      iarc >> _data[i];
+    }
+  }
 
  private:
   // copy constructor deleted. It is not safe to copy this object.

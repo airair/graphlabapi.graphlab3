@@ -6,7 +6,7 @@ using namespace std;
 
 
 /**
- * Test adding vertices and change value
+ * Test adding vertices, change value and commit
  */
 void testAddVertex() {
   vector<graphlab::graph_field> vertexfields;

@@ -15,12 +15,14 @@ namespace graphlab {
 class graph_edge_sharedmem : public graph_edge {
  graph_vid_t sourceid;
  graph_vid_t targetid;
+ graph_eid_t edgeid;
  graph_row* edata;
  graph_shard_id_t master;
  graph_database* database;
  public:
   graph_edge_sharedmem(const graph_vid_t& sourceid,
                        const graph_vid_t& targetid,
+                       const graph_eid_t& edgeid,
                        graph_row* data,
                        graph_shard_id_t master,
                        graph_database* database) :
@@ -36,6 +38,12 @@ class graph_edge_sharedmem : public graph_edge {
    * Returns the destination ID of this edge
    */
   graph_vid_t get_dest() { return targetid; }
+
+  /**
+   * Returns the internal id of this edge
+   * The id is unique with repect to a shard.
+   */
+  graph_eid_t get_id() { return edgeid;};
 
   /** 
    * Returns a pointer to the graph_row representing the data
@@ -96,6 +104,7 @@ class graph_edge_sharedmem : public graph_edge {
   graph_shard_id_t master_shard() {
     return master;
   };
+
 };
 
 } // namespace graphlab

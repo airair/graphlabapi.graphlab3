@@ -121,12 +121,27 @@ class graph_database_sharedmem : public graph_database {
     if (!shards[master].has_vertex(vid)) {
       return NULL;
     }
-
     graph_row* vertex_data = shards[master].vertex_data_by_id(vid);
     const boost::unordered_set<graph_shard_id_t>& mirrors = shards[master].get_mirrors(vid);
     ASSERT_TRUE(vertex_data != NULL);
     return (new graph_vertex_sharedmem(vid, vertex_data, master, mirrors, shard_edge_index, this));
   };
+
+
+  /**
+   * Returns a graph_edge object for quereid eid, and shardid. Returns NULL on failure.
+   * The edge data is passed eagerly as a pointer. 
+   * The returned edge pointer must be freed using free_edge.
+   */
+  graph_edge* get_edge(graph_eid_t eid, graph_shard_id_t shardid) {
+    if (shardid >= num_shards() || eid >= shards[shardid].num_edges()) {
+      return NULL;
+    } else {
+      std::pair<graph_vid_t, graph_vid_t> pair = shards[shardid].edge(eid);
+      graph_row* edge_data = shards[shardid].edge_data(eid);
+      return (new graph_edge_sharedmem(pair.first, pair.second, eid, edge_data, shardid, this));
+    } 
+  }
 
   /**
    *  Finds a vertex using an indexed integer field. Returns the vertex IDs

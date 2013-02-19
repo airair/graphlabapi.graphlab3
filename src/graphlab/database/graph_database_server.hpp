@@ -17,131 +17,178 @@ namespace graphlab {
  * An abstract interface for a graph database implementation 
  */
 class graph_database_server {
+
  graph_database* database;
+
  public:
-  
+
   graph_database_server(graph_database* db) : database(db){ 
     ASSERT_TRUE(db != NULL);
   }
+
   virtual ~graph_database_server() { }
 
+  /**
+   * Handle the SET queries.
+   *
+   * Current support queries:
+   *  // Set the vertex data at a given field.
+   *  header("vertex_data") >> vid >> fieldpos >> len >> data
+   *
+   *  // Set the edge data at a given field.
+   *  header("edge_data") >> eid >> shardid >> fieldpos >> len >> data
+   */
   std::string update(const char* request, size_t len) {
     std::string ret;
-    // set vertex data (graph_vid_t vid, size_t fieldpos, void* newdata, size_t len)
-    // set edge (shardid, edgeid, size_t fieldpos, void* newdata, size_t len)
+    iarchive iarc(request, len);
+    std::string header;
+    iarc >> header;
+ 
+    if (header == "vertex_data") {
+      graph_vid_t vid;
+      size_t fieldpos, len;
+      iarc >> vid >> fieldpos >> len;
+      char* val = (char*)malloc(len);
+      iarc.read(val, len);
+      ret = set_vertex_field(vid, fieldpos, val, len);
+    } else if (header == "edge_data") {
+      graph_eid_t eid;
+      graph_shard_id_t shardid;
+      size_t fieldpos, len;
+      iarc >> eid >> fieldpos >> len;
+      char* val = (char*)malloc(len);
+      iarc.read(val, len);
+      set_edge_field(eid, shardid, fieldpos, val, len);
+    } else {
+      ret = error_msg("Unknown query header" + header);
+    }
     return ret;
   } 
 
+  /**
+   * Handle the GET queries.
+   *
+   * Current support queries:
+   *  // get vertex fields metadata
+   *  header("vertex_fields_meta")      
+   *
+   *  // get edge_fields metat data
+   *  header("edge_fields_meta")
+   *
+   *  // get the value of a vertex at a given field
+   *  header("vertex_data_field") >> vid >> fieldpos  
+   *
+   *  // get the entire row of a vertex
+   *  header("vertex_data_row") >> vid >> row             
+   *
+   *  // get  the adjacency edges of vertex at a given shard. Boolean options: getin, getout, and prefetch_data. 
+   *  header("vertex_adj") >> vid >> shardid >> getin >> getout >> prefetch_data     
+   */
   std::string query(const char* request, size_t len) {
     std::string ret;
-    // get vertex fields
-    // get vertex data (vid, fieldpos)
-    // get adjacent edges (vid, bool get_in, bool get_out, bool withdata)
+    iarchive iarc(request, len);
+    std::string header;
+    iarc >> header;
+    if (header == "vertex_fields_meta") {
+      ret = get_vertex_fields();
+    } else if (header == "edge_fields_meta") {
+      ret = get_edge_fields();
+    } else if (header == "vertex_data_field") {
+      graph_vid_t vid;
+      size_t fieldpos;
+      iarc >> vid >> fieldpos;
+      ret = get_vertex_data(vid, fieldpos);
+    } else if (header == "vertex_data_row") {
+      graph_vid_t vid;
+      iarc >> vid;
+      ret = get_vertex_data(vid);
+    } else if (header == "vertex_adj") {
+      graph_vid_t vid;
+      graph_shard_id_t shardid;
+      bool get_in, get_out, prefetch_data;
+      iarc >> vid >> shardid >> get_in >> get_out >> prefetch_data;
+      ret = get_vertex_adj(vid, shardid, get_in, get_out, prefetch_data);
+    } else {
+      ret = error_msg("Unknown query header" + header);
+    }
     return  ret;
   }
 
-  std::string get_vertex_fields() {
-    const std::vector<graph_field>& fields = database->get_vertex_fields();
-    oarchive oarc;
-    oarc << true << fields;
-    std::string ret(oarc.buf, oarc.off);
-    free(oarc.buf);
-    return ret;
-  }
-
-  std::string get_edge_fields() {
-    const std::vector<graph_field>& fields = database->get_edge_fields();
-    oarchive oarc;
-    oarc << true << fields;
-    std::string ret(oarc.buf, oarc.off);
-    free(oarc.buf);
-    return ret;
-  }
+  // ------------- Modification Handlers ---------------
+  /**
+   * Set the value of vertex (id=vid) at field fieldpos to the provided argument.
+   * Return a false if the set operation failed. 
+   */
+  std::string set_vertex_field(graph_vid_t vid, size_t fieldpos, const char* val, size_t len);
 
   /**
-   * Returns the serializatin of the entire row corresponding to the query vertex.
+   * Set the value of edge (id=eid) in shard (id=shardid) at field fieldpos to the provided argument.
+   * Return a false if the set operation failed. 
    */
-  std::string get_vertex_data(graph_vid_t vid) {
-    graph_vertex* v = database->get_vertex(vid);
-    oarchive oarc;
+  std::string set_edge_field(graph_eid_t eid, graph_shard_id_t shardid, size_t fieldpos, const char* val, size_t len);
 
-    if (v == NULL) {
-      std::string errormsg = (std::string("Fail to get vertex id = ") + boost::lexical_cast<std::string>(vid) + std::string(". Vid does not exist."));
-      logstream(LOG_WARNING) << errormsg;
-      oarc << false << errormsg;
-    } else {
-      graph_row* row= v->data();
-      oarc << true << *row;
-    }
 
-    std::string ret(oarc.buf, oarc.off);
-    free(oarc.buf);
-    return ret;
-  }
+  // ------------- Query Handlers ---------------
 
   /**
-   * Returns the serialization of graph value corresponding to the query vertex and field index. 
+   * Returns a serialized string of the vertex field vector. 
+   *
+   * Serialization format:
+   *  success << vector<graph_field>
    */
-  std::string get_vertex_data(graph_vid_t vid, size_t fieldpos) {
-    graph_vertex* v = database->get_vertex(vid);
-    oarchive oarc;
-    if (v == NULL) {
-      std::string errormsg = (std::string("Fail to get vertex id = ") + boost::lexical_cast<std::string>(vid) + std::string(". Vid does not exist."));
-      logstream(LOG_WARNING) << errormsg;
-      oarc << false << errormsg;
-    } else {
-      graph_value* val = v->data()->get_field(fieldpos);
-      oarc << true << *val;
-    }
-    std::string ret(oarc.buf, oarc.off);
-    free(oarc.buf);
-    return ret;
-  }
+  std::string get_vertex_fields();
+
+  /**
+   * Returns a serialized string of the edge field vector.
+   *
+   * Serialization format:
+   *  success << vector<graph_field>
+   */
+  std::string get_edge_fields();
+
+  /**
+   * Returns the serialized string of the entire row corresponding to the query vertex.
+   *
+   * Serialization format:
+   *  success << row
+   *
+   */
+  std::string get_vertex_data(graph_vid_t vid);
+
+   /**
+   * Returns the serialization of graph value corresponding to the query vertex and field index.
+   *
+   * Serialization format:
+   *  success << graph_value 
+   */
+  std::string get_vertex_data(graph_vid_t vid, size_t fieldpos);
 
   /**
    * Returns the serialization of the adjacency structure corresponding to the 
    * query vertex and shard id.
+   *
+   * Serialization format:
+   *  success << numin << numout << prefetch_data << ADJACENCY(in) << ADJACENCY(out)
+   *  ADJACENCY format: e1.src << e1.dst [<< e1.data] << e2.src << e2.dst [<< d2.data]
    */
-  std::string get_vertex_adj(graph_vid_t vid, graph_shard_id_t shardid, bool get_in, bool get_out, bool prefetch_data) {
-    graph_vertex* v = database->get_vertex(vid);
+  std::string get_vertex_adj(graph_vid_t vid, graph_shard_id_t shardid, bool get_in, bool get_out, bool prefetch_data);
+
+  /**
+   * Returns a serialized error message string;
+   */
+  std::string error_msg(std::string msg) {
     oarchive oarc;
-    if (v == NULL) {
-      std::string errormsg = (std::string("Fail to get vertex id = ") + boost::lexical_cast<std::string>(vid) + std::string(". Vid does not exist."));
-      logstream(LOG_WARNING) << errormsg;
-      oarc << false << errormsg;
-    } else {
-      std::vector<graph_edge*> _inadj;
-      std::vector<graph_edge*> _outadj;
-      std::vector<graph_edge*>* out_inadj = get_in ? &(_inadj) : NULL;
-      std::vector<graph_edge*>* out_outadj = get_out ? &(_outadj) : NULL;
-
-      v->get_adj_list(shardid, prefetch_data, out_inadj, out_outadj);
-
-      size_t numin = get_in ? out_inadj->size() : 0;
-      size_t numout = get_out ? out_outadj->size() : 0;
-      oarc << true << numin << numout << prefetch_data;
-      for (size_t i = 0; i < numin; i++) {
-        graph_edge* e = out_inadj->at(i);
-        oarc << e->get_src() << e->get_id();
-        if (prefetch_data)
-          oarc << *(e->data());
-      }
-      for (size_t i = 0; i < numout; i++) {
-        graph_edge* e = out_outadj->at(i);
-        oarc << e->get_dest() << e->get_id();
-        if (prefetch_data)
-          oarc << *(e->data());
-      }
-    }
+    logstream(LOG_WARNING) << "GraphDB Server: " << msg;
+    oarc << false << msg;
     std::string ret(oarc.buf, oarc.off);
     free(oarc.buf);
     return ret;
   }
 
-
   graph_database* get_database() {
     return database;
   }
+
 };
 } // namespace graphlab
 #endif

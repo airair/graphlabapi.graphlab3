@@ -26,7 +26,7 @@ class graph_edge_sharedmem : public graph_edge {
                        graph_row* data,
                        graph_shard_id_t master,
                        graph_database* database) :
-  sourceid(sourceid), targetid(targetid), edata(data),
+  sourceid(sourceid), targetid(targetid), edgeid(edgeid), edata(data),
     master(master), database(database) {}
 
   /**
@@ -104,7 +104,6 @@ class graph_edge_sharedmem : public graph_edge {
   graph_shard_id_t master_shard() {
     return master;
   };
-
 };
 
 } // namespace graphlab

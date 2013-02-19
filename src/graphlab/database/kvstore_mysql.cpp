@@ -49,13 +49,13 @@ kvstore_mysql::kvstore_mysql() {
   _ndb = new Ndb(cluster_connection, mysql_db_name.c_str());
   ASSERT_FALSE(_ndb->init(1024));
 
-  const NdbDictionary::Dictionary* dict = _ndb->getDictionary();
-  ASSERT_TRUE(dict != NULL);
+  _dict = _ndb->getDictionary();
+  ASSERT_TRUE(_dict != NULL);
 
-  _index = dict->getIndex(mysql_index_name.c_str(), mysql_table_name.c_str());
+  _index = _dict->getIndex(mysql_index_name.c_str(), mysql_table_name.c_str());
   ASSERT_TRUE(_index != NULL);
 
-  _table = dict->getTable(mysql_table_name.c_str());
+  _table = _dict->getTable(mysql_table_name.c_str());
   ASSERT_TRUE(_table != NULL);
 
   printf("MySQL connection open\n");
@@ -82,9 +82,9 @@ void kvstore_mysql::set(const key_type key, const value_type &value) {
   if (trans == NULL) APIERROR(_ndb->getNdbError());
   ASSERT_TRUE(trans != NULL);
 
-//  NdbOperation *op = trans->getNdbIndexOperation(_index, _table);
+//  NdbIndexOperation *op = trans->getNdbIndexOperation(mysql_index_name.c_str(), mysql_table_name.c_str());
   NdbOperation *op = trans->getNdbOperation(_table);
-  if (op == NULL) APIERROR(_ndb->getNdbError());
+  if (op == NULL) APIERROR(_dict->getNdbError());
   ASSERT_TRUE(op != NULL);
 
   op->writeTuple();
@@ -92,7 +92,8 @@ void kvstore_mysql::set(const key_type key, const value_type &value) {
   NdbBlob *blob_handle = op->getBlobHandle(mysql_valueattr_name);
   blob_handle->setValue((void *) value.data(), (Uint32) value.length());
 
-  ASSERT_FALSE(trans->execute(NdbTransaction::Commit) == -1);
+  int trans_result = trans->execute(NdbTransaction::Commit);
+  ASSERT_FALSE(trans_result == -1);
 
   _ndb->closeTransaction(trans);
 }
@@ -101,8 +102,8 @@ bool kvstore_mysql::get(const key_type key, value_type &value) {
   NdbTransaction *trans = _ndb->startTransaction();
   ASSERT_TRUE(trans != NULL);
 
-//  NdbOperation *op = trans->getNdbIndexOperation(_index);
-  NdbOperation *op = trans->getNdbOperation(_table);
+  NdbIndexOperation *op = trans->getNdbIndexOperation(mysql_index_name.c_str(), mysql_table_name.c_str());
+//  NdbOperation *op = trans->getNdbOperation(_table);
   ASSERT_TRUE(op != NULL);
 
   op->readTuple();
@@ -115,7 +116,8 @@ bool kvstore_mysql::get(const key_type key, value_type &value) {
   blob_data = malloc(mysql_max_blob_size);
   blob_handle->getValue(blob_data, mysql_max_blob_size);
 
-  ASSERT_FALSE(trans->execute(NdbTransaction::NoCommit) == -1);
+  int trans_result = trans->execute(NdbTransaction::NoCommit);
+  ASSERT_FALSE(trans_result == -1);
 
   bool found = (trans->getNdbError().classification == NdbError::NoError);
 //  printf("Found: %d\n", found);

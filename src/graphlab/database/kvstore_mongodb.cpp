@@ -10,7 +10,7 @@
 #include <graphlab/database/kvstore_mongodb.hpp>
 #include <graphlab/logger/assertions.hpp>
 
-#include <mongo/client/dbclient.h>
+#include <client/dbclient.h>
 #include <mongo/util/net/hostandport.h>
 
 namespace graphlab {

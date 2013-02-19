@@ -138,6 +138,20 @@ bool graph_value::set_double(graph_double_t val) {
   }
 }
 
+bool graph_value::set_vid(graph_vid_t val) {
+  if (type() == VID_TYPE) {
+    // if the modified flag was already set, leave it.
+    // otherwise, set it only if the value changed.
+    _modified = (_modified || _data.vid_value != val || _null_value);
+    _data.vid_value = val;
+    _null_value = false;
+    return true;
+  } else {
+    return false;
+  }
+}
+
+
 
 bool graph_value::set_string(const graph_string_t& val){
   if (type() == STRING_TYPE) {

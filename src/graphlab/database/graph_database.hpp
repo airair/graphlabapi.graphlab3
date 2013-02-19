@@ -81,6 +81,11 @@ class graph_database {
    */
   virtual graph_vertex* get_vertex(graph_vid_t vid) = 0;
 
+  /** returns an edge in ret_edge for a queried edge id and shardid. Returns NULL on failure
+   * The returned edge pointer must be freed using free_edge
+   */
+  virtual graph_edge* get_edge(graph_eid_t eid, graph_shard_id_t shardid) = 0;
+
   /**
    *  Finds a vertex using an indexed integer field. Returns the vertex IDs
    *  in out_vids corresponding to the vertices where the integer field 

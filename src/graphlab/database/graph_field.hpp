@@ -2,7 +2,8 @@
 #define GRAPHLAB_DATABASE_GRAPH_FIELD_HPP
 #include <string>
 #include <graphlab/database/basic_types.hpp>
-#include <graphlab/serialization/is_pod.hpp>
+#include <graphlab/serialization/iarchive.hpp>
+#include <graphlab/serialization/oarchive.hpp>
 
 namespace graphlab {
 
@@ -12,7 +13,7 @@ namespace graphlab {
  * Provides information such as the name of the field, the datatype
  * as well as several other properties.
  */
-struct graph_field: public IS_POD_TYPE {
+struct graph_field {
   std::string name;
   bool is_indexed;
   graph_datatypes_enum type;
@@ -20,6 +21,13 @@ struct graph_field: public IS_POD_TYPE {
 
   graph_field(std::string name, graph_datatypes_enum type) :
      name(name), type(type) {} 
+
+  void save(oarchive &oarc) const {
+    oarc << name << is_indexed << type << max_data_length;
+  }
+  void load(iarchive &iarc) {
+    iarc >> name >> is_indexed >> type >> max_data_length;
+  }
 
   graph_field() {}
 };

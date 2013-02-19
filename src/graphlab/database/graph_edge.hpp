@@ -19,18 +19,18 @@ class graph_edge {
   /**
    * Returns the source ID of this edge
    */
-  graph_vid_t get_src(); 
+  virtual graph_vid_t get_src() = 0; 
 
   /**
    * Returns the destination ID of this edge
    */
-  graph_vid_t get_dest();
+  virtual graph_vid_t get_dest() = 0;
 
   /**
    * Returns the internal id of this edge
    * The id is the unique index of this edge with respect to a shard.
    */
-  graph_eid_t get_id();
+  virtual graph_eid_t get_id() = 0;
 
 
   /** Returns a pointer to the graph_row representing the data

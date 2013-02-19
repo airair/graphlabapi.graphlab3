@@ -178,6 +178,14 @@ class graph_value {
   bool set_double(graph_double_t val);
 
   /**
+   * Sets the value of an vid field to the provided argument.
+   * Also, sets the modification flag if the vid value is different.
+   * Returns true on success. Returns false if the data
+   * is not an double type, or the data is NULL.
+   */
+  bool set_vid (graph_vid_t val);
+
+  /**
    * Sets the value of an string field to the provided argument.
    * Also, sets the modification flag if the string value is different.
    * Returns true on success. Returns false if the data
@@ -199,6 +207,36 @@ class graph_value {
    * is not a blob type, or the data is NULL.
    */
   bool set_blob(const char* val, size_t length);
+
+
+  /**
+   * Sets the value field to the provided argument based on the type and delta commit flag.
+   * Returns true on success. Returns false if the data
+   * cannot be cast to the matching type, or the data is NULL.
+   */
+  bool set_val(const char* val, size_t length) {
+    switch(_type) {
+     case INT_TYPE:
+       {
+        graph_int_t intval = *((graph_int_t*)val);
+        return get_use_delta_commit() ? set_integer(intval + _old.int_value) 
+            : set_integer(intval);
+        }
+     case DOUBLE_TYPE:
+       {
+       graph_double_t doubleval = *((graph_double_t*)val);
+       return get_use_delta_commit() ? set_double(doubleval + _old.double_value) 
+           : set_double(doubleval);
+       }
+     case VID_TYPE:
+       return set_vid(*((graph_vid_t*)val));
+     case STRING_TYPE:
+       return set_string(std::string(val, length));
+     case BLOB_TYPE:
+       return set_blob(val, length);
+    }
+    return false;
+  }
 
 
   /** Returns true if the data was modified. The data could be flagged as 

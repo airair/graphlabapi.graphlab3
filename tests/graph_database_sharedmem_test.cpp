@@ -4,7 +4,6 @@
 #include <vector>
 using namespace std;
 
-
 /**
  * Test adding vertices, change value and commit
  */

@@ -1,0 +1,507 @@
+#LyX 1.6.7 created this file. For more info see http://www.lyx.org/
+\lyxformat 345
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\language english
+\inputencoding auto
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry true
+\use_amsmath 1
+\use_esint 1
+\cite_engine basic
+\use_bibtopic false
+\paperorientation portrait
+\leftmargin 1in
+\topmargin 1in
+\rightmargin 1in
+\bottommargin 1in
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\defskip medskip
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\author "" 
+\author "" 
+\end_header
+
+\begin_body
+
+\begin_layout Section*
+
+\series bold
+Balance Analysis of Grid sharding procedure
+\end_layout
+
+\begin_layout Standard
+A collection of 
+\begin_inset Formula $p$
+\end_inset
+
+ sets labelled 
+\begin_inset Formula $A_{1}$
+\end_inset
+
+ to 
+\begin_inset Formula $A_{p}$
+\end_inset
+
+ are defined where 
+\begin_inset Formula $A_{i}\subseteq[1...p]$
+\end_inset
+
+ and 
+\begin_inset Formula $\forall i,j\, A_{i}\cap A_{j}\ne\emptyset$
+\end_inset
+
+.
+ Also 
+\begin_inset Formula $i\in A_{i}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Consider the procedure where the master of vertex 
+\begin_inset Formula $v$
+\end_inset
+
+ is placed uniformly at random among the shards.
+ And let edge 
+\begin_inset Formula $i-j$
+\end_inset
+
+ are placed uniformly at random in a shard in 
+\begin_inset Formula $A_{Master(i)}\cap A_{Master(j)}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Let 
+\begin_inset Formula $N$
+\end_inset
+
+ denote the total number of vertices in the graph.
+\end_layout
+
+\begin_layout Standard
+Assume the following structure for A
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+1: Uniform Dispersal
+\end_layout
+
+\begin_layout Standard
+
+\family roman
+\series medium
+\shape up
+\size normal
+\emph off
+\bar no
+\noun off
+\color none
+\begin_inset Formula $\sum\limits _{a=1}^{p}\sum\limits _{b=1}^{p}\frac{\mathbf{1}(s\in A_{a}\cap A_{b})}{|A_{a}\cap A_{b}|}=p$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Then under these assumptions, we can analyse the following cases.
+\end_layout
+
+\begin_layout Subsection*
+Erdos-Renyi Random Graph
+\end_layout
+
+\begin_layout Standard
+Then for any 
+\begin_inset Formula $G(n,p)$
+\end_inset
+
+ Erdos-Renyi random graph (edges generated independently).
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+P(e\in s) & = & \sum\limits _{a=1}^{p}\sum\limits _{b=1}^{p}\mathbf{1}(s\in A_{a})\mathbf{1}(s\in A_{b})\frac{1}{|A_{a}\cap A_{b}|}P(i\,\mbox{in shard }a)P(j\,\mbox{in shard }b)\\
+ & = & \sum\limits _{a=1}^{p}\sum\limits _{b=1}^{p}\mathbf{1}(s\in A_{a})\mathbf{1}(s\in A_{b})\frac{1}{|A_{a}\cap A_{b}|}\frac{1}{p^{2}}\\
+ & = & \frac{1}{p^{2}}\sum\limits _{a=1}^{p}\sum\limits _{b=1}^{p}\frac{\mathbf{1}(s\in A_{a})\mathbf{1}(s\in A_{b})}{|A_{a}\cap A_{b}|}\\
+ & = & \frac{1}{p}\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Thus every edge is uniformly scattered over every processor.
+\end_layout
+
+\begin_layout Standard
+The distribution of the number of edges in any shard is therefore 
+\begin_inset Formula $MN(|E|,\,[\frac{1}{p}...\frac{1}{p}])$
+\end_inset
+
+.
+ Hoeffding's then provide strong guarantees on the balance quality.
+\end_layout
+
+\begin_layout Subsection*
+Power Law Graph
+\end_layout
+
+\begin_layout Standard
+This is where the situation gets interesting.
+ Since edges are not uniformly generated, but are based on a degree distribution
+, the situation gets rather complicated.
+ We make a few reasonable simplifying assumptions.
+ 
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Assumptions
+\end_layout
+
+\begin_layout Enumerate
+To avoid integrating over a variable number of vertices, assume each shard
+ gets exactly 
+\begin_inset Formula $\frac{N}{p}$
+\end_inset
+
+ vertex masters.
+ 
+\end_layout
+
+\begin_layout Enumerate
+Assume that the degree of each vertex is iid generated from 
+\begin_inset Formula $Zipf(\alpha,N)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Auxiliary
+\end_layout
+
+\begin_layout Standard
+Lets define an additional set of random variables 
+\begin_inset Formula $n_{1}$
+\end_inset
+
+...
+ 
+\begin_inset Formula $n_{p}$
+\end_inset
+
+ where 
+\begin_inset Formula $n_{i}$
+\end_inset
+
+ is the sum of all the degrees of the master vertices placed in shard 
+\begin_inset Formula $i$
+\end_inset
+
+.
+ In other words,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+n_{i} & \sim & \sum_{i=1}^{|V|/p}Zipf(\alpha,N)\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+And all 
+\begin_inset Formula $n_{i}$
+\end_inset
+
+ are i.i.d
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Derivation
+\end_layout
+
+\begin_layout Standard
+Let 
+\begin_inset Formula $s_{i}$
+\end_inset
+
+ be the number of edges in shard 
+\begin_inset Formula $i$
+\end_inset
+
+.
+ Optimally, we would like the max order statistic of 
+\begin_inset Formula $s_{i}$
+\end_inset
+
+.
+ However, that is very difficult since 
+\begin_inset Formula $s_{i}'s$
+\end_inset
+
+ are not independent.
+\end_layout
+
+\begin_layout Standard
+They are independent given 
+\begin_inset Formula $n$
+\end_inset
+
+ however.
+\end_layout
+
+\begin_layout Standard
+We will therefore compute 
+\begin_inset Formula $Var(s_{i})$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Let 
+\begin_inset Formula $B_{i}$
+\end_inset
+
+ be the 
+\begin_inset Quotes eld
+\end_inset
+
+reverse-map
+\begin_inset Quotes erd
+\end_inset
+
+ of 
+\begin_inset Formula $A_{i}$
+\end_inset
+
+.
+ i.e.
+ Let 
+\begin_inset Formula $B_{i}$
+\end_inset
+
+ be set of indices such that if 
+\begin_inset Formula $b\in B_{i}$
+\end_inset
+
+ then 
+\begin_inset Formula $i\in A_{b}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+s_{i}|n & = & \sum\limits _{a\in B_{i}}Bin\left(n_{a},\frac{1}{\left|S_{a}\cap S_{i}\right|}\right)\\
+E(s_{i}^{2}|n) & = & E\left[\left(\sum\limits _{a\in B_{i}}Bin\left(n_{a},\frac{1}{\left|S_{a}\cap S_{i}\right|}\right)\right)^{2}\right]\\
+ & = & \sum\limits _{a\in B_{i}}\sum\limits _{b\in B_{i}}E\left[Bin\left(n_{a},\frac{1}{\left|S_{a}\cap S_{i}\right|}\right)Bin\left(n_{b},\frac{1}{\left|S_{b}\cap S_{i}\right|}\right)\right]\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Now, the cross terms are independent
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+E(s_{i}^{2}|n) & = & \sum\limits _{a\in B_{i}}E\left[Bin\left(n_{a},\frac{1}{\left|S_{a}\cap S_{i}\right|}\right)^{2}\right]+\sum\limits _{a\in B_{i}}\sum\limits _{b\in B_{i}\backslash a}E\left[Bin\left(n_{a},\frac{1}{\left|S_{a}\cap S_{i}\right|}\right)\right]E\left[Bin\left(n_{b},\frac{1}{\left|S_{b}\cap S_{i}\right|}\right)\right]\\
+ & = & \sum\limits _{a\in B_{i}}E\left[Bin\left(n_{a},\frac{1}{\left|S_{a}\cap S_{i}\right|}\right)^{2}\right]+\sum\limits _{a\in B_{i}}\sum\limits _{a\in B_{i}\backslash a}\frac{n_{a}}{\left|S_{a}\cap S_{i}\right|}\frac{n_{b}}{\left|S_{b}\cap S_{i}\right|}\\
+ & = & \sum\limits _{a\in B_{i}}\frac{n_{a}(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}+\left(\frac{n_{a}}{\left|S_{a}\cap S_{i}\right|}\right)^{2}+\sum\limits _{a\in B_{i}}\sum\limits _{a\in B_{i}\backslash a}\frac{n_{a}}{\left|S_{a}\cap S_{i}\right|}\frac{n_{b}}{\left|S_{b}\cap S_{i}\right|}\\
+ & = & \sum\limits _{a\in B_{i}}\frac{n_{a}(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}+\sum\limits _{a\in B_{i}}\sum\limits _{b\in B_{i}}\frac{n_{a}}{\left|S_{a}\cap S_{i}\right|}\frac{n_{b}}{\left|S_{b}\cap S_{i}\right|}\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+We also have
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+\left(E(s_{i}|n)\right)^{2} & = & \left(\sum\limits _{a\in B_{i}}\frac{n_{a}}{\left|S_{a}\cap S_{i}\right|}\right)^{2}\\
+ & = & \sum\limits _{a\in B_{i}}\sum\limits _{b\in B_{i}}\frac{n_{a}}{\left|S_{a}\cap S_{i}\right|}\frac{n_{b}}{\left|S_{b}\cap S_{i}\right|}\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Thus, we have
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+Var(s_{i}|n) & = & \sum\limits _{a\in B_{i}}\frac{n_{a}(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|}\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Now, to eliminate the conditional using the law of total variance to integrate
+ through 
+\begin_inset Formula $n$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+Var(s_{i}) & = & E_{n}\left(Var(s_{i}|n)\right)+Var_{n}(E(s_{i}|n))\\
+ & = & E_{n}\left(\sum\limits _{a\in B_{i}}\frac{n_{a}(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}\right)+Var_{n}\left(\sum\limits _{a\in B_{i}}\frac{n_{a}}{\left|S_{a}\cap S_{i}\right|}\right)\\
+ & = & \sum\limits _{a\in B_{i}}\frac{(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}E(n_{a})+\sum\limits _{a\in B_{i}}\frac{Var(n_{a})}{\left|S_{a}\cap S_{i}\right|^{2}}\\
+ & = & \sum\limits _{a\in B_{i}}\frac{(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}E\left(\sum_{i=1}^{|V|/p}Zipf(\alpha,N)\right)+\sum\limits _{a\in B_{i}}\frac{Var\left(\sum\limits _{i=1}^{|V|/p}Zipf(\alpha,N)\right)}{\left|S_{a}\cap S_{i}\right|^{2}}\\
+ & = & \sum\limits _{a\in B_{i}}\frac{(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}\sum_{i=1}^{|V|/p}E\left(Zipf(\alpha,N)\right)+\sum\limits _{a\in B_{i}}\frac{\sum\limits _{i=1}^{|V|/p}Var\left(Zipf(\alpha,N)\right)}{\left|S_{a}\cap S_{i}\right|^{2}}\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The mean of 
+\begin_inset Formula $Zipf(\alpha,N)$
+\end_inset
+
+ is 
+\begin_inset Formula $\frac{H_{N,\alpha-1}}{H_{N,\alpha}}$
+\end_inset
+
+.
+ The variance is 
+\begin_inset Formula $\frac{H_{N,\alpha-2}}{H_{N,\alpha}}-\left(\frac{H_{N,\alpha-1}}{H_{N,\alpha}}\right)^{2}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Let 
+\begin_inset Formula $\mu=\frac{H_{N,\alpha-1}}{H_{N,\alpha}}$
+\end_inset
+
+ and 
+\begin_inset Formula $\sigma^{2}=\frac{H_{N,\alpha-2}}{H_{N,\alpha}}-\left(\frac{H_{N,\alpha-1}}{H_{N,\alpha}}\right)^{2}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+ & = & \sum\limits _{a\in B_{i}}\frac{(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}\frac{|V|}{p}\mu+\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}\frac{|V|}{p}\sigma^{2}\\
+ & = & \sum\limits _{a\in B_{i}}\frac{(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}\frac{|V|}{p}\mu+\frac{|V|}{p}\sigma^{2}\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}\\
+ & = & \frac{|V|}{p}\mu\sum\limits _{a\in B_{i}}\frac{(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}+\frac{|V|}{p}\sigma^{2}\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}\\
+ &  & \frac{|V|}{p}\left(\mu\sum\limits _{a\in B_{i}}\frac{(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}+\sigma^{2}\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}\right)\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Written in an alternate way.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+Var(s_{i}) & = & \frac{|V|}{p}\left(\mu\sum\limits _{a\in B_{i}}\frac{(\left|S_{a}\cap S_{i}\right|-1)}{\left|S_{a}\cap S_{i}\right|^{2}}+\sigma^{2}\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}\right)\\
+ & = & \frac{|V|}{p}\left(\mu\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|}-\mu\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}+\sigma^{2}\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}\right)\\
+ & = & \frac{|V|}{p}\left(\mu\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|}+\left(\sigma^{2}-\mu\right)\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}\right)\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This decreases quadratically with increasing sizes of intersections.
+\end_layout
+
+\begin_layout Standard
+It is a sort of weighted combination between the means and the variances
+ of the zipf variable.
+ In any case, it decreases rapidly with increasing intersection sizes.
+\end_layout
+
+\begin_layout Standard
+The variance to mean ratio is 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+ &  & 1+\frac{\left(\sigma^{2}-\mu\right)\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}}{\mu\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|}}\\
+ & = & 1+\left(\frac{\sigma^{2}}{\mu}-1\right)\frac{\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|^{2}}}{\sum\limits _{a\in B_{i}}\frac{1}{\left|S_{a}\cap S_{i}\right|}}\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Which decreases linearly with the size of intersections.
+ (if the size of the intersection is a constant t)
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{eqnarray*}
+ &  & =1+\left(\frac{\sigma^{2}}{\mu}-1\right)\frac{1}{t}\\
+\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document

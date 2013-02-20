@@ -29,9 +29,10 @@ graphlab::graph_database* createDatabase() {
   return db;
 }
 
-void testVertexAdjacency(const string adjstr,
+void testVertexAdjacency(const string adjrep,
                          const std::vector<graphlab::graph_edge*>* inadj,
                          const std::vector<graphlab::graph_edge*>* outadj); 
+
 
 bool compare_value(const graphlab::graph_value& lhs, const graphlab::graph_value& rhs) {
   if ((lhs._type != rhs._type)
@@ -65,14 +66,55 @@ bool compare_row(graphlab::graph_row& lhs, graphlab::graph_row& rhs) {
   return eq;
 }
 
+
+std::string create_vertex_row_request(graphlab::graph_vid_t vid) {
+  graphlab::oarchive oarc;
+  oarc << std::string("vertex_data_row") << vid;
+  std::string s(oarc.buf, oarc.off);
+  free(oarc.buf);
+  return s;
+}
+
+std::string create_vertex_adj_request(graphlab::graph_vid_t vid,
+                                      graphlab::graph_shard_id_t shardid,
+                                      bool getin,
+                                      bool getout,
+                                      bool prefetch_data) {
+  graphlab::oarchive oarc;
+  oarc << std::string("vertex_adj") << vid << shardid << getin << getout << prefetch_data;
+  std::string s(oarc.buf, oarc.off);
+  free(oarc.buf);
+  return s;
+}
+
+std::string create_vfield_request() {
+  graphlab::oarchive oarc;
+  oarc << std::string("vertex_fields_meta");
+  std::string s(oarc.buf, oarc.off);
+  free(oarc.buf);
+  return s;
+}
+
+std::string create_efield_request() {
+  graphlab::oarchive oarc;
+  oarc << std::string("edge_fields_meta");
+  std::string s(oarc.buf, oarc.off);
+  free(oarc.buf);
+  return s;
+}
+
+
 void testReadVertexData(graphlab::graph_database_server* server) {
   bool success;
   graphlab::graph_database* db = server->get_database();
+
   for (size_t i = 0; i < db->num_vertices(); i++) {
     graphlab::graph_row row;
-    std::string vdatastr = server->get_vertex_data(i);
 
-    graphlab::iarchive iarc_vdata(vdatastr.c_str(), vdatastr.length());
+    std::string vdatareq =  create_vertex_row_request(i);
+    std::string vdatarep = server->query(vdatareq.c_str(), vdatareq.length());
+
+    graphlab::iarchive iarc_vdata(vdatarep.c_str(), vdatarep.length());
     iarc_vdata >> success  >> row;
 
     graphlab::graph_vertex* v = db->get_vertex(i);
@@ -87,13 +129,14 @@ void testReadVertexData(graphlab::graph_database_server* server) {
       bool get_in = true;
       bool get_out = true;
       for (size_t j = 0; j < db->num_shards(); j++) {
-          std::string adjstr = server->get_vertex_adj(i, j, get_in, get_out, prefetch_data);
+          std::string adjreq = create_vertex_adj_request(i, j, get_in, get_out, prefetch_data);
+          std::string adjrep = server->query(adjreq.c_str(), adjreq.length());
 
           std::vector<graphlab::graph_edge*> _inadj;
           std::vector<graphlab::graph_edge*> _outadj;
           v->get_adj_list(j, prefetch_data, &_inadj, &_outadj);
 
-          testVertexAdjacency(adjstr, &_inadj, &_outadj);
+          testVertexAdjacency(adjrep, &_inadj, &_outadj);
 
           db->free_edge_vector(&_inadj);
           db->free_edge_vector(&_outadj);
@@ -103,11 +146,11 @@ void testReadVertexData(graphlab::graph_database_server* server) {
   }
 }
 
-void testVertexAdjacency(const string adjstr,
+void testVertexAdjacency(const string adjrep,
                          const std::vector<graphlab::graph_edge*>* inadj,
                          const std::vector<graphlab::graph_edge*>* outadj
                          ) {
-    graphlab::iarchive iarc_adj(adjstr.c_str(), adjstr.length());
+    graphlab::iarchive iarc_adj(adjrep.c_str(), adjrep.length());
     size_t numin, numout;
     bool prefetch_data;
     bool success;
@@ -150,15 +193,18 @@ void testVertexAdjacency(const string adjstr,
 void testReadField(graphlab::graph_database_server* server) {
   bool success = false;
   vector<graphlab::graph_field> vfield;
-  std::string vfieldstr = server->get_vertex_fields();
-  graphlab::iarchive iarc_vfield(vfieldstr.c_str(), vfieldstr.length());
-  iarc_vfield >> success  >> vfield;
+  std::string vfieldreq = create_vfield_request();
+  std::string vfieldrep = server->query(vfieldreq.c_str(), vfieldreq.length());
+  graphlab::iarchive iarc_vfield(vfieldrep.c_str(), vfieldrep.length());
+  iarc_vfield >> success;
   ASSERT_TRUE(success);
+  iarc_vfield >> vfield;
   ASSERT_EQ(vfield.size(), server->get_database()->get_vertex_fields().size());
 
   vector<graphlab::graph_field> efield;
-  std::string efieldstr = server->get_edge_fields();
-  graphlab::iarchive iarc_efield(efieldstr.c_str(), efieldstr.length());
+  std::string efieldreq = create_efield_request();
+  std::string efieldrep = server->query(efieldreq.c_str(), efieldreq.length());
+  graphlab::iarchive iarc_efield(efieldrep.c_str(), efieldrep.length());
   iarc_efield >> success  >> efield;
   ASSERT_TRUE(success);
   ASSERT_EQ(efield.size(), server->get_database()->get_edge_fields().size());

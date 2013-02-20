@@ -1,0 +1,24 @@
+# Release build directory:
+	 RELEASE_DIR=release
+# Debug build directory (optimization disabled):
+	 DEBUG_DIR=debug
+# Directory in which graphlab is installed (prefix):
+	 INSTALL_DIR=/usr/local
+# Is experimental (research) code enabled:
+	 EXPERIMENTAL=false
+# The graphlab home directory: 
+	 GRAPHLAB_HOME=/home/haijieg/workspace/graphlab/graphlab3
+# The directory in which graphlab installs external dependencies:
+	 DEPS_PREFIX=/home/haijieg/workspace/graphlab/graphlab3/deps/local
+# Use OpenMP?  This can accelerate some graph building code: 
+	 NO_OPENMP=false
+# The c compiler to use: 
+	 CC=gcc
+# The c++ compiler to use: 
+	 CXX=g++
+# Any addition user defined CFLAGS: 
+	 CFLAGS=
+# The Java compiler: 
+	 JAVAC=javac
+# The cmake binary used to geneate the project:
+	 CMAKE=/home/haijieg/workspace/graphlab/graphlab3/deps/local/bin/cmake

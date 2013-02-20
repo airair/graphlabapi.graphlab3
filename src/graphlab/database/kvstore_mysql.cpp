@@ -62,7 +62,6 @@ kvstore_mysql::kvstore_mysql() {
 }
 
 kvstore_mysql::~kvstore_mysql() {
-  printf("Closing MySQL connection\n");
   delete _ndb;
   _ndb = NULL;
   ndb_end(0);
@@ -111,9 +110,8 @@ bool kvstore_mysql::get(const key_type key, value_type &value) {
   NdbBlob *blob_handle = op->getBlobHandle(mysql_valueattr_name);
 
   Uint64 blob_size;
-  void *blob_data;
+  void *blob_data = malloc(mysql_max_blob_size);
 
-  blob_data = malloc(mysql_max_blob_size);
   blob_handle->getValue(blob_data, mysql_max_blob_size);
 
   int trans_result = trans->execute(NdbTransaction::NoCommit);
@@ -139,33 +137,43 @@ std::vector<value_type> kvstore_mysql::range_get(const key_type key_lo, const ke
   NdbTransaction *trans = _ndb->startTransaction();
   ASSERT_TRUE(trans != NULL);
 
-  NdbIndexScanOperation *op = trans->getNdbIndexScanOperation(_index, _table);
+  NdbIndexScanOperation *op = trans->getNdbIndexScanOperation(mysql_index_name.c_str(), mysql_table_name.c_str());
+//  NdbScanOperation *op = trans->getNdbScanOperation(mysql_table_name.c_str());
   ASSERT_TRUE(op != NULL);
 
   op->readTuples();
-  op->setBound(mysql_keyattr_name, NdbIndexScanOperation::BoundGE, &key_lo);
-  op->setBound(mysql_keyattr_name, NdbIndexScanOperation::BoundLE, &key_hi);
+
+  int key_lo_int = (int) key_lo, key_hi_int = (int) key_hi;
+  op->setBound(mysql_keyattr_name, NdbIndexScanOperation::BoundLE, &key_lo_int, (Uint32) sizeof(key_lo_int));
+  op->setBound(mysql_keyattr_name, NdbIndexScanOperation::BoundGE, &key_hi_int, (Uint32) sizeof(key_hi_int));
+
   NdbBlob *blob_handle = op->getBlobHandle(mysql_valueattr_name);
+  ASSERT_TRUE(blob_handle != NULL);
+
+  Uint64 blob_size;
+  void *blob_data = malloc(mysql_max_blob_size);
+
+  blob_handle->getValue(blob_data, mysql_max_blob_size);
 
   ASSERT_FALSE(trans->execute(NdbTransaction::NoCommit) == -1);
 
-  Uint64 blob_size;
-  void *blob_data;
-
   int res;
+  printf("Entering loop\n");
   for (;;) {
-    res = op->nextResult();
-    if (res == 1)
+    res = op->nextResult(true);
+    if (res != 0)
       break;
 
+//    printf("Getting next tuple\n");
     blob_handle->getLength(blob_size);
-    blob_data = malloc(blob_size);
-    blob_handle->getValue(blob_data, blob_size);
+//    printf("Size: %d\n", blob_size);
     result.push_back(std::string((char *) blob_data, blob_size));
-    free(blob_data);
-
-    op->nextResult();
+    printf("%s\n", result[result.size()-1].c_str());
   }
+
+  free(blob_data);
+
+  printf("Got %d results\n", result.size());
 
   _ndb->closeTransaction(trans);
 

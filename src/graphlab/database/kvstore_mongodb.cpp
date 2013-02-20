@@ -18,6 +18,11 @@ namespace graphlab {
 const char* mongodb_keyattr_name= "_id";
 const char* mongodb_valueattr_name = "value";
 
+const std::string MONGODB_DEFAULT_ADDR = "127.0.0.1";
+const int MONGODB_DEFAULT_PORT = 27017;
+const std::string MONGODB_DEFAULT_NAMESPACE = "graphlab.graphlab";
+
+
 kvstore_mongodb::kvstore_mongodb(std::string addr, int port, std::string ns) : _ns(ns) {
   std::string error_msg;
   ASSERT_TRUE(_conn.connect(mongo::HostAndPort(addr, port), error_msg));

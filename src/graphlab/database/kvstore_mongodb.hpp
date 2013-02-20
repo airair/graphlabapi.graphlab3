@@ -13,17 +13,15 @@
 
 namespace graphlab {
 
-const char* MONGODB_DEFAULT_ADDR = "127.0.0.1";
-const int MONGODB_DEFAULT_PORT = 27017;
-const char* MONGODB_DEFAULT_NAMESPACE = "graphlab";
+extern const std::string MONGODB_DEFAULT_ADDR;
+extern const int MONGODB_DEFAULT_PORT;
+extern const std::string MONGODB_DEFAULT_NAMESPACE;
+
 
 class kvstore_mongodb: public kvstore_base {
 public:
-  kvstore_mongodb() {
-    kvstore_mongodb(MONGODB_DEFAULT_ADDR, MONGODB_DEFAULT_PORT, MONGODB_DEFAULT_NAMESPACE);
-  }
 
-  kvstore_mongodb(std::string addr, int port, std::string ns);
+  kvstore_mongodb(std::string addr = MONGODB_DEFAULT_ADDR, int port = MONGODB_DEFAULT_PORT, std::string ns = MONGODB_DEFAULT_NAMESPACE);
   virtual ~kvstore_mongodb();
 
   virtual void set(const key_type key, const value_type &value);

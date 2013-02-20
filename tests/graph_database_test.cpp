@@ -1,10 +1,10 @@
 #include <graphlab/database/graph_database.hpp>
-#include <graphlab/database/kvstore_mongodb.cpp>
-#include <graphlab/database/kvstore_mysql.cpp>
+#include <graphlab/database/kvstore_mongodb.hpp>
+#include <graphlab/database/kvstore_mysql.hpp>
 
 int main(int argc, char** argv) {
-//  graphlab::kvstore_mongodb kv;
-  graphlab::kvstore_mysql kv;
+  graphlab::kvstore_mongodb kv;
+//  graphlab::kvstore_mysql kv;
   graphlab::key_type k;
   graphlab::value_type v, v1;
   char testv[100];
@@ -14,7 +14,7 @@ int main(int argc, char** argv) {
   long_key[10000-1] = 0;
   v = long_key;
 
-  for (int i = 0; i < 1000/*00*/; i++) {
+  for (int i = 0; i < 100000/*00*/; i++) {
     k = random() % 1000;
     sprintf(testv, "test%ld", random());
     v = testv;

@@ -3,7 +3,7 @@ add_graphlab_executable(zookeeper_test zookeeper_test.cpp)
 
 add_graphlab_executable(zookeeper_kv_test zookeeper_kv_test.cpp)
 
-add_graphlab_executable(graph_database_test graph_database_test.cpp)
+add_graphlab_executable(graph_database_test graph_database_test.cpp ../../src/graphlab/database/kvstore_mysql.cpp ../../src/graphlab/database/kvstore_mongodb.cpp)
 set(MACPORTS_INCLUDE /opt/local/include)
 set(MYSQL_INCLUDE ${MACPORTS_INCLUDE}/mysql5/mysql)
 set(MYSQL_NDB ${MYSQL_INCLUDE}/storage/ndb)

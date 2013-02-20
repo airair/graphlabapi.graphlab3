@@ -137,7 +137,6 @@ std::vector<value_type> kvstore_mysql::range_get(const key_type key_lo, const ke
 
   Uint64 blob_size;
   void *blob_data = malloc(mysql_max_blob_size);
-
   blob_handle->getValue(blob_data, mysql_max_blob_size);
 
   ASSERT_FALSE(trans->execute(NdbTransaction::NoCommit) == -1);

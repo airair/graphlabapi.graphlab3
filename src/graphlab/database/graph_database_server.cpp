@@ -2,70 +2,58 @@
 
 namespace graphlab {
 
-  std::string graph_database_server::get_vertex_fields() {
+  void graph_database_server::get_vertex_fields(iarchive& iarc, oarchive& oarc) {
     const std::vector<graph_field>& fields = database->get_vertex_fields();
-    oarchive oarc;
     oarc << true << fields;
-    std::string ret(oarc.buf, oarc.off);
-    free(oarc.buf);
-    return ret;
   }
 
-  std::string graph_database_server::get_edge_fields() {
+  void graph_database_server::get_edge_fields(iarchive& iarc, oarchive& oarc) {
     const std::vector<graph_field>& fields = database->get_edge_fields();
-    oarchive oarc;
     oarc << true << fields;
-    std::string ret(oarc.buf, oarc.off);
-    free(oarc.buf);
-    return ret;
   }
 
-  std::string graph_database_server::get_vertex_data(graph_vid_t vid) {
+  void graph_database_server::get_vertex_data_row(iarchive& iarc, oarchive& oarc) {
+    graph_vid_t vid;
+    iarc >> vid;
     graph_vertex* v = database->get_vertex(vid);
-    oarchive oarc;
     if (v == NULL) {
       std::string msg = (std::string("Fail to get vertex id = ") + boost::lexical_cast<std::string>(vid) + std::string(". Vid does not exist."));
-      return error_msg(msg);
+      oarc << false << msg;
     } else {
       graph_row* row= v->data();
       oarc << true << *row;
-      std::string ret(oarc.buf, oarc.off);
-      free(oarc.buf);
       database->free_vertex(v);
-      return ret;
     }
   }
 
-  std::string graph_database_server::get_vertex_data(graph_vid_t vid, size_t fieldpos) {
+  void graph_database_server::get_vertex_data_field(iarchive& iarc, oarchive& oarc) {
+    graph_vid_t vid;
+    size_t fieldpos;
+    iarc >> vid >> fieldpos;
     graph_vertex* v = database->get_vertex(vid);
-    oarchive oarc;
     if (v == NULL) {
       std::string msg = (std::string("Fail to get vertex id = ")
                          + boost::lexical_cast<std::string>(vid)
                          + std::string(". Vid does not exist."));
-      return error_msg(msg);
+      oarc << false << msg;
     } else {
       graph_value* val = v->data()->get_field(fieldpos);
       oarc << true << *val;
-      std::string ret(oarc.buf, oarc.off);
-      free(oarc.buf);
       database->free_vertex(v);
-      return ret;
     }
   }
 
-  std::string graph_database_server::get_vertex_adj(graph_vid_t vid,
-                                                   graph_shard_id_t shardid,
-                                                   bool get_in,
-                                                   bool get_out,
-                                                   bool prefetch_data) {
+  void graph_database_server::get_vertex_adj(iarchive& iarc, oarchive& oarc) {
+    graph_vid_t vid;
+    graph_shard_id_t shardid;
+    bool get_in, get_out, prefetch_data;
+    iarc >> vid >> shardid >> get_in >> get_out >> prefetch_data;
     graph_vertex* v = this->database->get_vertex(vid);
-    oarchive oarc;
     if (v == NULL) {
       std::string msg= (std::string("Fail to get vertex id = ")
                         + boost::lexical_cast<std::string>(vid)
                         + std::string(". Vid does not exist."));
-      return error_msg(msg);
+      oarc << false << msg;
     } else {
       std::vector<graph_edge*> _inadj;
       std::vector<graph_edge*> _outadj;
@@ -92,61 +80,56 @@ namespace graphlab {
       if (out_inadj) database->free_edge_vector(out_inadj);
       if (out_outadj) database->free_edge_vector(out_outadj);
     }
-    std::string ret(oarc.buf, oarc.off);
-    free(oarc.buf);
     database->free_vertex(v);
-    return ret;
   }
 
 
 
   // ----------- Modification Handlers ----------------
 
-  std::string graph_database_server::set_vertex_field (graph_vid_t vid,
-                                                       size_t fieldpos,
-                                                       const char* val,
-                                                       size_t len) {
+  void graph_database_server::set_vertex_field (iarchive& iarc,
+                                                oarchive& oarc) {
+    graph_vid_t vid;
+    size_t fieldpos, len;
+    iarc >> vid >> fieldpos >> len;
+    char* val = (char*)malloc(len);
+    iarc.read(val, len);
+
     graph_vertex* v = database->get_vertex(vid);
     if (v == NULL) {
       std::string msg = (std::string("Fail to get vertex id = ")
                          + boost::lexical_cast<std::string>(vid)
                          + std::string(". Vid does not exist."));
-      return error_msg(msg);
+      oarc << false << msg;
     } else {
       bool success = v->data()->get_field(fieldpos)->set_val(val, len);
       v->write_changes();
       database->free_vertex(v);
-
       oarchive oarc;
       oarc << success;
-      std::string ret(oarc.buf, oarc.off);
-      free(oarc.buf);
-      return ret;
     }
   }
 
-  std::string graph_database_server::set_edge_field(graph_eid_t eid,
-                                                    graph_shard_id_t shardid,
-                                                    size_t fieldpos,
-                                                    const char* val, size_t len) {
-    std::string ret;
+  void graph_database_server::set_edge_field(iarchive& iarc,
+                                             oarchive& oarc) {
+    graph_eid_t eid;
+    graph_shard_id_t shardid;
+    size_t fieldpos, len;
+    iarc >> eid >> fieldpos >> len;
+    char* val = (char*)malloc(len);
+    iarc.read(val, len);
     graph_edge* e = database->get_edge(eid, shardid);
     if (e == NULL) {
       std::string msg = (std::string("Fail to get edge eid = ")
                          + boost::lexical_cast<std::string>(eid)
                          + " at shard " + boost::lexical_cast<std::string>(shardid)
                          + std::string(". eid or shardid does not exist."));
-      return error_msg(msg);
+      oarc << false << msg;
     } else {
       bool success = e->data()->get_field(fieldpos)->set_val(val, len);
       e->write_changes();
       database->free_edge(e);
-
-      oarchive oarc;
       oarc << success;
-      std::string ret(oarc.buf, oarc.off);
-      free(oarc.buf);
-      return ret;
     }
   }
 }

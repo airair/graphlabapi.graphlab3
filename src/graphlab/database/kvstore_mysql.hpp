@@ -9,7 +9,9 @@
 #define GRAPHLAB_DATABASE_KVSTORE_MYSQL_HPP
 
 #include <graphlab/database/kvstore_base.hpp>
+
 #include <mysql5/mysql/storage/ndb/ndbapi/NdbApi.hpp>
+#include <mysql5/mysql/mysql.h>
 
 namespace graphlab {
 
@@ -31,6 +33,7 @@ public:
 
 private:
   Ndb *_ndb;
+  MYSQL *_mysql;
   const NdbDictionary::Table *_table;
   const NdbDictionary::Index *_index;
   const NdbDictionary::Dictionary *_dict;

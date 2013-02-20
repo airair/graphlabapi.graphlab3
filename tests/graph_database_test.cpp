@@ -24,14 +24,22 @@ int main(int argc, char** argv) {
     kv.set(k, v);
     kv.get(k, v1);
 
-//    if (v != v1) {
-//      printf("Problem: (%s) (%s)\n", v.c_str(), v1.c_str());
-//    } else {
+    if (v != v1) {
+      printf("Problem: (%s) (%s)\n", v.c_str(), v1.c_str());
+    } else {
 //      printf("Success!\n");
-//    }
+    }
   }
 
-  kv.range_get(0, 10);
+  std::vector<graphlab::value_type> r;
+
+  r = kv.range_get(0, 10);
+  printf("Got %d results\n", r.size());
+
+  kv.remove_all();
+
+  r = kv.range_get(0, 10);
+  printf("Got %d results\n", r.size());
 
   return 0;
 }

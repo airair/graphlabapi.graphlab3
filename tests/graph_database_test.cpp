@@ -8,12 +8,19 @@ int main(int argc, char** argv) {
   graphlab::key_type k;
   graphlab::value_type v, v1;
   char testv[100];
+  char long_key[65000];
 
-  for (int i = 0; i < 100000; i++) {
+  memset(long_key, 1, sizeof(long_key));
+  long_key[10000-1] = 0;
+  v = long_key;
+
+  for (int i = 0; i < 1000/*00*/; i++) {
     k = random() % 1000;
     sprintf(testv, "test%ld", random());
     v = testv;
+
 //    printf("Trying %lld, %s\n", k, v.c_str());
+
     kv.set(k, v);
     kv.get(k, v1);
 
@@ -23,6 +30,8 @@ int main(int argc, char** argv) {
 //      printf("Success!\n");
 //    }
   }
+
+  kv.range_get(0, 10);
 
   return 0;
 }

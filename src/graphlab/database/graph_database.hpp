@@ -6,6 +6,7 @@
 #include <graphlab/database/graph_vertex.hpp>
 #include <graphlab/database/graph_edge.hpp>
 #include <graphlab/database/graph_shard.hpp>
+#include <graphlab/database/graph_sharding_constraint.hpp>
 namespace graphlab {
 
 
@@ -40,6 +41,11 @@ class graph_database {
    * Returns the field metadata for the edges in the graph
    */
   virtual const std::vector<graph_field>& get_edge_fields() = 0;
+
+  /**
+   * Returns the sharding graph 
+   */
+  virtual const sharding_constraint& get_sharding_constraint() = 0;
   
   /**
    * Returns the index of the vertex column with the given field name. 

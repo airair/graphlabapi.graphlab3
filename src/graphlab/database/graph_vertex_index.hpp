@@ -7,6 +7,7 @@
 #include <graphlab/database/graph_edge.hpp>
 #include <graphlab/database/graph_shard.hpp>
 #include <graphlab/logger/assertions.hpp>
+#include <graphlab/serialization/is_pod.hpp>
 #include <boost/unordered_map.hpp>
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
@@ -18,7 +19,7 @@ namespace graphlab {
    * The primary key is the vid. TODO: add support for secondary keys specified in the 
    * <code>graph_field</code>.
    */
-  class graph_vertex_index {
+  class graph_vertex_index : public IS_POD_TYPE {
    public:
 
      // Return the existence of a vertex with given id.

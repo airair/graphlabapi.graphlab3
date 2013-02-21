@@ -86,13 +86,23 @@ class graph_database_server {
       get_vertex_fields(iarc, oarc);
     } else if (header == "edge_fields_meta") {
       get_edge_fields(iarc, oarc);
+    } else if (header == "sharding_graph") {
+      get_sharding_constraint(iarc, oarc);
+    } else if (header == "num_vertices") {
+      get_num_vertices(iarc, oarc);
+    } else if (header =="num_edges") {
+      get_num_edges(iarc, oarc);
+    } else if (header == "num_shards") {
+      get_num_shards(iarc, oarc);
     } else if (header == "vertex_data_field") {
       get_vertex_data_field(iarc, oarc);
     } else if (header == "vertex_data_row") {
       get_vertex_data_row(iarc, oarc);
     } else if (header == "vertex_adj") {
       get_vertex_adj(iarc, oarc);
-    } else {
+    } else if (header == "shard") {
+      get_shard(iarc, oarc);
+    }else {
       logstream(LOG_WARNING) <<  ("Unknown query header: " + header) << std::endl;
       oarc << false << ("Unknown query header: " + header);
     }
@@ -135,6 +145,38 @@ class graph_database_server {
   void get_edge_fields(iarchive& iarc, oarchive& oarc);
 
   /**
+   * Returns a serilaized string of number of edges
+   *
+   * Serialization format:
+   *  success << num_edges 
+   */
+  void get_num_edges(iarchive& iarc, oarchive& oarc);
+
+  /**
+   * Returns a serilaized string of number of edges
+   *
+   * Serialization format:
+   *  success << num_vertices 
+   */
+  void get_num_vertices(iarchive& iarc, oarchive& oarc);
+
+  /**
+   * Returns a serilaized string of number of edges
+   *
+   * Serialization format:
+   *  success << num_shards
+   */
+  void get_num_shards(iarchive& iarc, oarchive& oarc);
+
+  /**
+   * Returns a serialized string of the sharding graph.
+   *
+   * Serialization format:
+   *  success << sharding_graph
+   */
+  void get_sharding_constraint(iarchive& iarc, oarchive& oarc);
+
+  /**
    * Returns the serialized string of the entire row corresponding to the query vertex.
    *
    * Serialization format:
@@ -160,6 +202,15 @@ class graph_database_server {
    *  ADJACENCY format: e1.src << e1.dst [<< e1.data] << e2.src << e2.dst [<< d2.data]
    */
   void get_vertex_adj(iarchive& iarc, oarchive& oarc);
+
+  /**
+   * Returns the serialization of the shards corresponding to the 
+   * query shard id in iarc.
+   *
+   * Serialization format:
+   *  success << shard 
+   */
+  void get_shard(iarchive& iarc, oarchive& oarc);
 
   /**
    * Returns a serialized error message string;

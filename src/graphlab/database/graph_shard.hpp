@@ -151,6 +151,17 @@ class graph_shard {
   }
 
 
+  // ----------- Serialization API ----------
+  void save(oarchive& oarc) const {
+    oarc << shard_impl;
+  }
+
+  void load(iarchive& iarc) {
+    iarc >> shard_impl;
+  }
+
+
+
  private:
 
   // copy constructor deleted. It is not safe to copy this object.

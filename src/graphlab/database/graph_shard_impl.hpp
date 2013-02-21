@@ -117,6 +117,43 @@ struct graph_shard_impl {
   std::vector<boost::unordered_set<graph_shard_id_t> > vertex_mirrors;
 
 
+
+// ----------- Serialization API ----------------
+
+  void save(oarchive& oarc) const {
+    oarc << shard_id
+         << num_vertices
+         << num_edges;
+
+    oarc << vertex;
+    for (size_t i = 0; i < num_vertices; ++i)
+      oarc << vertex_data[i];
+
+    oarc << edgeid << edge;
+    for (size_t i = 0; i < num_edges; ++i)
+      oarc << edge_data[i];
+
+    oarc << vertex_index << edge_index << vertex_mirrors;
+  }
+  
+  void load(iarchive& iarc) {
+    iarc >> shard_id >> num_vertices >> num_edges;
+
+    iarc >> vertex;
+    vertex_data = new graph_row[num_vertices];
+    for (size_t i = 0; i < num_vertices; ++i)
+      iarc >> vertex_data[i];
+
+    iarc >> edgeid >> edge;
+    edge_data = new graph_row[num_edges];
+    for (size_t i = 0; i < num_edges; ++i)
+      iarc >> edge_data[i];
+
+    iarc >> vertex_index >> edge_index >> vertex_mirrors;
+  }
+
+// ----------- Modification API -----------------
+
   /**
    * Clear all the information in the shard. Keep the shard_id.
    */

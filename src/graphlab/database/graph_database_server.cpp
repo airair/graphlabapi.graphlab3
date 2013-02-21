@@ -12,6 +12,22 @@ namespace graphlab {
     oarc << true << fields;
   }
 
+  void graph_database_server::get_sharding_constraint(iarchive& iarc, oarchive& oarc) {
+    oarc << true << database->get_sharding_constraint();
+  }
+
+  void graph_database_server::get_num_vertices(iarchive& iarc, oarchive& oarc) {
+    oarc << true << database->num_vertices();
+  }
+
+  void graph_database_server::get_num_edges(iarchive& iarc, oarchive& oarc) {
+    oarc << true << database->num_edges();
+  }
+
+  void graph_database_server::get_num_shards(iarchive& iarc, oarchive& oarc) {
+    oarc << true << database->num_shards();
+  }
+
   void graph_database_server::get_vertex_data_row(iarchive& iarc, oarchive& oarc) {
     graph_vid_t vid;
     iarc >> vid;
@@ -81,6 +97,14 @@ namespace graphlab {
       if (out_outadj) database->free_edge_vector(out_outadj);
     }
     database->free_vertex(v);
+  }
+
+  void graph_database_server::get_shard(iarchive& iarc, oarchive& oarc) {
+    graph_shard_id_t shardid;
+    iarc >> shardid;
+    graph_shard* shard = database->get_shard(shardid);
+    ASSERT_TRUE(shard != NULL);
+    oarc << true << *shard;
   }
 
 

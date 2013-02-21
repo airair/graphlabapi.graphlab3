@@ -30,11 +30,13 @@
 namespace graphlab {
   class sharding_constraint {
     size_t nshards;
+    std::string method;
     std::vector<std::vector<graph_shard_id_t> > constraint_graph;
+
    public:
     sharding_constraint() {}
-    sharding_constraint(size_t num_shards, std::string method) {
-      nshards = num_shards;
+    sharding_constraint(size_t nshards, std::string method) :
+        nshards(nshards),  method(method) {
       // ignore the method arg for now, only construct grid graph. 
       // assuming nshards is perfect square
       make_grid_constraint();
@@ -77,6 +79,25 @@ namespace graphlab {
       return true;
     }
 
+    size_t num_shards() {
+      return nshards;
+    }
+
+    void save (oarchive& oarc) const {
+      oarc << nshards << method;
+      for (size_t i = 0; i < nshards; i++) {
+        oarc << constraint_graph[i]; 
+      }
+    }
+
+    void load (iarchive& iarc) {
+      iarc >> nshards >> method;
+      constraint_graph.resize(nshards);
+      for (size_t i = 0; i < nshards; i++) {
+        iarc >> constraint_graph[i];
+      }
+    }
+ 
    private:
     void make_grid_constraint() {
       size_t ncols, nrows;
@@ -109,7 +130,9 @@ namespace graphlab {
           ASSERT_GT(ls.size(), 0);
         }
       }
-      // debug 
+    }
+
+     // debug 
       // for (size_t i = 0; i < constraint_graph.size(); ++i) {
       //   std::vector<graph_shard_id_t> adjlist = constraint_graph[i];
       //   std::cout << i << ": [";
@@ -117,7 +140,6 @@ namespace graphlab {
       //     std::cout << adjlist[j] << " ";
       //   std::cout << "]" << std::endl;
       // }
-    }
   }; // end of sharding_constraint
 }; // end of namespace graphlab
 #endif

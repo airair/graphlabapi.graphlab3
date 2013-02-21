@@ -6,6 +6,7 @@
 #include <graphlab/database/graph_vertex.hpp>
 #include <graphlab/database/graph_edge.hpp>
 #include <graphlab/database/graph_shard.hpp>
+#include <graphlab/serialization/is_pod.hpp>
 #include <boost/unordered_map.hpp>
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
@@ -15,7 +16,7 @@ namespace graphlab {
    *
    * This class provides adjacency look up in one shard.
    */
-  class graph_edge_index {
+  class graph_edge_index : public IS_POD_TYPE{
    public:
      /**
       * Fills in the query vid's incoming and outgoing edge index (in this shard)

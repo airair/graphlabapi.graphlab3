@@ -106,6 +106,14 @@ class graph_database_sharedmem : public graph_database {
   };
 
 
+  /**
+   * Returns the sharding constraint graph.
+   */
+  const sharding_constraint& get_sharding_constraint() {
+    return sharding_graph;
+  }
+
+
   // -------- Fine grained API ------------
   graph_shard_id_t get_master(graph_vid_t vid) {
     return vidhash(vid) % _num_shards; 

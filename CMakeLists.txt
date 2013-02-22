@@ -129,11 +129,11 @@ ExternalProject_Add(libfault
   PREFIX ${GraphLab_SOURCE_DIR}/deps/libfault
   GIT_REPOSITORY https://github.com/ylow/libfault.git
   INSTALL_DIR ${GraphLab_SOURCE_DIR}/deps/local
-  PATCH_COMMAND patch -N -p0 -i ${GraphLab_SOURCE_DIR}/patches/libfault_configure.patch || true 
-  CONFIGURE_COMMAND  <SOURCE_DIR>/configure --prefix=<INSTALL_DIR> --graphlab_prefix=${GraphLab_SOURCE_DIR}
+  UPDATE_COMMAND git pull
+  CONFIGURE_COMMAND  env CMAKE_LIBRARY_PATH=${GraphLab_SOURCE_DIR}/deps/local/lib CMAKE_INCLUDE_PATH=${GraphLab_SOURCE_DIR}/deps/local/include <SOURCE_DIR>/configure --prefix=<INSTALL_DIR> --cmake=${CMAKE_COMMAND}
   BUILD_IN_SOURCE 1
-  BUILD_COMMAND ""
-  INSTALL_COMMAND ""
+  BUILD_COMMAND cd debug/ && make
+  INSTALL_COMMAND cd debug/ && make install
   )
 
 
@@ -282,16 +282,16 @@ endif()
 
 # zookeeper ================================================================
 # Ant needed
-find_package(Ant)
+#find_package(Ant)
 
-ExternalProject_Add(zookeeper
-  PREFIX ${GraphLab_SOURCE_DIR}/deps/zookeeper
-  URL http://apache.cs.utah.edu/zookeeper/zookeeper-3.4.5/zookeeper-3.4.5.tar.gz
-  URL_MD5 f64fef86c0bf2e5e0484d19425b22dcb
-  PATCH_COMMAND ${CMAKE_COMMAND} -E copy_directory ${GraphLab_SOURCE_DIR}/patches/zookeeper/ <SOURCE_DIR>
-  BUILD_IN_SOURCE 1
-  CONFIGURE_COMMAND ./configure --prefix=<INSTALL_DIR> --disable-shared
-  INSTALL_DIR ${GraphLab_SOURCE_DIR}/deps/local)
+#ExternalProject_Add(zookeeper
+#  PREFIX ${GraphLab_SOURCE_DIR}/deps/zookeeper
+#  URL http://apache.cs.utah.edu/zookeeper/zookeeper-3.4.5/zookeeper-3.4.5.tar.gz
+#  URL_MD5 f64fef86c0bf2e5e0484d19425b22dcb
+#  PATCH_COMMAND ${CMAKE_COMMAND} -E copy_directory ${GraphLab_SOURCE_DIR}/patches/zookeeper/ <SOURCE_DIR>
+#  BUILD_IN_SOURCE 1
+#  CONFIGURE_COMMAND ./configure --prefix=<INSTALL_DIR> --disable-shared
+#  INSTALL_DIR ${GraphLab_SOURCE_DIR}/deps/local)
 
 ExternalProject_Add(qthreads
                     PREFIX ${GraphLab_SOURCE_DIR}/deps/qthreads
@@ -331,14 +331,14 @@ endif(MPI_FOUND)
 macro(requires_core_deps NAME)
   target_link_libraries(${NAME} 
     ${Boost_LIBRARIES}
-    zookeeper_mt
+    #zookeeper_mt
     z
     tcmalloc
     qthread
     event
     event_pthreads
     ${Mongo_LIBRARIES})
-  add_dependencies(${NAME} boost libtcmalloc zookeeper qthreads mongoclient libfault)
+  add_dependencies(${NAME} boost libtcmalloc qthreads mongoclient fault)
   if(MPI_FOUND)
     target_link_libraries(${NAME} ${MPI_LIBRARIES})
   endif(MPI_FOUND)

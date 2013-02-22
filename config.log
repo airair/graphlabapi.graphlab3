@@ -1,4 +1,4 @@
-Wed Feb 20 00:49:02 PST 2013
+Fri Feb 22 11:24:09 PST 2013
 System Information: 
 #58-Ubuntu SMP Thu Jan 24 15:28:10 UTC 2013
 Compiler Information: 
@@ -42,6 +42,7 @@ cmake version 2.8.10.2
 
 ======================= Release ========================
 /home/haijieg/workspace/graphlab/graphlab3/deps/local/bin/cmake -D CMAKE_BUILD_TYPE=Release -D NO_OPENMP:BOOL=false -D CMAKE_INSTALL_PREFIX:STRING=/usr/local -D EXPERIMENTAL:BOOL=false -D CPP11:BOOL=false ../.
+-- Found Git: /usr/bin/git (found version "1.7.9.5") 
 -- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_thread.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_program_options.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_system.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_iostreams.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_date_time.a
 -- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.a
 -- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.so
@@ -84,6 +85,7 @@ cmake version 2.8.10.2
 
 ======================= Debug =========================
 /home/haijieg/workspace/graphlab/graphlab3/deps/local/bin/cmake -D CMAKE_BUILD_TYPE=Debug -D NO_OPENMP:BOOL=false -D CMAKE_INSTALL_PREFIX:STRING=/usr/local -D EXPERIMENTAL:BOOL=false -D CPP11:BOOL=false ../.
+-- Found Git: /usr/bin/git (found version "1.7.9.5") 
 -- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_thread.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_program_options.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_system.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_iostreams.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_date_time.a
 -- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.a
 -- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.so
@@ -121,3 +123,187 @@ cmake version 2.8.10.2
 -- Configuring done
 -- Generating done
 -- Build files have been written to: /home/haijieg/workspace/graphlab/graphlab3/debug
+
+
+
+======================= Debug =========================
+/home/haijieg/workspace/graphlab/graphlab3/deps/local/bin/cmake -D CMAKE_BUILD_TYPE=Debug -D CMAKE_INSTALL_PREFIX:STRING=/usr/local ../.
+-- Found Git: /usr/bin/git (found version "1.7.9.5") 
+
+
+
+======================= Debug =========================
+/home/haijieg/workspace/graphlab/graphlab3/deps/local/bin/cmake -D CMAKE_BUILD_TYPE=Debug -D CMAKE_INSTALL_PREFIX:STRING=/usr/local ../.
+-- Found Git: /usr/bin/git (found version "1.7.9.5") 
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_thread.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_program_options.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_system.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_iostreams.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_date_time.a
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_thread.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_thread.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_program_options.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_program_options.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_system.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_system.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_iostreams.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_iostreams.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_date_time.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_date_time.so
+-- Boost Shared libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_thread.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_program_options.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_system.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_iostreams.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_date_time.so
+-- Found Java: /usr/lib/jvm/java-6-openjdk-amd64/bin/java (found version "1.6.0.27") 
+-- Found JNI: /usr/lib/jvm/java-6-openjdk-amd64/jre/lib/amd64/libjawt.so  
+-- jni.h was found at /usr/lib/jvm/java-6-openjdk-amd64/include/jni.h
+-- Java home set by user: /usr/lib/jvm/java-6-openjdk-amd64/
+-- Found ANT: /usr/bin/ant  
+-- Building libhdfs
+-- MPI libnames: -lmpi_cxx;-lmpi;-lopen-rte;-lopen-pal;-ldl;-lnsl;-lutil;-lm;-ldl
+-- MPI libraries: /usr/lib/openmpi/lib/libmpi_cxx.so;/usr/lib/openmpi/lib/libmpi.so;/usr/lib/openmpi/lib/libopen-rte.so;/usr/lib/openmpi/lib/libopen-pal.so;/usr/lib/x86_64-linux-gnu/libdl.so;/usr/lib/x86_64-linux-gnu/libnsl.so;/usr/lib/x86_64-linux-gnu/libutil.so;/usr/lib/x86_64-linux-gnu/libm.so;/usr/lib/x86_64-linux-gnu/libdl.so
+-- Found MPI: /usr/lib/openmpi/lib/libmpi_cxx.so  
+-- MPI Found: /usr/lib/openmpi/lib/libmpi_cxx.so/usr/lib/openmpi/lib/libmpi.so/usr/lib/openmpi/lib/libopen-rte.so/usr/lib/openmpi/lib/libopen-pal.so/usr/lib/x86_64-linux-gnu/libdl.so/usr/lib/x86_64-linux-gnu/libnsl.so/usr/lib/x86_64-linux-gnu/libutil.so/usr/lib/x86_64-linux-gnu/libm.so/usr/lib/x86_64-linux-gnu/libdl.so
+-- Looking for pthread_setaffinity_np
+-- Looking for pthread_setaffinity_np - found
+-- Performing Test HAS_MARCH_NATIVE
+-- Performing Test HAS_MARCH_NATIVE - Success
+-- Performing Test HAS_MTUNE_NATIVE
+-- Performing Test HAS_MTUNE_NATIVE - Success
+-- Performing Test HAS_CRC32
+-- Performing Test HAS_CRC32 - Success
+-- Debug build with C++ flags: -O0 -march=native -Winit-self  -Wall -g  -fopenmp
+-- Debug build with C flags: -O0 -march=native -Winit-self  -Wall -g  -fopenmp
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/haijieg/workspace/graphlab/graphlab3/debug
+
+
+
+======================= Profile =========================
+/home/haijieg/workspace/graphlab/graphlab3/deps/local/bin/cmake -D CMAKE_BUILD_TYPE=Profile -D CMAKE_INSTALL_PREFIX:STRING=/usr/local ../.
+-- The C compiler identification is GNU 4.6.3
+-- The CXX compiler identification is GNU 4.6.3
+-- Check for working C compiler: /usr/bin/cc
+-- Check for working C compiler: /usr/bin/cc -- works
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++
+-- Check for working CXX compiler: /usr/bin/c++ -- works
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Found Git: /usr/bin/git (found version "1.7.9.5") 
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_thread.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_program_options.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_system.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_iostreams.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_date_time.a
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_thread.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_thread.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_program_options.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_program_options.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_system.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_system.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_iostreams.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_iostreams.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_date_time.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_date_time.so
+-- Boost Shared libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_thread.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_program_options.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_system.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_iostreams.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_date_time.so
+-- Found Java: /usr/lib/jvm/java-6-openjdk-amd64/bin/java (found version "1.6.0.27") 
+-- Found JNI: /usr/lib/jvm/java-6-openjdk-amd64/jre/lib/amd64/libjawt.so  
+-- jni.h was found at /usr/lib/jvm/java-6-openjdk-amd64/include/jni.h
+-- Java home set by user: /usr/lib/jvm/java-6-openjdk-amd64/
+-- Found ANT: /usr/bin/ant  
+-- Building libhdfs
+-- MPI libnames: -lmpi_cxx;-lmpi;-lopen-rte;-lopen-pal;-ldl;-lnsl;-lutil;-lm;-ldl
+-- MPI libraries: /usr/lib/openmpi/lib/libmpi_cxx.so;/usr/lib/openmpi/lib/libmpi.so;/usr/lib/openmpi/lib/libopen-rte.so;/usr/lib/openmpi/lib/libopen-pal.so;/usr/lib/x86_64-linux-gnu/libdl.so;/usr/lib/x86_64-linux-gnu/libnsl.so;/usr/lib/x86_64-linux-gnu/libutil.so;/usr/lib/x86_64-linux-gnu/libm.so;/usr/lib/x86_64-linux-gnu/libdl.so
+-- Found MPI: /usr/lib/openmpi/lib/libmpi_cxx.so  
+-- MPI Found: /usr/lib/openmpi/lib/libmpi_cxx.so/usr/lib/openmpi/lib/libmpi.so/usr/lib/openmpi/lib/libopen-rte.so/usr/lib/openmpi/lib/libopen-pal.so/usr/lib/x86_64-linux-gnu/libdl.so/usr/lib/x86_64-linux-gnu/libnsl.so/usr/lib/x86_64-linux-gnu/libutil.so/usr/lib/x86_64-linux-gnu/libm.so/usr/lib/x86_64-linux-gnu/libdl.so
+-- Looking for pthread_setaffinity_np
+-- Looking for pthread_setaffinity_np - found
+-- Performing Test HAS_MARCH_NATIVE
+-- Performing Test HAS_MARCH_NATIVE - Success
+-- Performing Test HAS_MTUNE_NATIVE
+-- Performing Test HAS_MTUNE_NATIVE - Success
+-- Performing Test HAS_CRC32
+-- Performing Test HAS_CRC32 - Success
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/haijieg/workspace/graphlab/graphlab3/profile
+
+
+
+======================= Debug =========================
+/home/haijieg/workspace/graphlab/graphlab3/deps/local/bin/cmake -D CMAKE_BUILD_TYPE=Debug -D CMAKE_INSTALL_PREFIX:STRING=/home/haijieg/workspace/graphlab/graphlab3/deps/local ../.
+-- Found Git: /usr/bin/git (found version "1.7.9.5") 
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_thread.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_program_options.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_system.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_iostreams.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_date_time.a
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_thread.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_thread.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_program_options.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_program_options.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_system.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_system.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_iostreams.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_iostreams.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_date_time.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_date_time.so
+-- Boost Shared libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_thread.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_program_options.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_system.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_iostreams.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_date_time.so
+-- Found Java: /usr/lib/jvm/java-6-openjdk-amd64/bin/java (found version "1.6.0.27") 
+-- Found JNI: /usr/lib/jvm/java-6-openjdk-amd64/jre/lib/amd64/libjawt.so  
+-- jni.h was found at /usr/lib/jvm/java-6-openjdk-amd64/include/jni.h
+-- Java home set by user: /usr/lib/jvm/java-6-openjdk-amd64/
+-- Found ANT: /usr/bin/ant  
+-- Building libhdfs
+-- MPI libnames: -lmpi_cxx;-lmpi;-lopen-rte;-lopen-pal;-ldl;-lnsl;-lutil;-lm;-ldl
+-- MPI libraries: /usr/lib/openmpi/lib/libmpi_cxx.so;/usr/lib/openmpi/lib/libmpi.so;/usr/lib/openmpi/lib/libopen-rte.so;/usr/lib/openmpi/lib/libopen-pal.so;/usr/lib/x86_64-linux-gnu/libdl.so;/usr/lib/x86_64-linux-gnu/libnsl.so;/usr/lib/x86_64-linux-gnu/libutil.so;/usr/lib/x86_64-linux-gnu/libm.so;/usr/lib/x86_64-linux-gnu/libdl.so
+-- Found MPI: /usr/lib/openmpi/lib/libmpi_cxx.so  
+-- MPI Found: /usr/lib/openmpi/lib/libmpi_cxx.so/usr/lib/openmpi/lib/libmpi.so/usr/lib/openmpi/lib/libopen-rte.so/usr/lib/openmpi/lib/libopen-pal.so/usr/lib/x86_64-linux-gnu/libdl.so/usr/lib/x86_64-linux-gnu/libnsl.so/usr/lib/x86_64-linux-gnu/libutil.so/usr/lib/x86_64-linux-gnu/libm.so/usr/lib/x86_64-linux-gnu/libdl.so
+-- Looking for pthread_setaffinity_np
+-- Looking for pthread_setaffinity_np - found
+-- Performing Test HAS_MARCH_NATIVE
+-- Performing Test HAS_MARCH_NATIVE - Success
+-- Performing Test HAS_MTUNE_NATIVE
+-- Performing Test HAS_MTUNE_NATIVE - Success
+-- Performing Test HAS_CRC32
+-- Performing Test HAS_CRC32 - Success
+-- Debug build with C++ flags: -O0 -march=native -Winit-self  -Wall -g  -fopenmp
+-- Debug build with C flags: -O0 -march=native -Winit-self  -Wall -g  -fopenmp
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/haijieg/workspace/graphlab/graphlab3/debug
+
+
+
+======================= Profile =========================
+/home/haijieg/workspace/graphlab/graphlab3/deps/local/bin/cmake -D CMAKE_BUILD_TYPE=Profile -D CMAKE_INSTALL_PREFIX:STRING=/home/haijieg/workspace/graphlab/graphlab3/deps/local ../.
+-- Found Git: /usr/bin/git (found version "1.7.9.5") 
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_thread.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_program_options.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_system.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_iostreams.a/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_date_time.a
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_thread.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_thread.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_program_options.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_program_options.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_system.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_system.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_iostreams.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_iostreams.so
+-- Boost libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_date_time.a
+-- Boost dyn libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_date_time.so
+-- Boost Shared libs: /home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_filesystem.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_thread.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_program_options.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_system.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_iostreams.so/home/haijieg/workspace/graphlab/graphlab3/deps/local/lib/libboost_date_time.so
+-- Found Java: /usr/lib/jvm/java-6-openjdk-amd64/bin/java (found version "1.6.0.27") 
+-- Found JNI: /usr/lib/jvm/java-6-openjdk-amd64/jre/lib/amd64/libjawt.so  
+-- jni.h was found at /usr/lib/jvm/java-6-openjdk-amd64/include/jni.h
+-- Java home set by user: /usr/lib/jvm/java-6-openjdk-amd64/
+-- Found ANT: /usr/bin/ant  
+-- Building libhdfs
+-- MPI libnames: -lmpi_cxx;-lmpi;-lopen-rte;-lopen-pal;-ldl;-lnsl;-lutil;-lm;-ldl
+-- MPI libraries: /usr/lib/openmpi/lib/libmpi_cxx.so;/usr/lib/openmpi/lib/libmpi.so;/usr/lib/openmpi/lib/libopen-rte.so;/usr/lib/openmpi/lib/libopen-pal.so;/usr/lib/x86_64-linux-gnu/libdl.so;/usr/lib/x86_64-linux-gnu/libnsl.so;/usr/lib/x86_64-linux-gnu/libutil.so;/usr/lib/x86_64-linux-gnu/libm.so;/usr/lib/x86_64-linux-gnu/libdl.so
+-- Found MPI: /usr/lib/openmpi/lib/libmpi_cxx.so  
+-- MPI Found: /usr/lib/openmpi/lib/libmpi_cxx.so/usr/lib/openmpi/lib/libmpi.so/usr/lib/openmpi/lib/libopen-rte.so/usr/lib/openmpi/lib/libopen-pal.so/usr/lib/x86_64-linux-gnu/libdl.so/usr/lib/x86_64-linux-gnu/libnsl.so/usr/lib/x86_64-linux-gnu/libutil.so/usr/lib/x86_64-linux-gnu/libm.so/usr/lib/x86_64-linux-gnu/libdl.so
+-- Looking for pthread_setaffinity_np
+-- Looking for pthread_setaffinity_np - found
+-- Performing Test HAS_MARCH_NATIVE
+-- Performing Test HAS_MARCH_NATIVE - Success
+-- Performing Test HAS_MTUNE_NATIVE
+-- Performing Test HAS_MTUNE_NATIVE - Success
+-- Performing Test HAS_CRC32
+-- Performing Test HAS_CRC32 - Success
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/haijieg/workspace/graphlab/graphlab3/profile

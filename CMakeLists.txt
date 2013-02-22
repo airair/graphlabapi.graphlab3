@@ -109,7 +109,7 @@ ExternalProject_Add(libbz2
   BUILD_COMMAND make install PREFIX=<INSTALL_DIR>
   INSTALL_COMMAND "" )
 
-# libbz  =================================================================
+# Mongoclient =================================================================
 ExternalProject_Add(mongoclient
   PREFIX ${GraphLab_SOURCE_DIR}/deps/mongoclient
   URL http://graphlab.org/deps/mongo-cxx-driver-nightly-2013-2-7.tar.gz
@@ -123,6 +123,18 @@ ExternalProject_Add(mongoclient
 set(Mongo_LIBRARIES
     ${GraphLab_SOURCE_DIR}/deps/local/lib/libmongoclient.a)
 
+
+# Mongoclient =================================================================
+ExternalProject_Add(libfault
+  PREFIX ${GraphLab_SOURCE_DIR}/deps/libfault
+  GIT_REPOSITORY https://github.com/ylow/libfault.git
+  INSTALL_DIR ${GraphLab_SOURCE_DIR}/deps/local
+  PATCH_COMMAND patch -N -p0 -i ${GraphLab_SOURCE_DIR}/patches/libfault_configure.patch || true 
+  CONFIGURE_COMMAND  <SOURCE_DIR>/configure --prefix=<INSTALL_DIR> --graphlab_prefix=${GraphLab_SOURCE_DIR}
+  BUILD_IN_SOURCE 1
+  BUILD_COMMAND ""
+  INSTALL_COMMAND ""
+  )
 
 
 
@@ -326,7 +338,7 @@ macro(requires_core_deps NAME)
     event
     event_pthreads
     ${Mongo_LIBRARIES})
-  add_dependencies(${NAME} boost libtcmalloc zookeeper qthreads mongoclient)
+  add_dependencies(${NAME} boost libtcmalloc zookeeper qthreads mongoclient libfault)
   if(MPI_FOUND)
     target_link_libraries(${NAME} ${MPI_LIBRARIES})
   endif(MPI_FOUND)

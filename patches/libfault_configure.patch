@@ -1,0 +1,31 @@
+--- configure.old	2013-02-22 03:13:38.000000000 -0800
++++ configure	2013-02-22 11:45:24.742774725 -0800
+@@ -105,7 +105,7 @@
+ PROFILE_DIR=profile
+ INSTALL_DIR=/usr/local
+ GRAPHLAB_HOME=$PWD
+-DEPS_PREFIX=$PWD/deps/local
++DEPS_PREFIX=$GRAPHLAB_HOME/deps/local
+ CFLAGS=""
+ 
+ # if mac detected, force no_openmp flags by default
+@@ -131,6 +131,7 @@
+     --cleanup)              run_cleanup=1 ;;
+     --prefix=*)             prefix=${1##--prefix=} ;;
+     --ide=*)                ide=${1##--ide=} ;;
++    --graphlab_prefix=*)    graphlab_prefix=${1##--graphlab_prefix=} ;; 
+     -D)                     CFLAGS="$CFLAGS -D $2"; shift ;;
+     *) unknown_option $1 ;;
+   esac
+@@ -159,6 +160,11 @@
+ if [[ -n $prefix ]]; then
+   INSTALL_DIR=$prefix
+ fi
++if [[ -n $graphlab_prefix ]]; then
++  GRAPHLAB_HOME=$graphlab_prefix
++  DEPS_PREFIX=$GRAPHLAB_HOME/deps/local
++fi
++
+ 
+ 
+ # If not specified we assume gcc and g++ are the default c and c++

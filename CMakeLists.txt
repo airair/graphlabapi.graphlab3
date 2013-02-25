@@ -135,6 +135,12 @@ ExternalProject_Add(libfault
   BUILD_COMMAND cd debug/ && make
   INSTALL_COMMAND cd debug/ && make install
   )
+# add include path
+include_directories(
+  ${GraphLab_SOURCE_DIR}/deps/libfault/src/libfault/deps/local/include)
+# add link path
+link_directories(${GraphLab_SOURCE_DIR}/deps/libfault/src/libfault/deps/local/lib)
+
 
 
 
@@ -339,6 +345,8 @@ macro(requires_core_deps NAME)
     event_pthreads
     ${Mongo_LIBRARIES}
     fault
+    zmq
+    zookeeper_mt
     )
   add_dependencies(${NAME} boost libtcmalloc qthreads mongoclient libfault)
   if(MPI_FOUND)

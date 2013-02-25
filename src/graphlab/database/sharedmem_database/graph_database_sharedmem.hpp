@@ -35,13 +35,13 @@ class graph_database_sharedmem : public graph_database {
   size_t _num_shards;
 
  public:
-  graph_database_sharedmem() { }
   /**
    * Creates a shared memory graph database with fixed vertex and edge schemas. 
-   * Shards are constructed with a grid depedency.
+   * Shards are constructed with a grid dependency.
+   * All shards are hosted in the database
    */
-   graph_database_sharedmem(std::vector<graph_field> vertex_fields,
-                            std::vector<graph_field> edge_fields,
+   graph_database_sharedmem(const std::vector<graph_field>& vertex_fields,
+                            const std::vector<graph_field>& edge_fields,
                             size_t numshards) : 
        vertex_fields(vertex_fields), edge_fields(edge_fields), sharding_graph(numshards, "grid"),
  _num_shards(numshards) { 
@@ -49,6 +49,24 @@ class graph_database_sharedmem : public graph_database {
      for (size_t i = 0; i < numshards; i++) {
        shardarr[i].shard_impl.shard_id = i;
        shards[i] = &shardarr[i];
+     }
+   }
+
+  /**
+   * Creates a shared memory graph database with fixed vertex and edge schemas. 
+   * Shards are constructe with a grid dependency. 
+   * Onlly a subset of shards, provided by shardids, are hosted in the database. 
+   */
+   graph_database_sharedmem(const std::vector<graph_field>& vertex_fields,
+                            const std::vector<graph_field>& edge_fields,
+                            const std::vector<graph_shard_id_t>& hosted_shards,
+                            size_t numshards) : 
+       vertex_fields(vertex_fields), edge_fields(edge_fields), sharding_graph(numshards, "grid"),
+ _num_shards(numshards) { 
+     shardarr = new graph_shard[hosted_shards.size()];
+     for (size_t i = 0; i < hosted_shards.size(); i++) {
+       shardarr[i].shard_impl.shard_id = hosted_shards[i];
+       shards[hosted_shards[i]] = &shardarr[i];
      }
    }
 

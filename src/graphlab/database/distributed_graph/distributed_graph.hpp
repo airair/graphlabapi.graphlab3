@@ -9,9 +9,9 @@
 #include <graphlab/database/graph_edge.hpp>
 #include <graphlab/database/graph_shard.hpp>
 #include <graphlab/database/graph_database.hpp>
+#include <graphlab/database/graph_database_server.hpp>
 #include <graphlab/database/graph_sharding_constraint.hpp>
-// #include <graphlab/database/distributed_graph/distributed_graph_vertex.hpp>
-#include <graphlab/database/queryobj.hpp>
+#include <graphlab/database/query_messages.hpp>
 #include <graphlab/macros_def.hpp>
 
 namespace graphlab {
@@ -36,15 +36,14 @@ class distributed_graph {
   boost::hash<std::pair<graph_vid_t, graph_vid_t> > edge_hash;
 
   // Graph Database Server object, will be replace to comm object in the future
+  QueryMessages messages;
   graph_database_server* server;
 
-  fake_query_obj queryobj;
-
  public:
-  distributed_graph (graph_database_server*  server) : server(server), queryobj(server) { 
-    std::string vfieldreq = queryobj.create_vfield_request();
-    std::string efieldreq = queryobj.create_efield_request();
-    std::string shardingreq = queryobj.create_sharding_graph_request();
+  distributed_graph (graph_database_server*  server) : server(server) { 
+    std::string vfieldreq = messages.vfield_request();
+    std::string efieldreq = messages.efield_request();
+    std::string shardingreq = messages.sharding_graph_request();
     
     bool success;
     std::string vfieldrep = server->query(vfieldreq.c_str(), vfieldreq.length());
@@ -76,7 +75,7 @@ class distributed_graph {
    */
   uint64_t num_vertices() {
     size_t ret = 0;
-    std::string req = queryobj.create_num_verts_request();
+    std::string req = messages.num_verts_request();
     std::string rep = server->query(req.c_str(), req.length());
     bool success;
     iarchive iarc(rep.c_str(), rep.length());
@@ -91,7 +90,7 @@ class distributed_graph {
    */
   uint64_t num_edges() {
     size_t ret = 0;
-    std::string req = queryobj.create_num_edges_request();
+    std::string req = messages.num_edges_request();
     std::string rep = server->query(req.c_str(), req.length());
     bool success;
     iarchive iarc(rep.c_str(), rep.length());
@@ -214,7 +213,7 @@ class distributed_graph {
    * Returns a reference of the shard from storage.
    */
   graph_shard* get_shard(graph_shard_id_t shardid) {
-      std::string shardreq = queryobj.create_shard_request(shardid);
+      std::string shardreq = messages.shard_request(shardid);
       std::string shardrep = server->query(shardreq.c_str(), shardreq.length());
       iarchive iarc_shard(shardrep.c_str(), shardrep.length()); 
       bool success;
@@ -241,7 +240,7 @@ class distributed_graph {
    */
   graph_shard* get_shard_contents_adj_to(graph_shard_id_t shard_id,
                                          graph_shard_id_t adjacent_to) {
-      std::string shardreq = queryobj.create_shard_content_adj_request(shard_id, adjacent_to);
+      std::string shardreq = messages.shard_content_adj_request(shard_id, adjacent_to);
       std::string shardrep = server->query(shardreq.c_str(), shardreq.length());
       iarchive iarc_shard(shardrep.c_str(), shardrep.length()); 
       bool success;
@@ -304,7 +303,7 @@ class distributed_graph {
    */
   bool add_vertex(graph_vid_t vid, graph_row* data=NULL) {
     graph_shard_id_t master = sharding_graph.get_master(vid);
-    std::string req = queryobj.create_add_vertex_request(vid,
+    std::string req = messages.add_vertex_request(vid,
                                                          master,
                                                          data);
 
@@ -329,7 +328,7 @@ class distributed_graph {
   void add_edge(graph_vid_t source, graph_vid_t target, graph_row* data=NULL) {
     graph_shard_id_t master = sharding_graph.get_master(source, target);
 
-    std::string req = queryobj.create_add_edge_request(source,
+    std::string req = messages.add_edge_request(source,
                                                        target,
                                                        master,
                                                        data);
@@ -353,7 +352,7 @@ class distributed_graph {
  private: 
   bool add_vertex_mirror(graph_vid_t vid, graph_shard_id_t mirror) {
     graph_shard_id_t master = sharding_graph.get_master(vid);
-    std::string req = queryobj.create_add_vertex_mirror_request(vid,
+    std::string req = messages.add_vertex_mirror_request(vid,
                                                        master,
                                                        mirror);
 

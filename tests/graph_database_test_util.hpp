@@ -9,14 +9,13 @@ namespace graphlab {
 
    public:
      /**
-      * Creates a random graph in the database with provided arguments.
+      * Creates a database hosting a random graph with provided arguments.
       */
      static graph_database* createDatabase(size_t nverts,
                                            size_t nedges,
                                            size_t nshards,
                                            const std::vector<graph_field>& vertexfields,
                                            const std::vector<graph_field>& edgefields) {
-
        graph_database_sharedmem* db = 
            new graph_database_sharedmem (vertexfields, edgefields, nshards);
 
@@ -40,6 +39,21 @@ namespace graphlab {
       }
        return db;
      }
+
+     /**
+      * Creates a database hosting an a single shard of an empty graph with provided arguments.
+      */
+     static graph_database* createDatabase(graphlab::graph_shard_id_t shardid,
+                                           const std::vector<graph_field>& vertexfields,
+                                           const std::vector<graph_field>& edgefields,
+                                           size_t nshards) {
+       std::vector<graphlab::graph_shard_id_t> hostedshards;
+       hostedshards.push_back(shardid);
+       graph_database_sharedmem* db = 
+           new graph_database_sharedmem (vertexfields, edgefields, hostedshards, nshards);
+       return db;
+     }
+
 
      /**
       * Return whether two graph values have the same content

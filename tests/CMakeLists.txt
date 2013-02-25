@@ -16,6 +16,10 @@ add_graphlab_executable(graph_database_sharedmem_test  graph_database_sharedmem_
 
 add_graphlab_executable(graph_database_server_test graph_database_server_test.cpp)
 
+add_graphlab_executable(graph_database_test_server graph_database_test_server.cpp)
+
+add_graphlab_executable(graph_database_test_client graph_database_test_client.cpp)
+
 add_graphlab_executable(distributed_graph_test distributed_graph_test.cpp)
 
 add_graphlab_executable(qthread_sgd qthread_sgd.cpp)

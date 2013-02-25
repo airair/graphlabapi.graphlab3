@@ -35,6 +35,7 @@ struct graph_shard_impl {
    * Creates an empty shard.
    */
   graph_shard_impl() {
+    shard_id = -1;
     num_vertices = num_edges = 0;
     _vdata_capacity = 1000;
     _edata_capacity = 10000;
@@ -137,7 +138,9 @@ struct graph_shard_impl {
   }
   
   void load(iarchive& iarc) {
-    iarc >> shard_id >> num_vertices >> num_edges;
+    iarc >> shard_id
+         >> num_vertices
+         >> num_edges;
 
     iarc >> vertex;
     vertex_data = new graph_row[num_vertices];

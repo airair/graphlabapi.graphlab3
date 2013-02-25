@@ -10,7 +10,7 @@
 #include <graphlab/database/graph_shard.hpp>
 #include <graphlab/database/graph_database.hpp>
 #include <graphlab/database/graph_sharding_constraint.hpp>
-#include <graphlab/database/distributed_graph/distributed_graph_vertex.hpp>
+// #include <graphlab/database/distributed_graph/distributed_graph_vertex.hpp>
 #include <graphlab/database/queryobj.hpp>
 #include <graphlab/macros_def.hpp>
 
@@ -21,13 +21,10 @@ namespace graphlab {
  * This class implements the <code>graph_database</code> interface
  * as a shared memory instance.
  */
-class distributed_graph : public graph_database {
+class distributed_graph {
   // Schema for vertex and edge datatypes
   std::vector<graph_field> vertex_fields;
   std::vector<graph_field> edge_fields;
-
-  // Local shard cache 
-  boost::unordered_map<graph_shard_id_t, graph_shard*> shards;
 
   // Dependencies between shards
   sharding_constraint sharding_graph;
@@ -38,33 +35,21 @@ class distributed_graph : public graph_database {
   // Hash function for edge id.
   boost::hash<std::pair<graph_vid_t, graph_vid_t> > edge_hash;
 
-  // // Edge index for each shard 
-  // std::vector<graph_edge_index*> shard_edge_index;
-
   // Graph Database Server object, will be replace to comm object in the future
   graph_database_server* server;
 
   fake_query_obj queryobj;
 
-  // Total number of shards in the distributed graph. 
-  size_t _num_shards;
-
  public:
   distributed_graph (graph_database_server*  server) : server(server), queryobj(server) { 
-    std::string nshardsreq = queryobj.create_num_shards_request();
     std::string vfieldreq = queryobj.create_vfield_request();
     std::string efieldreq = queryobj.create_efield_request();
     std::string shardingreq = queryobj.create_sharding_graph_request();
     
     bool success;
-    std::string nshardsrep = server->query(nshardsreq.c_str(), nshardsreq.length());
     std::string vfieldrep = server->query(vfieldreq.c_str(), vfieldreq.length());
     std::string efieldrep = server->query(efieldreq.c_str(), efieldreq.length());
     std::string shardingrep = server->query(shardingreq.c_str(), shardingreq.length());
-
-    iarchive iarc_nshards(nshardsrep.c_str(), nshardsrep.length());
-    iarc_nshards >> success >> _num_shards;
-    ASSERT_TRUE(success);
 
     iarchive iarc_vfields(vfieldrep.c_str(), vfieldrep.length());
     iarc_vfields >> success >> vertex_fields;
@@ -117,34 +102,6 @@ class distributed_graph : public graph_database {
 
 
   /**
-   * Load a shard from server. Return false if the shard already exists. 
-   */
-  bool load_shard(graph_shard_id_t shardid) {
-    if (shards.find(shardid) != shards.end()) {
-      return false;
-    } else {
-      std::string shardreq = queryobj.create_shard_request(shardid);
-      std::string shardrep = server->query(shardreq.c_str(), shardreq.length());
-      iarchive iarc_shard(shardrep.c_str(), shardrep.length()); 
-      graph_shard* shard = new graph_shard(); 
-      iarc_shard >> shard;
-      shards[shardid] = shard;
-      return true;
-    }
-  }
-
-
-  bool unload_shard(graph_shard_id_t shardid) {
-    if (shards.find(shardid) == shards.end()) {
-      return false;
-    } else {
-      free_shard(shards[shardid]);
-      shards.erase(shardid);
-      return true;
-    }
-  }
-
-  /**
    * Returns the field metadata for the vertices in the graph
    */
   const std::vector<graph_field>& get_vertex_fields() {
@@ -166,10 +123,6 @@ class distributed_graph : public graph_database {
   }
 
 
-
-
-
-
   // -------- Fine grained API ------------
   graph_shard_id_t get_master(graph_vid_t vid) {
     return vidhash(vid) % sharding_graph.num_shards(); 
@@ -182,14 +135,6 @@ class distributed_graph : public graph_database {
    */
   graph_vertex* get_vertex(graph_vid_t vid) {
     return NULL;
-    // graph_shard_id_t master = get_master(vid);
-    // if (!shards[master].has_vertex(vid)) {
-    //   return NULL;
-    // }
-    // graph_row* vertex_data = shards[master].vertex_data_by_id(vid);
-    // const boost::unordered_set<graph_shard_id_t>& mirrors = shards[master].get_mirrors(vid);
-    // ASSERT_TRUE(vertex_data != NULL);
-    // return (new graph_vertex_sharedmem(vid, vertex_data, master, mirrors, shard_edge_index, this));
   };
 
 
@@ -200,13 +145,6 @@ class distributed_graph : public graph_database {
    */
   graph_edge* get_edge(graph_eid_t eid, graph_shard_id_t shardid) {
     return NULL;
-    // if (shardid >= num_shards() || eid >= shards[shardid].num_edges()) {
-    //   return NULL;
-    // } else {
-    //   std::pair<graph_vid_t, graph_vid_t> pair = shards[shardid].edge(eid);
-    //   graph_row* edge_data = shards[shardid].edge_data(eid);
-    //   return (new graph_edge_sharedmem(pair.first, pair.second, eid, edge_data, shardid, this));
-    // } 
   }
 
   /**
@@ -242,8 +180,8 @@ class distributed_graph : public graph_database {
    * The associated data is not freed. 
    */
   void free_vertex(graph_vertex* vertex) {
-    // delete vertex;
-    // vertex = NULL;
+  // not implemented
+    ASSERT_TRUE(false);
   };
 
   /**
@@ -251,43 +189,46 @@ class distributed_graph : public graph_database {
    * The associated data is not freed. 
    */
   void free_edge(graph_edge* edge) {
-    // delete edge;
-    // edge = NULL;
+    // not implemented
+    ASSERT_TRUE(false);
+
   }
   
   /**
    * Frees a collection of edges. The vector will be cleared on return.
    */
   void free_edge_vector(std::vector<graph_edge*>* edgelist) {
-    // foreach(graph_edge*& e, *edgelist)
-    //     free_edge(e);
-    // edgelist->clear();
+    // not implemented
+    ASSERT_TRUE(false);
   }
 
 
 //  ------ Coarse Grained API ---------
 
   /**
-   * Returns the number of shards in the database
+   * Returns the total number of shards in the distributed graph 
    */
-  size_t num_shards() { return shards.size(); }
+  size_t num_shards() { return sharding_graph.num_shards(); }
   
   /**
    * Returns a reference of the shard from storage.
    */
-  graph_shard* get_shard(graph_shard_id_t shard_id) {
-    return shards[shard_id];
-  }
-
-  /**
-   * Returns a deep copy of the shard from storage.
-   * The returned pointer should be freed by <code>free_shard</code>
-   */
-  graph_shard* get_shard_copy(graph_shard_id_t shard_id) {
-    return NULL;
-    // graph_shard* ret = new graph_shard;
-    // shards[shard_id].shard_impl.deepcopy(ret->shard_impl);
-    // return ret;
+  graph_shard* get_shard(graph_shard_id_t shardid) {
+      std::string shardreq = queryobj.create_shard_request(shardid);
+      std::string shardrep = server->query(shardreq.c_str(), shardreq.length());
+      iarchive iarc_shard(shardrep.c_str(), shardrep.length()); 
+      bool success;
+      iarc_shard >> success;
+      if (success) {
+        graph_shard* shard = new graph_shard(); 
+        iarc_shard >> *shard;
+        return shard;
+      } else {
+        std::string errormsg;
+        iarc_shard >> errormsg;
+        logstream(LOG_WARNING) << errormsg;
+        return NULL;
+      }
   }
 
                           
@@ -299,48 +240,22 @@ class distributed_graph : public graph_database {
    * Returns NULL on failure.
    */
   graph_shard* get_shard_contents_adj_to(graph_shard_id_t shard_id,
-                                                 graph_shard_id_t adjacent_to) {
-    return NULL;
-    // graph_shard* ret = new graph_shard();
-    // graph_shard_impl& shard_impl = ret->shard_impl;
-    // shard_impl.shard_id = adjacent_to;
-
-    // const std::vector<graph_vid_t>& vids = shards[shard_id].shard_impl.vertex;
-
-    // // For each vertex in shard_id, if its master or mirrors conatins adjacent_to, then copy its adjacent edges from adjacent_to. 
-    // for (size_t i = 0; i < vids.size(); i++) {
-    //     if ((shard_id == adjacent_to) || 
-    //         (shards[shard_id].get_mirrors(vids[i]).find(adjacent_to)
-    //          != shards[shard_id].get_mirrors(vids[i]).end())) {
-
-    //     std::vector<size_t> index_in;
-    //     std::vector<size_t> index_out;
-    //     shard_edge_index[adjacent_to]->get_edge_index(index_in, index_out, true, true, vids[i]);
-    //     
-    //     // copy incoming edges vids[i]
-    //     for (size_t j = 0; j < index_in.size(); j++) {
-    //       std::pair<graph_vid_t, graph_vid_t> e = shards[adjacent_to].edge(index_in[j]);
-    //       graph_row* data = shards[adjacent_to].edge_data(index_in[j]);
-    //       graph_row* data_copy = new graph_row();
-    //       data->deepcopy(*data_copy);
-    //       shard_impl.add_edge(e.first, e.second, data_copy);
-    //       shard_impl.edgeid.push_back(index_in[j]);
-    //       delete data_copy;
-    //     }
-
-    //     // copy outgoing edges of vids[i]
-    //     for (size_t j = 0; j < index_out.size(); j++) {
-    //       std::pair<graph_vid_t, graph_vid_t> e = shards[adjacent_to].edge(index_out[j]);
-    //       graph_row* data = shards[adjacent_to].edge_data(index_out[j]);
-    //       graph_row* data_copy = new graph_row();
-    //       data->deepcopy(*data_copy);
-    //       shard_impl.add_edge(e.first, e.second, data_copy);
-    //       shard_impl.edgeid.push_back(index_out[j]);
-    //       delete data_copy;
-    //     }
-    //   }
-    // }
-    // return ret;
+                                         graph_shard_id_t adjacent_to) {
+      std::string shardreq = queryobj.create_shard_content_adj_request(shard_id, adjacent_to);
+      std::string shardrep = server->query(shardreq.c_str(), shardreq.length());
+      iarchive iarc_shard(shardrep.c_str(), shardrep.length()); 
+      bool success;
+      iarc_shard >> success;
+      if (success) {
+        graph_shard* shard = new graph_shard(); 
+        iarc_shard >> shard;
+        return shard;
+      } else {
+        std::string errormsg;
+        iarc_shard >> errormsg;
+        logstream(LOG_WARNING) << errormsg;
+        return NULL;
+      }
   }
 
   /**
@@ -348,9 +263,9 @@ class distributed_graph : public graph_database {
    * All pointers to the data in the shard will be invalid. 
    */  
   void free_shard(graph_shard* shard) {
-    // shard->clear();
-    // delete(shard);
-    // shard = NULL;
+    shard->clear();
+    delete(shard);
+    shard = NULL;
   }
   
   /** 
@@ -358,7 +273,7 @@ class distributed_graph : public graph_database {
    */
   void adjacent_shards(graph_shard_id_t shard_id, 
                                std::vector<graph_shard_id_t>* out_adj_shard_ids) { 
-    // sharding_graph.get_neighbors(shard_id, *out_adj_shard_ids);
+    sharding_graph.get_neighbors(shard_id, *out_adj_shard_ids);
   }
 
   /**
@@ -366,9 +281,7 @@ class distributed_graph : public graph_database {
    * in the shard, resetting all modification flags.
    */
   void commit_shard(graph_shard* shard) {
-    // graph_shard_id_t id = shard->id();
-
-    // // commit vertex data
+    // not implemented
     // for (size_t i = 0; i < shard->num_vertices(); i++) {
     //   graph_row* row = shard->vertex_data(i);
     //   for (size_t j = 0; j < row->num_fields(); j++) {
@@ -379,26 +292,7 @@ class distributed_graph : public graph_database {
     //   }
     // }
 
-    // commit edge data
-    // if the shard to commit is a derived shard, we need to overwrite 
-    // the corresponding edges in the original shard
-    // bool derivedshard = shard->shard_impl.edgeid.size() > 0;
-
-    // for (size_t i = 0; i < shard->num_edges(); i++) {
-    //   graph_row* local = shard->edge_data(i);
-
-    //   graph_row* origin = derivedshard ? shards[id].edge_data(shard->shard_impl.edgeid[i]) : shards[id].edge_data(i);
-    //   ASSERT_TRUE(origin != NULL);
-
-    //   for (size_t j = 0; j < local->num_fields(); j++) {
-    //     graph_value* val = local->get_field(j);
-    //     if (val->get_modified()) {
-    //       val->post_commit_state();
-    //       origin->get_field(j)->free_data();
-    //       val->deepcopy(*origin->get_field(j));
-    //     }
-    //   }
-    // }
+    ASSERT_TRUE(false);
   }
 
 // ----------- Modification API -----------------
@@ -409,23 +303,22 @@ class distributed_graph : public graph_database {
    * Return false if v is already inserted.
    */
   bool add_vertex(graph_vid_t vid, graph_row* data=NULL) {
-    // assign a master shard of the vertex
-    // graph_shard_id_t master = get_master(vid); 
+    graph_shard_id_t master = sharding_graph.get_master(vid);
+    std::string req = queryobj.create_add_vertex_request(vid,
+                                                         master,
+                                                         data);
 
-    // if (shards[master].has_vertex(vid)) {
-    //   return false;
-    // }
+    std::string rep = server->update(req.c_str(), req.length());
+    iarchive iarc(rep.c_str(), rep.length());
 
-    // // create a new row of all null values.
-    // graph_row* row = (data==NULL) ? new graph_row(this, vertex_fields) : data;
-    // row->_is_vertex = true;
-    // 
-    // // Insert into shard. This operation transfers the data ownership to the row in the shard
-    // // so that we can free the row at the end of the function.
-    // shards[master].shard_impl.add_vertex(vid, row);
-
-    // delete row;
-    return true;
+    bool success;
+    iarc >> success;
+    if (!success) {
+      std::string msg;
+      iarc >> msg;
+      logstream(LOG_WARNING) << msg;
+    }
+    return success;
   }
 
   /**
@@ -434,34 +327,23 @@ class distributed_graph : public graph_database {
    * The corresponding vertex mirrors and edge index are updated.
    */
   void add_edge(graph_vid_t source, graph_vid_t target, graph_row* data=NULL) {
+    graph_shard_id_t master = sharding_graph.get_master(source, target);
 
-    // Add vertices to master shards 
-    // if (!shards[get_master(source)].has_vertex(source)) {
-    //   add_vertex(source);
-    // }
-    // if (!shards[get_master(target)].has_vertex(target)) {
-    //   add_vertex(target);
-    // }
+    std::string req = queryobj.create_add_edge_request(source,
+                                                       target,
+                                                       master,
+                                                       data);
 
-    // std::vector<graph_shard_id_t> candidates;
-    // sharding_graph.get_joint_neighbors(get_master(source), get_master(target), candidates);
-    // ASSERT_GT(candidates.size(), 0);
+    std::string rep = server->update(req.c_str(), req.length());
+    iarchive iarc(rep.c_str(), rep.length());
 
-    // graph_shard_id_t shardid = candidates[edge_hash(std::pair<graph_vid_t, graph_vid_t>(source, target)) % candidates.size()];
-
-    // // create a new row of all null values
-    // graph_row* row = (data==NULL) ? new graph_row(this, edge_fields) : data;
-
-    // row->_is_vertex = false;
-
-    // // Insert into shard. This operation transfers the data ownership to the row in the shard
-    // // so that we can free the row at the end of the function.
-    // shards[shardid].shard_impl.add_edge(source, target, row);
-
-    // shards[get_master(source)].shard_impl.add_vertex_mirror(source, shardid);
-    // shards[get_master(target)].shard_impl.add_vertex_mirror(target, shardid);
-
-    // delete row;
+    bool success;
+    iarc >> success;
+    if (!success) {
+      std::string msg;
+      iarc >> msg;
+      logstream(LOG_WARNING) << msg;
+    }
   }
 };
 } // namespace graphlab

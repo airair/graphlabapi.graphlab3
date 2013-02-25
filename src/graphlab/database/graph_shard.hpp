@@ -161,7 +161,6 @@ class graph_shard {
   }
 
 
-
  private:
 
   // copy constructor deleted. It is not safe to copy this object.
@@ -172,6 +171,7 @@ class graph_shard {
 
   friend class graph_database;
   friend class graph_database_sharedmem;
+  friend class graph_vertex_sharedmem;
 };
 } // namespace graphlab 
 #endif

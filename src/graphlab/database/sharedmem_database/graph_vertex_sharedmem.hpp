@@ -36,9 +36,6 @@ class graph_vertex_sharedmem : public graph_vertex {
   // Mirror shards spanned by this vertex.
   boost::unordered_set<graph_shard_id_t> mirrors;
   
-  // Index of the edges.
-  std::vector<graph_edge_index*> edge_index;
-
   // Pointer to the database.
   graph_database* database;
 
@@ -50,10 +47,8 @@ class graph_vertex_sharedmem : public graph_vertex {
                          graph_row* data,
                          graph_shard_id_t master,
                          const boost::unordered_set<graph_shard_id_t>& mirrors,
-                         const std::vector<graph_edge_index*>& eindex,
                          graph_database* db) : 
-      vid(vid), vdata(data), master(master), mirrors(mirrors),
-      edge_index(eindex), database(db) {}
+      vid(vid), vdata(data), master(master), mirrors(mirrors), database(db) {}
 
   /**
    * Returns the ID of the vertex
@@ -148,6 +143,8 @@ class graph_vertex_sharedmem : public graph_vertex {
    *  the vertex).
    *
    *  The prefetch behavior is ignored. We always pass the data pointer to the new edge. 
+   *
+   *  Assuming the shardid  is a local shard.
    */ 
   void get_adj_list(graph_shard_id_t shard_id, 
                             bool prefetch_data,
@@ -157,17 +154,20 @@ class graph_vertex_sharedmem : public graph_vertex {
     std::vector<size_t> index_out;
     bool getIn = out_inadj!=NULL;
     bool getOut = out_outadj!=NULL;
-    edge_index[shard_id]->get_edge_index(index_in, index_out, getIn, getOut, vid);
+    graph_shard* shard = database->get_shard(shard_id);
+    
+    ASSERT_TRUE(shard != NULL);
+    shard->shard_impl.edge_index.get_edge_index(index_in, index_out, getIn, getOut, vid);
 
     foreach(size_t& idx, index_in) {  
-      std::pair<graph_vid_t, graph_vid_t> pair = database->get_shard(shard_id)->edge(idx);
-      graph_row* row  = database->get_shard(shard_id)->edge_data(idx);
+      std::pair<graph_vid_t, graph_vid_t> pair = shard->edge(idx);
+      graph_row* row  = shard->edge_data(idx);
       out_inadj->push_back(new graph_edge_sharedmem(pair.first, pair.second, idx, row, shard_id, database)); 
     }
 
     foreach(size_t& idx, index_out) {  
-      std::pair<graph_vid_t, graph_vid_t> pair = database->get_shard(shard_id)->edge(idx);
-      graph_row* row = database->get_shard(shard_id)->edge_data(idx);
+      std::pair<graph_vid_t, graph_vid_t> pair = shard->edge(idx);
+      graph_row* row = shard->edge_data(idx);
       out_outadj->push_back(new graph_edge_sharedmem(pair.first, pair.second, idx, row, shard_id, database)); 
     }
   }

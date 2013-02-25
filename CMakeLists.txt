@@ -124,7 +124,7 @@ set(Mongo_LIBRARIES
     ${GraphLab_SOURCE_DIR}/deps/local/lib/libmongoclient.a)
 
 
-# Mongoclient =================================================================
+# libfault =================================================================
 ExternalProject_Add(libfault
   PREFIX ${GraphLab_SOURCE_DIR}/deps/libfault
   GIT_REPOSITORY https://github.com/ylow/libfault.git
@@ -337,8 +337,10 @@ macro(requires_core_deps NAME)
     qthread
     event
     event_pthreads
-    ${Mongo_LIBRARIES})
-  add_dependencies(${NAME} boost libtcmalloc qthreads mongoclient fault)
+    ${Mongo_LIBRARIES}
+    fault
+    )
+  add_dependencies(${NAME} boost libtcmalloc qthreads mongoclient libfault)
   if(MPI_FOUND)
     target_link_libraries(${NAME} ${MPI_LIBRARIES})
   endif(MPI_FOUND)

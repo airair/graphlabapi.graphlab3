@@ -10,22 +10,24 @@ using namespace std;
 void testAddVertex() {
   vector<graphlab::graph_field> vertexfields;
   vector<graphlab::graph_field> edgefields;
-  // vertexfields.push_back(graphlab::graph_field("id", graphlab::VID_TYPE));
   vertexfields.push_back(graphlab::graph_field("pagerank", graphlab::DOUBLE_TYPE));
   vertexfields.push_back(graphlab::graph_field("url", graphlab::STRING_TYPE));
 
   int nshards = 4;
   graphlab::graph_database_sharedmem db(vertexfields, edgefields, nshards);
+  const graphlab::sharding_constraint& constraint_graph = db.get_sharding_constraint();
 
   // Add 100 vertices
   size_t nverts_expected = 100;
   for (size_t i = 0; i < nverts_expected; i++) {
-    db.add_vertex(i);
+    graphlab::graph_shard_id_t master = constraint_graph.get_master(i);
+    db.add_vertex(i, master);
   }
   ASSERT_EQ(db.num_vertices(), nverts_expected);
   // Add the same vertices should not succeed
   for (size_t i = 0; i < nverts_expected; i++) {
-    ASSERT_FALSE(db.add_vertex(i));
+    graphlab::graph_shard_id_t master = constraint_graph.get_master(i);
+    ASSERT_FALSE(db.add_vertex(i, master));
   }
   ASSERT_EQ(db.num_vertices(), nverts_expected);
 
@@ -38,19 +40,19 @@ void testAddVertex() {
         ASSERT_TRUE(data->get_field(j)->is_null());
     }
     // Set pagerank field to 1.0 and url field to "http://$vid"
-    ASSERT_TRUE(data->get_field("pagerank") != NULL);
+    ASSERT_TRUE(data->get_field(0) != NULL);
 
-    ASSERT_TRUE(data->get_field("url") != NULL);
-    data->get_field("pagerank")->set_double(1.0);
-    ASSERT_TRUE(data->get_field("pagerank")->get_modified());
+    ASSERT_TRUE(data->get_field(1) != NULL);
+    data->get_field(0)->set_double(1.0);
+    ASSERT_TRUE(data->get_field(0)->get_modified());
 
     string url="http://" + boost::lexical_cast<string>(i);
-    data->get_field("url")->set_string(url);
-    ASSERT_TRUE(data->get_field("url")->get_modified());
+    data->get_field(1)->set_string(url);
+    ASSERT_TRUE(data->get_field(1)->get_modified());
 
     v->write_changes();
-    ASSERT_TRUE(!data->get_field("pagerank")->get_modified());
-    ASSERT_TRUE(!data->get_field("url")->get_modified());
+    ASSERT_TRUE(!data->get_field(0)->get_modified());
+    ASSERT_TRUE(!data->get_field(1)->get_modified());
     db.free_vertex(v);
   }
 
@@ -63,14 +65,14 @@ void testAddVertex() {
     }
     // Verify that pagerank field is set to 1.0 and url field to "http://$vid"
     double pr;
-    ASSERT_TRUE(data->get_field("pagerank")->get_double(&pr));
+    ASSERT_TRUE(data->get_field(0)->get_double(&pr));
     ASSERT_TRUE(fabs(pr-1) < 1e-5);
     string url;
-    ASSERT_TRUE(data->get_field("url")->get_string(&url));
+    ASSERT_TRUE(data->get_field(1)->get_string(&url));
     ASSERT_EQ(url, "http://" + boost::lexical_cast<string>(i));  
 
-    ASSERT_TRUE(!data->get_field("pagerank")->get_modified());
-    ASSERT_TRUE(!data->get_field("url")->get_modified());
+    ASSERT_TRUE(!data->get_field(0)->get_modified());
+    ASSERT_TRUE(!data->get_field(1)->get_modified());
     db.free_vertex(v);
   }
 }
@@ -85,17 +87,29 @@ void testAddEdge() {
 
   size_t nshards = 4;
   graphlab::graph_database_sharedmem db(vertexfields, edgefields, nshards);
+  const graphlab::sharding_constraint& constraint_graph = db.get_sharding_constraint();
 
   size_t nverts = 100;
   size_t nedges = 2000;
 
+  for (size_t i = 0; i < nverts; i++) {
+    graphlab::graph_shard_id_t master = constraint_graph.get_master(i);
+    db.add_vertex(i, master);
+  }
+
   boost::hash<size_t> hash; 
+
   // Creates a random graph
   for (size_t i = 0; i < nedges; i++) {
     size_t source = hash(i) % nverts;
     size_t target = hash(-i) % nverts;
-    db.add_edge(source, target);
+
+    graphlab::graph_shard_id_t master = constraint_graph.get_master(source, target);
+    db.add_edge(source, target, master);
+    db.add_vertex_mirror(source, constraint_graph.get_master(source), master);
+    db.add_vertex_mirror(target, constraint_graph.get_master(target), master);
   }
+
   ASSERT_EQ(db.num_edges(), nedges);
   ASSERT_LE(db.num_vertices(),nverts);
 
@@ -117,7 +131,7 @@ void testAddEdge() {
     // Set out edges weights.
     for (size_t j = 0; j < db.num_shards(); j++) {
       for (size_t k = 0; k < outadjs[j].size(); k++) {
-        outadjs[j][k]->data()->get_field("weight")->set_double(1.0/num_out_edges);
+        outadjs[j][k]->data()->get_field(0)->set_double(1.0/num_out_edges);
         outadjs[j][k]->write_changes();
       }
     }
@@ -145,13 +159,22 @@ void testShardAPI() {
   size_t nverts = 6400;
   size_t nedges = 128000;
   boost::hash<size_t> hash; 
+
+  const graphlab::sharding_constraint& constraint_graph = db.get_sharding_constraint();
+
+  for (size_t i = 0; i < nverts; i++) {
+    db.add_vertex(i, constraint_graph.get_master(i));
+  }
+
+
   // Creates a random graph
   for (size_t i = 0; i < nedges; i++) {
     size_t source = hash(i) % nverts;
     size_t target = hash(-i) % nverts;
-    // size_t source = (i) % nverts;
-    // size_t target = (i+1) % nverts;
-    db.add_edge(source, target);
+    graphlab::graph_shard_id_t master = constraint_graph.get_master(source, target);
+    db.add_edge(source, target, master);
+    db.add_vertex_mirror(source, constraint_graph.get_master(source), master);
+    db.add_vertex_mirror(target, constraint_graph.get_master(target), master);
   }
 
   // Count the number of vertices/edges in the shards
@@ -181,7 +204,7 @@ void testShardAPI() {
     for (size_t j = 0; j < shards[i]->num_vertices(); j++) {
       graphlab::graph_row* row = shards[i]->vertex_data(j);
       ASSERT_TRUE(row->is_vertex());
-      row->get_field("url")->set_string("http://" + boost::lexical_cast<string>(shards[i]->vertex(j)));
+      row->get_field(0)->set_string("http://" + boost::lexical_cast<string>(shards[i]->vertex(j)));
     }
   }
 
@@ -196,11 +219,11 @@ void testShardAPI() {
   for (size_t i = 0; i < shards.size(); i++) {
     for (size_t j = 0; j < shards[i]->num_edges(); j++) {
       std::pair<graphlab::graph_vid_t, graphlab::graph_vid_t> pair = shards[i]->edge(j);
-      graphlab::graph_value* val = shards[i]->edge_data(j)->get_field("weight");
+      graphlab::graph_value* val = shards[i]->edge_data(j)->get_field(0);
       ASSERT_TRUE(val != NULL);
       ASSERT_TRUE(val->is_null());
       val->set_double(1.0/outedges[pair.first]);
-      ASSERT_TRUE(shards[i]->edge_data(j)->get_field("dummy")->set_integer(0));
+      ASSERT_TRUE(shards[i]->edge_data(j)->get_field(1)->set_integer(0));
     }
   }
 
@@ -217,7 +240,7 @@ void testShardAPI() {
     for (size_t j = 0; j < db.num_shards(); j++) {
       graphlab::graph_shard* shardij = db.get_shard_contents_adj_to(i, j);
       for (size_t k = 0; k < shardij->num_edges(); k++) {
-        graphlab::graph_value* val = shardij->edge_data(k)->get_field("dummy");
+        graphlab::graph_value* val = shardij->edge_data(k)->get_field(1);
         ASSERT_TRUE(val != NULL);
         ASSERT_TRUE(!val->is_null());
         graphlab::graph_int_t oldval;
@@ -234,8 +257,8 @@ void testShardAPI() {
     graphlab::graph_shard* shard = db.get_shard(i);
     for (size_t j = 0; j < shard->num_edges(); j++) {
       graphlab::graph_int_t dummyval;
-      ASSERT_TRUE(shard->edge_data(j)->get_field("dummy")->get_integer(&dummyval));
-      if (db.get_master(shard->edge(j).first) == db.get_master(shard->edge(j).second)) {
+      ASSERT_TRUE(shard->edge_data(j)->get_field(1)->get_integer(&dummyval));
+      if (constraint_graph.get_master(shard->edge(j).first) == constraint_graph.get_master(shard->edge(j).second)) {
         ASSERT_EQ(dummyval, 1);
       } else {
         ASSERT_EQ(dummyval, 2);

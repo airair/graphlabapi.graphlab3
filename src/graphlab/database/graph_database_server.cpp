@@ -107,6 +107,14 @@ namespace graphlab {
     oarc << true << *shard;
   }
 
+  void graph_database_server::get_shard_contents_adj_to(iarchive& iarc, oarchive& oarc) {
+    graph_shard_id_t shard_from, shard_to;
+    iarc >> shard_from >> shard_to;
+    graph_shard* shard = database->get_shard_contents_adj_to(shard_from, shard_to);
+    ASSERT_TRUE(shard != NULL);
+    oarc << true << *shard;
+  }
+
 
 
   // ----------- Modification Handlers ----------------
@@ -155,5 +163,56 @@ namespace graphlab {
       database->free_edge(e);
       oarc << success;
     }
+  }
+  
+  // ------------------ Ingress Handlers -----------------
+  void graph_database_server::add_vertex (iarchive& iarc,
+                                          oarchive& oarc) {
+    graph_vid_t vid;
+    graph_shard_id_t master;
+    bool hasdata, success;
+
+    iarc >> vid >> master >> hasdata;
+    if (!hasdata) {
+      success = database->add_vertex(vid, master);
+    } else {
+      graph_row* data = new graph_row;
+      iarc >> *data;
+      success = database->add_vertex(vid, master, data);
+    }
+
+    if (success) {
+      oarc << success;
+    } else {
+      oarc << success << ("Fail adding vertex. Vid " 
+                       + boost::lexical_cast<std::string>(vid)
+                       + " already exists on shard "
+                       + boost::lexical_cast<std::string>(master));
+    }
+  }
+
+  void graph_database_server::add_edge (iarchive& iarc,
+                                        oarchive& oarc) {
+    graph_vid_t source, target;
+    graph_shard_id_t master;
+    bool hasdata;
+    iarc >> source >> target >> master >> hasdata;
+    if (hasdata) {
+      database->add_edge(source, target, master);
+    } else {
+      graph_row* data = new graph_row;
+      iarc >> *data;
+      database->add_edge(source, target, master, data);
+    }
+    oarc << true;
+  }
+
+  void graph_database_server::add_vertex_mirror (iarchive& iarc,
+                                                 oarchive& oarc) {
+    graph_vid_t vid;
+    graph_shard_id_t master, mirror;
+    iarc >> vid >> master >> mirror;
+    database->add_vertex_mirror(vid, master, mirror);
+    oarc << true;
   }
 }

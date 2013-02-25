@@ -47,6 +47,12 @@ class graph_database_server {
       set_vertex_field(iarc, oarc);
     } else if (header == "edge_data") {
       set_edge_field(iarc, oarc);
+    } else if (header == "add_vertex") {
+      add_vertex(iarc, oarc);
+    } else if (header == "add_edge") {
+      add_edge(iarc, oarc);
+    } else if (header == "update_vertex_mirror") {
+      add_vertex_mirror(iarc, oarc);
     } else {
       logstream(LOG_WARNING) <<  ("Unknown query header: " + header) << std::endl;
       oarc << false << ("Unknown query header: " + header);
@@ -211,6 +217,25 @@ class graph_database_server {
    *  success << shard 
    */
   void get_shard(iarchive& iarc, oarchive& oarc);
+
+
+
+  /**
+   * Returns the serialization of the shard corresponding to the 
+   * query adjacent shard ids in iarc.
+   *
+   * Serialization format:
+   *  success << shard 
+   */
+  void get_shard_contents_adj_to(iarchive& iarc, oarchive& oarc);
+
+
+  // ---------------- Ingress API -----------------
+  void add_vertex(iarchive& iarc, oarchive& oarc);
+
+  void add_edge(iarchive& iarc, oarchive& oarc);
+
+  void add_vertex_mirror(iarchive& iarc, oarchive& oarc);
 
   /**
    * Returns a serialized error message string;

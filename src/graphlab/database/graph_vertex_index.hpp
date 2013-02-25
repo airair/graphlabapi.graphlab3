@@ -6,8 +6,9 @@
 #include <graphlab/database/graph_vertex.hpp>
 #include <graphlab/database/graph_edge.hpp>
 #include <graphlab/database/graph_shard.hpp>
+#include <graphlab/serialization/iarchive.hpp>
+#include <graphlab/serialization/oarchive.hpp>
 #include <graphlab/logger/assertions.hpp>
-#include <graphlab/serialization/is_pod.hpp>
 #include <boost/unordered_map.hpp>
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
@@ -19,7 +20,7 @@ namespace graphlab {
    * The primary key is the vid. TODO: add support for secondary keys specified in the 
    * <code>graph_field</code>.
    */
-  class graph_vertex_index : public IS_POD_TYPE {
+  class graph_vertex_index {
    public:
 
      // Return the existence of a vertex with given id.
@@ -54,6 +55,14 @@ namespace graphlab {
        // } 
        return true;
      }
+
+     void save (oarchive& oarc) const {
+       oarc << index_map;
+     }
+     void load (iarchive& iarc) {
+       iarc >> index_map;
+     }
+
 
      // bool build_index(graph_field& field, const std::vector<graph_row*> vertices) {
      //   if (field.type != INT_TYPE || field.is_indexed) {

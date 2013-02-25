@@ -51,7 +51,7 @@ class graph_database_server {
       add_vertex(iarc, oarc);
     } else if (header == "add_edge") {
       add_edge(iarc, oarc);
-    } else if (header == "update_vertex_mirror") {
+    } else if (header == "add_vertex_mirror") {
       add_vertex_mirror(iarc, oarc);
     } else {
       logstream(LOG_WARNING) <<  ("Unknown query header: " + header) << std::endl;

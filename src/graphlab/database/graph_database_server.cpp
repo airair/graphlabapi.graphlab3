@@ -173,12 +173,12 @@ namespace graphlab {
     bool hasdata, success;
 
     iarc >> vid >> master >> hasdata;
-    if (!hasdata) {
-      success = database->add_vertex(vid, master);
-    } else {
+    if (hasdata) {
       graph_row* data = new graph_row;
       iarc >> *data;
       success = database->add_vertex(vid, master, data);
+    } else {
+      success = database->add_vertex(vid, master);
     }
 
     if (success) {
@@ -198,11 +198,11 @@ namespace graphlab {
     bool hasdata;
     iarc >> source >> target >> master >> hasdata;
     if (hasdata) {
-      database->add_edge(source, target, master);
-    } else {
       graph_row* data = new graph_row;
       iarc >> *data;
       database->add_edge(source, target, master, data);
+    } else {
+      database->add_edge(source, target, master);
     }
     oarc << true;
   }

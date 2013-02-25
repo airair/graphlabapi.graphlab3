@@ -343,7 +343,30 @@ class distributed_graph {
       std::string msg;
       iarc >> msg;
       logstream(LOG_WARNING) << msg;
+    } else {
+      success &=  add_vertex_mirror(source, master);
+      success &=  add_vertex_mirror(target, master);
+      ASSERT_TRUE(success);
     }
+  }
+
+ private: 
+  bool add_vertex_mirror(graph_vid_t vid, graph_shard_id_t mirror) {
+    graph_shard_id_t master = sharding_graph.get_master(vid);
+    std::string req = queryobj.create_add_vertex_mirror_request(vid,
+                                                       master,
+                                                       mirror);
+
+    std::string rep = server->update(req.c_str(), req.length());
+    iarchive iarc(rep.c_str(), rep.length());
+    bool success;
+    iarc >> success;
+    if (!success) {
+      std::string msg;
+      iarc >> msg;
+      logstream(LOG_WARNING) << msg;
+    }
+    return success;
   }
 };
 } // namespace graphlab

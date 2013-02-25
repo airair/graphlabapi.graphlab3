@@ -20,4 +20,4 @@ add_graphlab_executable(distributed_graph_test distributed_graph_test.cpp)
 
 add_graphlab_executable(qthread_sgd qthread_sgd.cpp)
 
-add_graphlab_executable(generate_pds generate_pds.cpp)
+#add_graphlab_executable(generate_pds generate_pds.cpp)

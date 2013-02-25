@@ -6,7 +6,8 @@
 #include <graphlab/database/graph_vertex.hpp>
 #include <graphlab/database/graph_edge.hpp>
 #include <graphlab/database/graph_shard.hpp>
-#include <graphlab/serialization/is_pod.hpp>
+#include <graphlab/serialization/iarchive.hpp>
+#include <graphlab/serialization/oarchive.hpp>
 #include <boost/unordered_map.hpp>
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
@@ -16,7 +17,7 @@ namespace graphlab {
    *
    * This class provides adjacency look up in one shard.
    */
-  class graph_edge_index : public IS_POD_TYPE{
+  class graph_edge_index {
    public:
      /**
       * Fills in the query vid's incoming and outgoing edge index (in this shard)
@@ -43,6 +44,14 @@ namespace graphlab {
       outEdges[source].push_back(pos);
       inEdges[target].push_back(pos);
     }
+
+    void save (oarchive& oarc) const {
+       oarc << inEdges << outEdges;
+     }
+     void load (iarchive& iarc) {
+       iarc >> inEdges >> outEdges;
+     }
+
 
    private:
     // A vector where each element is a map from vid to a list of in edge ids on a shard.

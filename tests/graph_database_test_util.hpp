@@ -1,4 +1,5 @@
 #include <graphlab/database/sharedmem_database/graph_database_sharedmem.hpp>
+#include <graphlab/database/graph_sharding_constraint.hpp>
 #include <graphlab/database/graph_field.hpp>
 #include <graphlab/logger/assertions.hpp>
 #include <vector>
@@ -15,20 +16,28 @@ namespace graphlab {
                                            size_t nshards,
                                            const std::vector<graph_field>& vertexfields,
                                            const std::vector<graph_field>& edgefields) {
+
        graph_database_sharedmem* db = 
            new graph_database_sharedmem (vertexfields, edgefields, nshards);
 
-       boost::hash<size_t> hash; 
+      const sharding_constraint& constraint_graph = db->get_sharding_constraint();
 
-       for (size_t i = 0;i < nverts; i++) {
-         db->add_vertex(i);
-       }
+      for (size_t i = 0; i < nverts; i++) {
+        db->add_vertex(i, constraint_graph.get_master(i));
+      }
 
-       for (size_t i = 0; i < nedges; i++) {
-         size_t source = hash(i) % nverts;
-         size_t target = hash(-i) % nverts;
-         db->add_edge(source, target);
-       }
+      boost::hash<size_t> hash; 
+
+      // Creates a random graph
+      for (size_t i = 0; i < nedges; i++) {
+        size_t source = hash(i) % nverts;
+        size_t target = hash(-i) % nverts;
+
+        graphlab::graph_shard_id_t master = constraint_graph.get_master(source, target);
+        db->add_edge(source, target, master);
+        db->add_vertex_mirror(source, constraint_graph.get_master(source), master);
+        db->add_vertex_mirror(target, constraint_graph.get_master(target), master);
+      }
        return db;
      }
 
@@ -69,6 +78,25 @@ namespace graphlab {
        }
        return eq;
      }
+
+     /**
+      * Return whether two graph shards have the same content.
+      */
+     static bool compare_shard(graph_shard& lhs, graph_shard& rhs) {
+       bool eq = ((lhs.id() == rhs.id() && (lhs.num_vertices() == rhs.num_vertices())
+                   && (lhs.num_edges() == rhs.num_edges())));
+       for (size_t i = 0; i < lhs.num_vertices(); i++) {
+           eq &= (lhs.vertex(i) == rhs.vertex(i));
+           eq &= (compare_row(*lhs.vertex_data(i), *rhs.vertex_data(i)));
+         }
+       for (size_t i = 0; i < lhs.num_edges(); i++) {
+
+           eq &= ((lhs.edge(i).first == rhs.edge(i).first) && (lhs.edge(i).second == rhs.edge(i).second));
+           eq &= (compare_row(*lhs.edge_data(i), *rhs.edge_data(i)));
+         }
+       return eq;
+     }
+
 
      /**
       * Return whether two graph field are the same. 

@@ -8,14 +8,30 @@
 #include <vector>
 using namespace std;
 
+typedef graphlab::graph_database_test_util test_util;
 
 void test(graphlab::graph_database* db) {
   graphlab::graph_database_server server(db);
   graphlab::distributed_graph graph(&server);
-  ASSERT_EQ(graph.num_shards(), 0);
-  // ASSERT_EQ(graph.get_vertex_fields().size(), db->get_vertex_fields(),size());
-  // ASSERT_EQ(graph.get_edge_fields().size(), db->get_edge_fields().size());
+
+
+  /* Test intialize graph */
+  ASSERT_EQ(graph.num_shards(), db->num_shards());
+  for (size_t i = 0; i < graph.get_vertex_fields().size(); i++) {
+     ASSERT_TRUE(test_util::compare_graph_field(graph.get_vertex_fields()[i], db->get_vertex_fields()[i]));
+  }
+  for (size_t i = 0; i < graph.get_edge_fields().size(); i++) {
+     ASSERT_TRUE(test_util::compare_graph_field(graph.get_edge_fields()[i], db->get_edge_fields()[i]));
+  }
+
+  /* Test get shard equality */
+  for (size_t i = 0; i < graph.num_shards(); ++i) {
+    graphlab::graph_shard* shard = graph.get_shard(i);
+    ASSERT_TRUE(test_util::compare_shard((*shard), *(db->get_shard(i))));
+    graph.free_shard(shard);
+  } 
 }
+
 
 
 int main(int argc, char** argv) {
@@ -27,7 +43,8 @@ int main(int argc, char** argv) {
   size_t nshards = 4;
   size_t nverts = 100;
   size_t nedges = 100;
-  graphlab::graph_database* db = graphlab::graph_database_test_util::createDatabase(nverts, nedges, nshards, vertexfields, edgefields);
+  graphlab::graph_database* db =
+      test_util::createDatabase(nverts, nedges, nshards, vertexfields, edgefields);
   test(db);
   return 0;
 }

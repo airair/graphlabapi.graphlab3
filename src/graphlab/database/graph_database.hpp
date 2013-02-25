@@ -135,7 +135,6 @@ class graph_database {
    */
   virtual size_t num_shards() = 0;
   
-  
   /**
    * Synchronously obtains a shard from the database.
    * Returns NULL on failure
@@ -164,6 +163,17 @@ class graph_database {
    * in the shard, resetting all modification flags.
    */
   void commit_shard(graph_shard* shard);
+
+
+  // --------------------- Structure Modification API ----------------------
+  
+  virtual bool add_vertex(graph_vid_t vid, graph_shard_id_t master, graph_row* data=NULL) = 0;
+
+  virtual void add_edge(graph_vid_t source, graph_vid_t target,
+                        graph_shard_id_t shard_id, graph_row* data=NULL) = 0;
+
+  virtual void add_vertex_mirror(graph_vid_t vid, graph_shard_id_t master,
+                                 graph_shard_id_t mirror) = 0;
 };
 
 

@@ -33,6 +33,12 @@ namespace graphlab {
     std::string method;
     std::vector<std::vector<graph_shard_id_t> > constraint_graph;
 
+    // Hash function for vertex id.
+    boost::hash<graph_vid_t> vidhash;
+
+    // Hash function for edge id.
+    boost::hash<std::pair<graph_vid_t, graph_vid_t> > edge_hash;
+
    public:
     sharding_constraint() {}
     sharding_constraint(size_t nshards, std::string method) :
@@ -43,16 +49,28 @@ namespace graphlab {
       check();
     }
 
-    bool get_neighbors (graph_shard_id_t shard, std::vector<graph_shard_id_t>& neighbors) {
+    graph_shard_id_t get_master(graph_vid_t vid) const {
+      return vidhash(vid) % num_shards();
+    }
+
+    graph_shard_id_t get_master(graph_vid_t source,
+                                graph_vid_t target) const {
+      std::vector<graph_shard_id_t> candidates;
+      get_joint_neighbors(get_master(source), get_master(target), candidates);
+      ASSERT_GT(candidates.size(), 0);
+
+      graph_shard_id_t shardid = candidates[edge_hash(std::pair<graph_vid_t, graph_vid_t>(source, target)) % candidates.size()];
+      return shardid;
+    }
+
+
+    bool get_neighbors (graph_shard_id_t shard, std::vector<graph_shard_id_t>& neighbors) const {
       ASSERT_LT(shard, nshards);
-      neighbors.clear();
-      std::vector<graph_shard_id_t>& ls = constraint_graph[shard];
-      for (size_t i = 0; i < ls.size(); ++i)
-        neighbors.push_back(ls[i]);
+      neighbors = constraint_graph[shard];
       return true;
     }
 
-    bool get_joint_neighbors (graph_shard_id_t shardi, graph_shard_id_t shardj, std::vector<graph_shard_id_t>& neighbors) {
+    bool get_joint_neighbors (graph_shard_id_t shardi, graph_shard_id_t shardj, std::vector<graph_shard_id_t>& neighbors) const {
       ASSERT_EQ(neighbors.size(), 0);
       ASSERT_LT(shardi, nshards);
       ASSERT_LT(shardj, nshards);
@@ -61,8 +79,8 @@ namespace graphlab {
       //   return true;
       // }
 
-      std::vector<graph_shard_id_t>& ls1 = constraint_graph[shardi];
-      std::vector<graph_shard_id_t>& ls2 = constraint_graph[shardj];
+      const std::vector<graph_shard_id_t>& ls1 = constraint_graph[shardi];
+      const std::vector<graph_shard_id_t>& ls2 = constraint_graph[shardj];
       neighbors.clear();
       size_t i = 0;
       size_t j = 0;
@@ -79,7 +97,7 @@ namespace graphlab {
       return true;
     }
 
-    size_t num_shards() {
+    size_t num_shards() const {
       return nshards;
     }
 

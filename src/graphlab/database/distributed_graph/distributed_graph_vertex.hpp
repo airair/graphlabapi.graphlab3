@@ -1,17 +1,15 @@
-#ifndef GRAPHLAB_DATABASE_GRAPH_VERTEX_SHARED_MEM_HPP
-#define GRAPHLAB_DATABASE_GRAPH_VERTEX_SHARED_MEM_HPP
+#ifndef GRAPHLAB_DATABASE_DISTRIBUTED_GRAPH_VERTES_HPP
+#define GRAPHLAB_DATABASE_DISTRIBUTED_GRAPH_VERTES_HPP
 #include <vector>
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/database/graph_row.hpp>
 #include <graphlab/database/graph_edge.hpp>
 #include <graphlab/database/graph_vertex.hpp>
-#include <graphlab/database/sharedmem_database/graph_edge_sharedmem.hpp>
-#include <graphlab/database/graph_vertex_index.hpp>
 #include <boost/unordered_set.hpp>
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
 
-class graph_database_sharedmem;
+class distributed_graph;
 /**
  * \ingroup group_graph_database
  *  An shared memory implementation of <code>graph_vertex</code>.
@@ -21,39 +19,26 @@ class graph_database_sharedmem;
  *
  * This object is not thread-safe, and may not copied.
  */
-class graph_vertex_sharedmem : public graph_vertex {
+class distributed_graph_vertex: public graph_vertex {
  private:
 
   // Id of the vertex.
   graph_vid_t vid;
 
-  // Pointer to the vertex data in the storage.
+  // A cache of the vertex data.
   graph_row* vdata;
 
-  // Master shard id of this vertex.
-  graph_shard_id_t master;
-
-  // Mirror shards spanned by this vertex.
-  boost::unordered_set<graph_shard_id_t> mirrors;
-  
-  // Index of the edges.
-  std::vector<graph_edge_index*> edge_index;
-
-  // Pointer to the database.
-  graph_database* database;
+  // Pointer to the distributed graph.
+  distributed_graph* graph;
 
  public:
   /**
    * Creates a graph vertex object 
    */
-  graph_vertex_sharedmem(graph_vid_t vid,
-                         graph_row* data,
-                         graph_shard_id_t master,
-                         const boost::unordered_set<graph_shard_id_t>& mirrors,
-                         const std::vector<graph_edge_index*>& eindex,
-                         graph_database* db) : 
-      vid(vid), vdata(data), master(master), mirrors(mirrors),
-      edge_index(eindex), database(db) {}
+  distributed_graph_vertex(graph_vid_t vid,
+                           graph_row* data,
+                           distributed_graph* graph) : 
+      vid(vid), vdata(data), graph(graph) {}
 
   /**
    * Returns the ID of the vertex
@@ -68,6 +53,8 @@ class graph_vertex_sharedmem : public graph_vertex {
    * to the database through a write_* call.
    */
   graph_row* data() {
+    if (data == NULL)
+      refresh();
     return vdata;
   };
 
@@ -81,12 +68,11 @@ class graph_vertex_sharedmem : public graph_vertex {
    * TODO: check delta commit.
    */ 
   void write_changes() {  
-    for (size_t i = 0; i < vdata->num_fields(); i++) {
-      graph_value* val = vdata->get_field(i);
-      if (val->get_modified()) {
-        val->post_commit_state();
-      }
-    }
+    if (data == NULL)
+      return;
+
+    // NOT IMPLEMENTED 
+    ASSERT_TRUE(false);
   }
 
   /**
@@ -97,16 +83,17 @@ class graph_vertex_sharedmem : public graph_vertex {
   }
 
   /**
-   * No effects in shared memory.
+   * Request vertex data from the server.
    */ 
-  void refresh() { }
+  void refresh() { 
+  }
 
   /**
    * Commits the change immediately.
-   * Refresh has no effects in shared memory.
    */ 
   void write_and_refresh() { 
     write_changes();
+    refresh();
   }
 
   // --- sharding ---

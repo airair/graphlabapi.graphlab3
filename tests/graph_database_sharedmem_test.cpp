@@ -89,8 +89,8 @@ void testAddEdge() {
   graphlab::graph_database_sharedmem db(vertexfields, edgefields, nshards);
   const graphlab::sharding_constraint& constraint_graph = db.get_sharding_constraint();
 
-  size_t nverts = 100;
-  size_t nedges = 2000;
+  size_t nverts = 10000; // 10k vertices
+  size_t nedges = 5000000; // 5M edges
 
   for (size_t i = 0; i < nverts; i++) {
     graphlab::graph_shard_id_t master = constraint_graph.get_master(i);

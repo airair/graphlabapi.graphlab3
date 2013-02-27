@@ -16,6 +16,7 @@ void test_shard_retrieval() {
   vertexfields.push_back(graphlab::graph_field("url", graphlab::STRING_TYPE));
   vertexfields.push_back(graphlab::graph_field("pagerank", graphlab::DOUBLE_TYPE));
   edgefields.push_back(graphlab::graph_field("weight", graphlab::DOUBLE_TYPE));
+
   size_t nshards = 4;
   size_t nverts = 100;
   size_t nedges = 100;
@@ -25,14 +26,13 @@ void test_shard_retrieval() {
   graphlab::graph_database_server server(db);
   graphlab::distributed_graph graph(&server);
 
-
   /* Test intialize graph */
   ASSERT_EQ(graph.num_shards(), db->num_shards());
   for (size_t i = 0; i < graph.get_vertex_fields().size(); i++) {
-     ASSERT_TRUE(test_util::compare_graph_field(graph.get_vertex_fields()[i], db->get_vertex_fields()[i]));
+     ASSERT_TRUE(test_util::compare_graph_field(graph.get_vertex_fields()[i], vertexfields[i]));
   }
   for (size_t i = 0; i < graph.get_edge_fields().size(); i++) {
-     ASSERT_TRUE(test_util::compare_graph_field(graph.get_edge_fields()[i], db->get_edge_fields()[i]));
+     ASSERT_TRUE(test_util::compare_graph_field(graph.get_edge_fields()[i], edgefields[i]));
   }
 
   /* Test get shard equality */
@@ -41,6 +41,8 @@ void test_shard_retrieval() {
     ASSERT_TRUE(test_util::compare_shard((*shard), *(db->get_shard(i))));
     graph.free_shard(shard);
   } 
+
+  delete(db);
 }
 
 void test_ingress() {
@@ -50,18 +52,20 @@ void test_ingress() {
   vertexfields.push_back(graphlab::graph_field("pagerank", graphlab::DOUBLE_TYPE));
   edgefields.push_back(graphlab::graph_field("weight", graphlab::DOUBLE_TYPE));
   size_t nshards = 4;
-  size_t nverts = 100;
-  size_t nedges = 200;
+  size_t nverts = 1000; // 1K vertices
+  size_t nedges = 50000; // 50k edges
   graphlab::graph_database* db =
       test_util::createDatabase(0, 0, nshards, vertexfields, edgefields);
 
   graphlab::graph_database_server server(db);
   graphlab::distributed_graph graph(&server);
 
+  std::cout << "Test adding vertices ... " << std::endl;
   for (size_t i = 0; i < nverts; i++) {
     graph.add_vertex(i);
   }
 
+  std::cout << "Test adding edges ... " << std::endl;
   // Creates a random graph
   boost::hash<graphlab::graph_vid_t> hash;
   for (size_t i = 0; i < nedges; i++) {
@@ -72,6 +76,7 @@ void test_ingress() {
 
   ASSERT_EQ(graph.num_vertices(), nverts);
   ASSERT_EQ(graph.num_edges(), nedges);
+  delete(db);
 }
 
 int main(int argc, char** argv) {

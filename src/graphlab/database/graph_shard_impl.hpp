@@ -49,6 +49,7 @@ struct graph_shard_impl {
   ~graph_shard_impl() {
     delete[] vertex_data;
     delete[] edge_data;
+    vertex_data = edge_data = NULL;
   }
 
   /** 

@@ -12,6 +12,7 @@
 #include <graphlab/database/graph_database_server.hpp>
 #include <graphlab/database/graph_sharding_constraint.hpp>
 #include <graphlab/database/query_messages.hpp>
+#include <fault/query_object_client.hpp>
 #include <graphlab/macros_def.hpp>
 
 namespace graphlab {
@@ -35,20 +36,59 @@ class distributed_graph {
   // Hash function for edge id.
   boost::hash<std::pair<graph_vid_t, graph_vid_t> > edge_hash;
 
+
+  typedef libfault::query_object_client::query_result query_result;
+
   // Graph Database Server object, will be replace to comm object in the future
   QueryMessages messages;
-  graph_database_server* server;
+
+  // local server holding all shards. Used for testing only.
+  graph_database_server* server; 
+
+  // the actual query object which connects to the graph db server.
+  libfault::query_object_client* qoclient;
+
+  // a list of shard server names.
+  std::vector<std::string> server_list;
+
+
+  std::string query (const std::string& server_name, char* msg, size_t msg_len) {
+    if (server != NULL)  {
+      return server->query(msg, msg_len);
+    } else {
+      query_result result = qoclient->query(server_name, msg, msg_len);
+      if (result.get_status() != 0) {
+        logstream(LOG_WARNING) << "Error: query to " << server_name << " failed.";
+      } else {
+        return result.get_reply();
+      }
+    }
+  }
+
+  std::string update (const std::string& server_name, char* msg, size_t msg_len) {
+    if (server != NULL)  {
+      return server->update(msg, msg_len);
+    } else {
+      query_result result = qoclient->update(server_name, msg, msg_len);
+      if (result.get_status() != 0) {
+        logstream(LOG_WARNING) << "Error: query to " << server_name << " failed.";
+      } else {
+        return result.get_reply();
+      }
+    }
+  }
 
  public:
-  distributed_graph (graph_database_server*  server) : server(server) { 
-    std::string vfieldreq = messages.vfield_request();
-    std::string efieldreq = messages.efield_request();
-    std::string shardingreq = messages.sharding_graph_request();
+  distributed_graph (graph_database_server*  server) : server(server), qoclient(NULL) { 
+    int vfield_req_len, efield_req_len, sharding_req_len;
+    char* vfieldreq = messages.vfield_request(&vfield_req_len);
+    char* efieldreq = messages.efield_request(&efield_req_len);
+    char* shardingreq = messages.sharding_graph_request(&sharding_req_len);
     
     bool success;
-    std::string vfieldrep = server->query(vfieldreq.c_str(), vfieldreq.length());
-    std::string efieldrep = server->query(efieldreq.c_str(), efieldreq.length());
-    std::string shardingrep = server->query(shardingreq.c_str(), shardingreq.length());
+    std::string vfieldrep = query("local", vfieldreq, vfield_req_len);
+    std::string efieldrep = query("local", efieldreq, efield_req_len);
+    std::string shardingrep = query("local", shardingreq, sharding_req_len);
 
     iarchive iarc_vfields(vfieldrep.c_str(), vfieldrep.length());
     iarc_vfields >> success >> vertex_fields;
@@ -61,12 +101,25 @@ class distributed_graph {
     iarchive iarc_sharding_graph(shardingrep.c_str(), shardingrep.length());
     iarc_sharding_graph >> success >> sharding_graph;
     ASSERT_TRUE(success);
+
+    server_list.push_back("local"); // in local mode, there is only one server
+  }
+
+  distributed_graph (void* zmq_ctx,
+                     std::vector<std::string> zkhosts,
+                     std::string& prefix,
+                     std::vector<std::string> server_list) : server(NULL), server_list(server_list) {
+    qoclient = new libfault::query_object_client(zmq_ctx, zkhosts, prefix);
+    ASSERT_GT(server_list.size(), 0);
   }
 
    /**
     * Destroy the graph, free all vertex and edge data from memory.
     */
    virtual ~distributed_graph() {
+     if (qoclient != NULL) {
+       delete qoclient;
+     }
    }
 
   /**
@@ -74,13 +127,18 @@ class distributed_graph {
    * This may be slow.
    */
   uint64_t num_vertices() {
-    size_t ret = 0;
-    std::string req = messages.num_verts_request();
-    std::string rep = server->query(req.c_str(), req.length());
+    size_t count, ret = 0;
     bool success;
-    iarchive iarc(rep.c_str(), rep.length());
-    iarc >> success >> ret;
-    ASSERT_TRUE(success);
+    for (size_t i = 0; i < server_list.size(); i++) {
+      int msg_len;
+      char* req = messages.num_verts_request(&msg_len);
+      std::string rep = query(server_list[i], req, msg_len);
+      iarchive iarc(rep.c_str(), rep.length());
+      iarc >> success;
+      ASSERT_TRUE(success);
+      iarc >> count;
+      ret += count;
+    }
     return ret;
   };
   
@@ -89,13 +147,18 @@ class distributed_graph {
    * This may be slow.
    */
   uint64_t num_edges() {
-    size_t ret = 0;
-    std::string req = messages.num_edges_request();
-    std::string rep = server->query(req.c_str(), req.length());
+    size_t count, ret = 0;
     bool success;
-    iarchive iarc(rep.c_str(), rep.length());
-    iarc >> success >> ret;
-    ASSERT_TRUE(success);
+    for (size_t i = 0; i < server_list.size(); i++) {
+      int msg_len;
+      char* req = messages.num_edges_request(&msg_len);
+      std::string rep = query(server_list[i], req, msg_len);
+      iarchive iarc(rep.c_str(), rep.length());
+      iarc >> success;
+      ASSERT_TRUE(success);
+      iarc >> count;
+      ret += count;
+    }
     return ret;
   }
 
@@ -213,8 +276,12 @@ class distributed_graph {
    * Returns a reference of the shard from storage.
    */
   graph_shard* get_shard(graph_shard_id_t shardid) {
-      std::string shardreq = messages.shard_request(shardid);
-      std::string shardrep = server->query(shardreq.c_str(), shardreq.length());
+
+      // Map from shardid to server name: Assuming using mod for now.
+      int msg_len;
+      char* shardreq = messages.shard_request(&msg_len, shardid);
+      std::string server_name = find_server(shardid);
+      std::string shardrep = query(server_name, shardreq, msg_len);
       iarchive iarc_shard(shardrep.c_str(), shardrep.length()); 
       bool success;
       iarc_shard >> success;
@@ -240,8 +307,10 @@ class distributed_graph {
    */
   graph_shard* get_shard_contents_adj_to(graph_shard_id_t shard_id,
                                          graph_shard_id_t adjacent_to) {
-      std::string shardreq = messages.shard_content_adj_request(shard_id, adjacent_to);
-      std::string shardrep = server->query(shardreq.c_str(), shardreq.length());
+      int msg_len;
+      char* shardreq = messages.shard_content_adj_request(&msg_len, shard_id, adjacent_to);
+      std::string server_name = find_server(adjacent_to);
+      std::string shardrep = query(server_name, shardreq, msg_len);
       iarchive iarc_shard(shardrep.c_str(), shardrep.length()); 
       bool success;
       iarc_shard >> success;
@@ -280,18 +349,15 @@ class distributed_graph {
    * in the shard, resetting all modification flags.
    */
   void commit_shard(graph_shard* shard) {
-    // not implemented
-    // for (size_t i = 0; i < shard->num_vertices(); i++) {
-    //   graph_row* row = shard->vertex_data(i);
-    //   for (size_t j = 0; j < row->num_fields(); j++) {
-    //     graph_value* val = row->get_field(j);
-    //     if (val->get_modified()) {
-    //       val->post_commit_state();
-    //     }
-    //   }
-    // }
-
     ASSERT_TRUE(false);
+  }
+
+  /*
+   * Map from shardid to shard server name.
+   */
+  std::string find_server(graph_shard_id_t shardid) {
+    size_t id = shardid % server_list.size();
+    return "shard"+boost::lexical_cast<std::string>(id);
   }
 
 // ----------- Modification API -----------------
@@ -303,11 +369,11 @@ class distributed_graph {
    */
   bool add_vertex(graph_vid_t vid, graph_row* data=NULL) {
     graph_shard_id_t master = sharding_graph.get_master(vid);
-    std::string req = messages.add_vertex_request(vid,
-                                                         master,
-                                                         data);
+    int msg_len;
+    char* req = messages.add_vertex_request(&msg_len, vid, master, data);
 
-    std::string rep = server->update(req.c_str(), req.length());
+    std::string server_name = find_server(master);
+    std::string rep = update(server_name, req, msg_len);
     iarchive iarc(rep.c_str(), rep.length());
 
     bool success;
@@ -328,12 +394,11 @@ class distributed_graph {
   void add_edge(graph_vid_t source, graph_vid_t target, graph_row* data=NULL) {
     graph_shard_id_t master = sharding_graph.get_master(source, target);
 
-    std::string req = messages.add_edge_request(source,
-                                                       target,
-                                                       master,
-                                                       data);
+    int msg_len;
+    char* req = messages.add_edge_request(&msg_len, source, target, master, data);
 
-    std::string rep = server->update(req.c_str(), req.length());
+    std::string server_name = find_server(master);
+    std::string rep = update(server_name, req, msg_len);
     iarchive iarc(rep.c_str(), rep.length());
 
     bool success;
@@ -343,8 +408,8 @@ class distributed_graph {
       iarc >> msg;
       logstream(LOG_WARNING) << msg;
     } else {
-      success &=  add_vertex_mirror(source, master);
-      success &=  add_vertex_mirror(target, master);
+      success &= add_vertex_mirror(source, master);
+      success &= add_vertex_mirror(target, master);
       ASSERT_TRUE(success);
     }
   }
@@ -352,11 +417,14 @@ class distributed_graph {
  private: 
   bool add_vertex_mirror(graph_vid_t vid, graph_shard_id_t mirror) {
     graph_shard_id_t master = sharding_graph.get_master(vid);
-    std::string req = messages.add_vertex_mirror_request(vid,
+    int msg_len;
+    char* req = messages.add_vertex_mirror_request(&msg_len,
+                                                         vid,
                                                        master,
                                                        mirror);
 
-    std::string rep = server->update(req.c_str(), req.length());
+    std::string server_name = find_server(master);
+    std::string rep = update(server_name, req, msg_len);
     iarchive iarc(rep.c_str(), rep.length());
     bool success;
     iarc >> success;

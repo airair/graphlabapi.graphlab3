@@ -17,10 +17,11 @@ struct graph_field {
   std::string name;
   bool is_indexed;
   graph_datatypes_enum type;
-  size_t max_data_length;
+  // not used yet... TODO: check max_data_length for graph_value.
+  size_t max_data_length; 
 
   graph_field(std::string name, graph_datatypes_enum type) :
-     name(name), type(type) {} 
+     name(name), is_indexed(false), type(type), max_data_length(0) {} 
 
   void save(oarchive &oarc) const {
     oarc << name << is_indexed << type << max_data_length;

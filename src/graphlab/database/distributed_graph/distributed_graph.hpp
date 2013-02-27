@@ -59,6 +59,7 @@ class distributed_graph {
       query_result result = qoclient->query(server_name, msg, msg_len);
       if (result.get_status() != 0) {
         logstream(LOG_WARNING) << "Error: query to " << server_name << " failed.";
+        return "ERROR";
       } else {
         return result.get_reply();
       }
@@ -72,6 +73,7 @@ class distributed_graph {
       query_result result = qoclient->update(server_name, msg, msg_len);
       if (result.get_status() != 0) {
         logstream(LOG_WARNING) << "Error: query to " << server_name << " failed.";
+        return "ERROR";
       } else {
         return result.get_reply();
       }
@@ -419,9 +421,9 @@ class distributed_graph {
     graph_shard_id_t master = sharding_graph.get_master(vid);
     int msg_len;
     char* req = messages.add_vertex_mirror_request(&msg_len,
-                                                         vid,
-                                                       master,
-                                                       mirror);
+                                                   vid,
+                                                   master,
+                                                   mirror);
 
     std::string server_name = find_server(master);
     std::string rep = update(server_name, req, msg_len);

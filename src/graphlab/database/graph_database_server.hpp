@@ -30,6 +30,7 @@ class graph_database_server {
 
   /**
    * Handle the SET queries.
+   * This function takes over the pointer of the request message.
    *
    * Current support queries:
    *  // Set the vertex data at a given field.
@@ -38,7 +39,7 @@ class graph_database_server {
    *  // Set the edge data at a given field.
    *  header("edge_data") >> eid >> shardid >> fieldpos >> len >> data
    */
-  std::string update(const char* request, size_t len) {
+  std::string update(char* request, size_t len) {
     std::string header;
     iarchive iarc(request, len);
     iarc >> header;
@@ -60,11 +61,13 @@ class graph_database_server {
 
     std::string ret(oarc.buf, oarc.off);
     free(oarc.buf);
+    free(request);
     return ret;
   } 
 
   /**
    * Handle the GET queries.
+   * This function takes over the pointer of the request message.
    *
    * Current support queries:
    *  // get vertex fields metadata
@@ -82,7 +85,7 @@ class graph_database_server {
    *  // get  the adjacency edges of vertex at a given shard. Boolean options: getin, getout, and prefetch_data. 
    *  header("vertex_adj") >> vid >> shardid >> getin >> getout >> prefetch_data     
    */
-  std::string query(const char* request, size_t len) {
+  std::string query(char* request, size_t len) {
     iarchive iarc(request, len);
     std::string header;
     iarc >> header;
@@ -112,9 +115,9 @@ class graph_database_server {
       logstream(LOG_WARNING) <<  ("Unknown query header: " + header) << std::endl;
       oarc << false << ("Unknown query header: " + header);
     }
-
     std::string ret(oarc.buf, oarc.off);
     free(oarc.buf);
+    free(request);
     return  ret;
   }
 

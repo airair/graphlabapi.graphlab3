@@ -47,8 +47,10 @@ struct graph_shard_impl {
    * Deconstructor. Free the edge and vertex data.
    */
   ~graph_shard_impl() {
-    delete[] vertex_data;
-    delete[] edge_data;
+    if (vertex_data != NULL)
+      delete[] vertex_data;
+    if (edge_data != NULL)
+      delete[] edge_data;
     vertex_data = edge_data = NULL;
   }
 
@@ -173,7 +175,7 @@ struct graph_shard_impl {
 
   /**
    * Insert a (vid, row) into the shard. Return the position of the vertex in the shard.
-   * For optimization purpose, the data ownership of row is transfered. 
+   * For optimization, take over the row pointer. 
    * */
   inline size_t add_vertex(graph_vid_t vid, graph_row* row) {
     ASSERT_TRUE(row->_own_data);
@@ -199,9 +201,9 @@ struct graph_shard_impl {
     // update vertex index
     vertex_index.add_vertex(vid, &vertex_data[pos], pos);
 
+    delete row;
     return pos;
   }
-
 
   /**
    */

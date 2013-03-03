@@ -1,8 +1,10 @@
-#ifndef GRAPHLAB_DATABASE_GRAPH_EDGE_SHAREDMEM_HPP
-#define GRAPHLAB_DATABASE_GRAPH_EDGE_SHAREDMEM_HPP
+#ifndef GRAPHLAB_DATABASE_DISTRIBUTED_GRAPH_EDGE_HPP
+#define GRAPHLAB_DATABASE_DISTRIBUTED_GRAPH_EDGE_HPP
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/database/graph_row.hpp>
 #include <graphlab/database/graph_edge.hpp>
+#include <graphlab/database/query_messages.hpp>
+#include <graphlab/database/distributed_graph/idistributed_graph.hpp>
 namespace graphlab {
 
 /**
@@ -12,38 +14,97 @@ namespace graphlab {
  *
  * This object is not thread-safe, and may not copied.
  */
-class graph_edge_sharedmem : public graph_edge {
+class distributed_graph_edge : public graph_edge {
+
  graph_vid_t sourceid;
+
  graph_vid_t targetid;
- graph_eid_t edgeid;
+
+ graph_eid_t eid;
+
  graph_row* edata;
+
  graph_shard_id_t master;
- graph_database* database;
+
+ idistributed_graph* graph;
+
  public:
-  graph_edge_sharedmem(const graph_vid_t& sourceid,
-                       const graph_vid_t& targetid,
-                       const graph_eid_t& edgeid,
-                       graph_row* data,
-                       graph_shard_id_t master,
-                       graph_database* database) :
-  sourceid(sourceid), targetid(targetid), edgeid(edgeid), edata(data),
-    master(master), database(database) {}
+  struct vertex_adjacency_record {
+    graph_vid_t vid; 
+    graph_shard_id_t shardid;
+    distributed_graph_edge* inEdges;
+    distributed_graph_edge* outEdges;
+    idistributed_graph* graph;
+    size_t num_in_edges, num_out_edges;
+
+    vertex_adjacency_record(idistributed_graph* graph) : graph(graph) {}
+
+    void save (oarchive& oarc) const{
+      oarc << vid << shardid << num_in_edges << num_out_edges;
+      for (size_t i = 0; i < num_in_edges; i++)
+        oarc << inEdges[i].get_src() << inEdges[i].get_id() << inEdges[i].data();
+      for (size_t i = 0; i < num_out_edges; i++) 
+        oarc << outEdges[i].get_dest() << outEdges[i].get_id() << outEdges[i].data();
+    }
+
+    void load (iarchive& iarc) {
+      iarc >> vid >> shardid >> num_in_edges >> num_out_edges;
+      inEdges = new distributed_graph_edge[num_in_edges];
+      outEdges = new distributed_graph_edge[num_out_edges];
+      for (size_t i = 0; i < num_in_edges; i++) {
+        graph_vid_t source; 
+        graph_eid_t eid;
+        graph_row* data = new graph_row();
+        iarc >> source >> eid >> *data; 
+        inEdges[i].sourceid = source;
+        inEdges[i].targetid = vid;
+        inEdges[i].master = shardid;
+        inEdges[i].eid = eid;
+        inEdges[i].edata = data;
+        inEdges[i].graph = graph;
+      }
+        
+      for (size_t i = 0; i < num_out_edges; i++) {
+        graph_vid_t target; 
+        graph_eid_t eid;
+        graph_row* data = new graph_row();
+        iarc >> target >> eid >> *data; 
+        outEdges[i].sourceid = vid;
+        outEdges[i].targetid = target;
+        outEdges[i].master = shardid;
+        outEdges[i].eid = eid;
+        outEdges[i].edata = data;
+        outEdges[i].graph = graph;
+      }
+    }
+  };
+
+
+ public:
+ distributed_graph_edge() :
+     sourceid(-1), targetid(-1), eid(-1), edata(NULL),
+     master(-1), graph(NULL) {}
+
+ ~distributed_graph_edge () {
+   if (edata != NULL)
+     delete edata;
+ }
 
   /**
    * Returns the source ID of this edge
    */
-  graph_vid_t get_src() { return sourceid; } 
+  graph_vid_t get_src() const { return sourceid; } 
 
   /**
    * Returns the destination ID of this edge
    */
-  graph_vid_t get_dest() { return targetid; }
+  graph_vid_t get_dest() const { return targetid; }
 
   /**
    * Returns the internal id of this edge
    * The id is unique with repect to a shard.
    */
-  graph_eid_t get_id() { return edgeid;};
+  graph_eid_t get_id() const { return eid;};
 
   /** 
    * Returns a pointer to the graph_row representing the data
@@ -56,6 +117,8 @@ class graph_edge_sharedmem : public graph_edge {
    * returned by this function are invalidated.
    */
   graph_row* data()  {
+    if (edata == NULL)
+      refresh();
     return edata;
   };
 
@@ -70,12 +133,11 @@ class graph_edge_sharedmem : public graph_edge {
    * TODO: check delta commit.
    */ 
   void write_changes() {  
-    for (size_t i = 0; i < edata->num_fields(); i++) {
-      graph_value* val = edata->get_field(i);
-      if (val->get_modified()) {
-        val->post_commit_state();
-      }
-    }
+    if (edata == NULL)
+      return;
+
+    // NOT IMPLEMENTED 
+    ASSERT_TRUE(false);
   }
 
   /**
@@ -88,7 +150,9 @@ class graph_edge_sharedmem : public graph_edge {
   /**
    * No effects in shared memory.
    */ 
-  void refresh() { }
+  void refresh() { 
+    ASSERT_TRUE(false);
+  }
 
   /**
    * Commits the change immediately.
@@ -101,9 +165,29 @@ class graph_edge_sharedmem : public graph_edge {
  /**
    * Returns the ID of the shard owning this edge
    */
-  graph_shard_id_t master_shard() {
+  graph_shard_id_t master_shard() const {
     return master;
   };
+
+
+  void save(oarchive& oarc) const {
+    oarc << sourceid << targetid << eid << master;
+    if (edata == NULL) {
+      oarc << false;
+    } else {
+      oarc << true << *edata;
+    }
+  }
+
+  void load(iarchive& iarc) {
+    iarc >> sourceid >> targetid >> eid >> master;
+    bool hasdata = false;
+    iarc >> hasdata;
+    if (hasdata) {
+      edata = new graph_row();
+      iarc >> *edata;
+    }
+  }
 };
 
 } // namespace graphlab

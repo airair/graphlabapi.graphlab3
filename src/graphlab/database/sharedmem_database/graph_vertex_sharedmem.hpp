@@ -10,8 +10,6 @@
 #include <boost/unordered_set.hpp>
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
-
-class graph_database_sharedmem;
 /**
  * \ingroup group_graph_database
  *  An shared memory implementation of <code>graph_vertex</code>.
@@ -53,7 +51,7 @@ class graph_vertex_sharedmem : public graph_vertex {
   /**
    * Returns the ID of the vertex
    */
-  graph_vid_t get_id() {
+  graph_vid_t get_id() const {
     return vid;
   }
 
@@ -63,6 +61,9 @@ class graph_vertex_sharedmem : public graph_vertex {
    * to the database through a write_* call.
    */
   graph_row* data() {
+    if (vdata == NULL) {
+      refresh();
+    }
     return vdata;
   };
 
@@ -92,9 +93,13 @@ class graph_vertex_sharedmem : public graph_vertex {
   }
 
   /**
-   * No effects in shared memory.
+   * Fetch the data pointer from the right shard. 
    */ 
-  void refresh() { }
+  void refresh() { 
+    if (vdata == NULL) {
+      vdata = database->get_shard(master)->vertex_data_by_id(vid);
+    }
+  }
 
   /**
    * Commits the change immediately.
@@ -109,26 +114,30 @@ class graph_vertex_sharedmem : public graph_vertex {
   /**
    * Returns the ID of the shard that owns this vertex
    */
-  graph_shard_id_t master_shard() {
+  graph_shard_id_t master_shard() const {
     return master;
   };
 
   /**
    * returns the number of shards this vertex spans
    */
-  size_t get_num_shards() {
+  size_t get_num_shards() const {
     return mirrors.size() + 1;
   };
 
   /**
    * returns a vector containing the shard IDs this vertex spans
    */
-  std::vector<graph_shard_id_t> get_shard_list() {
-    return std::vector<graph_shard_id_t>(mirrors.begin(), mirrors.end());
+  std::vector<graph_shard_id_t> get_shard_list() const {
+    std::vector<graph_shard_id_t> ret(mirrors.size());
+    foreach(const graph_shard_id_t& mirror, mirrors) {
+      ret.push_back(mirror);
+    }
+    ret.push_back(master);
+    return ret;
   };
 
   // --- adjacency ---
-
   /** gets part of the adjacency list of this vertex belonging on shard shard_id
    *  Returns NULL on failure. The returned edges must be freed using
    *  graph_database::free_edge() for graph_database::free_edge_vector()
@@ -150,26 +159,7 @@ class graph_vertex_sharedmem : public graph_vertex {
                             bool prefetch_data,
                             std::vector<graph_edge*>* out_inadj,
                             std::vector<graph_edge*>* out_outadj) {
-    std::vector<size_t> index_in;
-    std::vector<size_t> index_out;
-    bool getIn = out_inadj!=NULL;
-    bool getOut = out_outadj!=NULL;
-    graph_shard* shard = database->get_shard(shard_id);
-    
-    ASSERT_TRUE(shard != NULL);
-    shard->shard_impl.edge_index.get_edge_index(index_in, index_out, getIn, getOut, vid);
-
-    foreach(size_t& idx, index_in) {  
-      std::pair<graph_vid_t, graph_vid_t> pair = shard->edge(idx);
-      graph_row* row  = shard->edge_data(idx);
-      out_inadj->push_back(new graph_edge_sharedmem(pair.first, pair.second, idx, row, shard_id, database)); 
-    }
-
-    foreach(size_t& idx, index_out) {  
-      std::pair<graph_vid_t, graph_vid_t> pair = shard->edge(idx);
-      graph_row* row = shard->edge_data(idx);
-      out_outadj->push_back(new graph_edge_sharedmem(pair.first, pair.second, idx, row, shard_id, database)); 
-    }
+    database->get_adj_list(vid, shard_id, prefetch_data, out_inadj, out_outadj);
   }
 }; // end of class
 } // namespace graphlab

@@ -75,6 +75,8 @@ namespace graphlab {
         case BLOB_TYPE:
         case STRING_TYPE:
           eq = ((memcmp(lhs._data.bytes, rhs._data.bytes, lhs._len)) == 0); break;
+        default:
+          eq = false;
        }
        return eq;
      }

@@ -95,6 +95,17 @@ class graph_row {
     return !_is_vertex;
   }
 
+  /** 
+   * Returns true if all entries in the row is NULl value. false otherwise
+   */
+  inline bool is_null() const {
+    for (size_t i = 0; i < num_fields(); i++) {
+      if (!_data->is_null())
+        return false;
+    }
+    return true;
+  }
+
   // /**
   //  * Returns the position of a particular field name.
   //  * Returns a value >= 0 on success, and -1 on failure.
@@ -157,6 +168,22 @@ class graph_row {
    * Makes a copy of this row into out_row and transfer the data ownership to out_row. 
    */
   void copy_transfer_owner(graph_row& out_row);
+
+
+  friend std::ostream& operator<<(std::ostream &strm, const graph_row& row) {
+    if (row._is_vertex) {
+      strm << "[v] {";
+    }  else {
+      strm << "[e] {";
+    }
+    for (size_t i = 0; i < row.num_fields(); i++) {
+      strm  << row._data[i];
+      if (i < row.num_fields()-1)
+        strm << "\t";
+    } 
+    strm << "}";
+    return strm;
+  }
 
   friend class graph_database;
   friend class graph_database_sharedmem;

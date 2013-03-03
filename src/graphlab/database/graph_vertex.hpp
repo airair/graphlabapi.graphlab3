@@ -35,7 +35,7 @@ class graph_vertex {
   /**
    * Returns the ID of the vertex
    */
-  virtual graph_vid_t get_id() = 0;
+  virtual graph_vid_t get_id() const = 0;
 
   /** Returns a pointer to the graph_row representing the data
    * stored on this vertex. Modifications made to the data, are only committed 
@@ -109,17 +109,17 @@ class graph_vertex {
   /**
    * Returns the ID of the shard owning this vertex
    */
-  virtual graph_shard_id_t master_shard() = 0;
+  virtual graph_shard_id_t master_shard() const = 0;
 
   /**
    * returns the number of shards this vertex spans
    */
-  virtual size_t get_num_shards() = 0;
+  virtual size_t get_num_shards() const = 0;
 
   /**
    * returns a vector containing the shard IDs this vertex spans
    */
-  virtual std::vector<graph_shard_id_t> get_shard_list() = 0;
+  virtual std::vector<graph_shard_id_t> get_shard_list() const = 0;
 
   // --- adjacency ---
 
@@ -143,6 +143,27 @@ class graph_vertex {
                             bool prefetch_data,
                             std::vector<graph_edge*>* out_inadj,
                             std::vector<graph_edge*>* out_outadj) = 0;
+
+
+  friend std::ostream& operator<<(std::ostream &strm, graph_vertex& v) {
+    strm << "vertex: " << v.get_id() << "\t" << "master: " << v.master_shard() << "\n"
+         << "span: [";
+    const std::vector<graph_shard_id_t>& spans = v.get_shard_list();
+    for (size_t i = 0; i < spans.size(); i++) {
+        strm << spans[i];
+        if (i < spans.size()-1)
+          strm << ",";
+    }
+    strm << "]\n";
+    if (v.data() != NULL) {
+      strm << "data: " << *(v.data()) << std::endl;
+    } else {
+      strm  << "data: " << "not available" << std::endl;
+    }
+    return strm;
+  }
+
+
  private:
   // copy constructor deleted. It is not safe to copy this object.
   // graph_vertex(const graph_vertex&) { }

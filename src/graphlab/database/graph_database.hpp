@@ -92,6 +92,15 @@ class graph_database {
    */
   virtual graph_edge* get_edge(graph_eid_t eid, graph_shard_id_t shardid) = 0;
 
+  /** Gets part of the adjacency list of vertex vid belonging to shard shard_id.
+   *  Returns NULL on failure. The returned edges must be freed using
+   *  graph_database::free_edge() for graph_database::free_edge_vector()
+   */
+  virtual void get_adj_list(graph_vid_t vid, graph_shard_id_t shard_id,
+                    bool prefetch_data,
+                    std::vector<graph_edge*>* out_inadj,
+                    std::vector<graph_edge*>* out_outadj) = 0; 
+
   /**
    *  Finds a vertex using an indexed integer field. Returns the vertex IDs
    *  in out_vids corresponding to the vertices where the integer field 

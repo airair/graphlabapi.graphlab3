@@ -28,6 +28,27 @@ namespace graphlab {
     oarc << true << database->num_shards();
   }
 
+  void graph_database_server::get_vertex(iarchive& iarc, oarchive& oarc) {
+    graph_vid_t vid;
+    iarc >> vid;
+    graph_vertex* v = database->get_vertex(vid);
+    if (v == NULL) {
+      std::string msg = (std::string("Fail to get vertex id = ") + boost::lexical_cast<std::string>(vid) + std::string(". Vid does not exist."));
+      oarc << false << msg;
+    } else {
+      graph_shard_id_t master = v->master_shard();
+      const std::vector<graph_shard_id_t>&  shards = v->get_shard_list();
+      std::vector<graph_shard_id_t> mirrors;
+      for (size_t i = 0; i < shards.size(); i++) {
+        if (shards[i] != v->master_shard()) {
+          mirrors.push_back(shards[i]);
+        }
+      } 
+      oarc << true << vid << master << mirrors << true << *(v->data());
+      database->free_vertex(v);
+    }
+  }
+
   void graph_database_server::get_vertex_data_row(iarchive& iarc, oarchive& oarc) {
     graph_vid_t vid;
     iarc >> vid;
@@ -62,57 +83,59 @@ namespace graphlab {
   void graph_database_server::get_vertex_adj(iarchive& iarc, oarchive& oarc) {
     graph_vid_t vid;
     graph_shard_id_t shardid;
-    bool get_in, get_out, prefetch_data;
-    iarc >> vid >> shardid >> get_in >> get_out >> prefetch_data;
-    graph_vertex* v = this->database->get_vertex(vid);
-    if (v == NULL) {
-      std::string msg= (std::string("Fail to get vertex id = ")
-                        + boost::lexical_cast<std::string>(vid)
-                        + std::string(". Vid does not exist."));
-      oarc << false << msg;
-    } else {
-      std::vector<graph_edge*> _inadj;
-      std::vector<graph_edge*> _outadj;
-      std::vector<graph_edge*>* out_inadj = get_in ? &(_inadj) : NULL;
-      std::vector<graph_edge*>* out_outadj = get_out ? &(_outadj) : NULL;
+    bool get_in, get_out;
+    iarc >> vid >> shardid >> get_in >> get_out;
 
-      v->get_adj_list(shardid, prefetch_data, out_inadj, out_outadj);
+    std::vector<graph_edge*> _inadj;
+    std::vector<graph_edge*> _outadj;
+    std::vector<graph_edge*>* out_inadj = get_in ? &(_inadj) : NULL;
+    std::vector<graph_edge*>* out_outadj = get_out ? &(_outadj) : NULL;
 
-      size_t numin = get_in ? out_inadj->size() : 0;
-      size_t numout = get_out ? out_outadj->size() : 0;
-      oarc << true << numin << numout << prefetch_data;
-      for (size_t i = 0; i < numin; i++) {
-        graph_edge* e = out_inadj->at(i);
-        oarc << e->get_src() << e->get_id();
-        if (prefetch_data)
-          oarc << *(e->data());
-      }
-      for (size_t i = 0; i < numout; i++) {
-        graph_edge* e = out_outadj->at(i);
-        oarc << e->get_dest() << e->get_id();
-        if (prefetch_data)
-          oarc << *(e->data());
-      }
-      if (out_inadj) database->free_edge_vector(out_inadj);
-      if (out_outadj) database->free_edge_vector(out_outadj);
+    database->get_adj_list(vid, shardid, true, out_inadj, out_outadj);
+
+    size_t numin = get_in ? out_inadj->size() : 0;
+    size_t numout = get_out ? out_outadj->size() : 0;
+
+    oarc << true << vid << shardid << numin << numout;
+
+    for (size_t i = 0; i < numin; i++) {
+      oarc << _inadj[i]->get_src() << _inadj[i]->get_id() << *(_inadj[i]->data());
     }
-    database->free_vertex(v);
+    for (size_t i = 0; i < numout; i++) {
+      oarc << _outadj[i]->get_dest() << _outadj[i]->get_id() << *(_outadj[i]->data());
+    }
+
+    if (out_inadj) database->free_edge_vector(out_inadj);
+    
+    if (out_outadj) database->free_edge_vector(out_outadj);
   }
+
+
 
   void graph_database_server::get_shard(iarchive& iarc, oarchive& oarc) {
     graph_shard_id_t shardid;
     iarc >> shardid;
     graph_shard* shard = database->get_shard(shardid);
-    ASSERT_TRUE(shard != NULL);
-    oarc << true << *shard;
+    if (shard == NULL) {
+      std::string errormsg = ("Shard " + boost::lexical_cast<std::string>(shardid) + " does not exist");
+      logstream(LOG_WARNING) << errormsg << std::endl;
+      oarc << false <<  errormsg;
+    } else {
+      oarc << true << *shard;
+    }
   }
 
   void graph_database_server::get_shard_contents_adj_to(iarchive& iarc, oarchive& oarc) {
     graph_shard_id_t shard_from, shard_to;
     iarc >> shard_from >> shard_to;
     graph_shard* shard = database->get_shard_contents_adj_to(shard_from, shard_to);
-    ASSERT_TRUE(shard != NULL);
-    oarc << true << *shard;
+    if (shard == NULL) {
+      std::string errormsg = ("Shard " + boost::lexical_cast<std::string>(shard_to) + " does not exist");
+      logstream(LOG_WARNING) << errormsg << std::endl;
+      oarc << false <<  errormsg;
+    } else {
+      oarc << true << *shard;
+    }
   }
 
 
@@ -164,7 +187,7 @@ namespace graphlab {
       oarc << success;
     }
   }
-  
+
   // ------------------ Ingress Handlers -----------------
   void graph_database_server::add_vertex (iarchive& iarc,
                                           oarchive& oarc) {
@@ -185,9 +208,47 @@ namespace graphlab {
       oarc << success;
     } else {
       oarc << success << ("Fail adding vertex. Vid " 
-                       + boost::lexical_cast<std::string>(vid)
-                       + " already exists on shard "
-                       + boost::lexical_cast<std::string>(master));
+           + boost::lexical_cast<std::string>(vid)
+           + " already exists on shard "
+           + boost::lexical_cast<std::string>(master));
+    }
+  }
+
+  void graph_database_server::batch_add_vertex (iarchive& iarc,
+                                                oarchive& oarc) {
+    graph_shard_id_t master;
+    size_t num_records;
+    iarc >> master >> num_records;
+    bool success = true;
+    std::vector<std::string> error_messages;
+
+    for (size_t i = 0; i < num_records; i++) {
+      graph_vid_t vid;
+      bool hasdata;
+      iarc >> vid >> hasdata;
+      if (hasdata) {
+        graph_row* data = new graph_row;
+        iarc >> *data;
+        success &= database->add_vertex(vid, master, data);
+      } else {
+        success &= database->add_vertex(vid, master);
+      }
+      if (!success) {
+        std::string err (("Fail adding vertex. Vid " 
+                          + boost::lexical_cast<std::string>(vid)
+                          + " already exists on shard "
+                          + boost::lexical_cast<std::string>(master)));
+        logstream(LOG_WARNING) << err << std::endl;
+        error_messages.push_back(err);
+      }
+    }
+    if (success) {
+      oarc << true;
+    } else {
+      oarc << false << error_messages.size();
+      for (size_t i = 0; i < error_messages.size(); i++) {
+        oarc << error_messages[i];
+      }
     }
   }
 
@@ -207,12 +268,55 @@ namespace graphlab {
     oarc << true;
   }
 
+  void graph_database_server::batch_add_edge (iarchive& iarc,
+                                              oarchive& oarc) {
+    graph_shard_id_t master;
+    size_t num_records;
+    iarc >> master >> num_records;
+
+    for (size_t i = 0; i < num_records; ++i) {
+      graph_vid_t source, target;
+      bool hasdata;
+      iarc >> source >> target >> hasdata;
+      if (hasdata) {
+        graph_row* data = new graph_row;
+        iarc >> *data;
+        database->add_edge(source, target, master, data);
+      } else {
+        database->add_edge(source, target, master);
+      }
+    }
+    oarc << true;
+  }
+
   void graph_database_server::add_vertex_mirror (iarchive& iarc,
                                                  oarchive& oarc) {
     graph_vid_t vid;
     graph_shard_id_t master, mirror;
-    iarc >> vid >> master >> mirror;
-    database->add_vertex_mirror(vid, master, mirror);
+    size_t size;
+    iarc >> vid >> master >> size;
+    for (size_t i = 0; i < size; i++) {
+      iarc >> mirror;
+      database->add_vertex_mirror(vid, master, mirror);
+    }
+    oarc << true;
+  }
+
+  void graph_database_server::batch_add_vertex_mirror (iarchive& iarc,
+                                                       oarchive& oarc) {
+    graph_shard_id_t master;
+    size_t num_records;
+    iarc >> master >> num_records;
+    for (size_t i = 0; i < num_records; i++) {
+      graph_vid_t vid;
+      size_t num_mirrors;
+      graph_shard_id_t mirror;
+      iarc >> vid >> num_mirrors;
+      for (size_t j = 0; j <  num_mirrors; j++) {
+        iarc >> mirror;
+        database->add_vertex_mirror(vid, master, mirror);
+      } 
+    }
     oarc << true;
   }
 }

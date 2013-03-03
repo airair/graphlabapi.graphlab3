@@ -4,13 +4,11 @@
 #include <graphlab/serialization/iarchive.hpp>
 #include <graphlab/serialization/oarchive.hpp>
 #include <boost/lexical_cast.hpp>
-#include <graphlab/database/queryobj.hpp>
 #include <fault/query_object_server.hpp>
 #include <boost/lexical_cast.hpp>
 #include "graph_database_test_util.hpp"
 #include <vector>
 using namespace std;
-
 
 size_t nshards = 4;
 vector<graphlab::graph_field> vfields;
@@ -37,6 +35,7 @@ class shard_server : public libfault::query_object {
              char** outreply, size_t *outreplylen) {
     std::string rep = server->query(msg, msglen);
     (*outreplylen) = rep.size();
+    *outreply = (char*)malloc(*outreplylen);
     memcpy(*outreply, rep.c_str(), rep.size());
   }
 
@@ -44,17 +43,19 @@ class shard_server : public libfault::query_object {
               char** outreply, size_t *outreplylen) {
     std::string rep = server->update(msg, msglen);
     (*outreplylen) = rep.size();
+    *outreply = (char*)malloc(*outreplylen);
     memcpy(*outreply, rep.c_str(), rep.size());
     return true;
   }
 
   void serialize(char** outbuf, size_t *outbuflen) { }
 
-  void deserialize(char* buf, size_t buflen) { }
+  void deserialize(const char* buf, size_t buflen) { }
 
+  // object key is in the form of "shard$i"
   static query_object* factory(std::string objectkey, 
                                uint64_t create_flags) {
-    size_t shardid = boost::lexical_cast<size_t>(objectkey);
+    size_t shardid = boost::lexical_cast<size_t>(objectkey.substr(5));
     return new shard_server(shardid);
   }
 };
@@ -62,7 +63,7 @@ class shard_server : public libfault::query_object {
 int main(int argc, char** argv)
 {
   if (argc != 3) {
-    std::cout << "Usage: echo_qo_test_server [zkhost] [prefix] \n";
+    std::cout << "Usage: graph_database_test_server [zkhost] [prefix] \n";
     return 0;
   }
 
@@ -75,12 +76,12 @@ int main(int argc, char** argv)
 
   void* zmq_ctx = zmq_ctx_new();
   std::vector<std::string> masterkeys;
-  masterkeys.push_back("0");
-  masterkeys.push_back("1");
-  masterkeys.push_back("2");
-  masterkeys.push_back("3");
+  masterkeys.push_back("shard0");
+  masterkeys.push_back("shard1");
+  masterkeys.push_back("shard2");
+  masterkeys.push_back("shard3");
 
-  libfault::query_object_server server(zmq_ctx, 1, 0);
+  libfault::query_object_server server(zmq_ctx, 2, 1);
   server.set_query_object_factory(shard_server::factory);
   server.register_zookeeper(zkhosts, prefix, "");
   server.set_all_object_keys(masterkeys);

@@ -30,6 +30,12 @@ struct graph_field {
     iarc >> name >> is_indexed >> type >> max_data_length;
   }
 
+  friend std::ostream& operator<<(std::ostream &strm, const graph_field& field) {
+    // TODO add is_indexed and max_data_length
+    return strm << field.name << ": "
+                << graph_datatypes_string[field.type];
+  }
+
   graph_field() {}
 };
 

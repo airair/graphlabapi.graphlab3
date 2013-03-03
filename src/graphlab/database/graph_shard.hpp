@@ -52,19 +52,19 @@ class graph_shard {
     * Returns the id of this shard.
     * Id is -1 if this is a derived shard.
     */
-   inline graph_shard_id_t id() {
+   inline graph_shard_id_t id() const {
      return shard_impl.shard_id;
    }
 
   /**
    * Returns the number of vertices in this shard
    */ 
-  inline size_t num_vertices() { return shard_impl.num_vertices; }
+  inline size_t num_vertices() const { return shard_impl.num_vertices; }
 
   /**
    * Returns the number of edges in this shard
    */ 
-  inline size_t num_edges() { return shard_impl.num_edges; }
+  inline size_t num_edges() const { return shard_impl.num_edges; }
 
   /**
    * Returns the ID of the vertex in the i'th position in this shard.
@@ -160,6 +160,12 @@ class graph_shard {
     iarc >> shard_impl;
   }
 
+  // Print the shard summary
+  friend std::ostream& operator<<(std::ostream &strm, const graph_shard& shard) {
+    return strm << "Shard " << shard.id() << "\n"
+                << "num vertices: " << shard.num_vertices() << "\n"
+                << "num edges: " << shard.num_edges() << "\n";
+  }
 
  private:
 

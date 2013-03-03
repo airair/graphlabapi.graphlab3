@@ -4,6 +4,7 @@
 #include <graphlab/serialization/iarchive.hpp>
 #include <graphlab/serialization/oarchive.hpp>
 #include <graphlab/database/basic_types.hpp>
+#include <boost/lexical_cast.hpp>
 #include <cstdlib>
 #include <cstring>
 namespace graphlab {
@@ -234,6 +235,8 @@ class graph_value {
        return set_string(std::string(val, length));
      case BLOB_TYPE:
        return set_blob(val, length);
+     default:
+       return false;
     }
     return false;
   }
@@ -322,7 +325,22 @@ class graph_value {
   // assignment operator deleted. It is not safe to copy this object.
   graph_value& operator=(const graph_value&) { return *this; }
 
-};
-
+  friend std::ostream& operator<<(std::ostream &strm, const graph_value& v) {
+    std::string value_str; 
+    if (v.is_null()) {
+      value_str = "NULL";
+    } else {
+      switch (v._type) {
+       case VID_TYPE: value_str = boost::lexical_cast<std::string> (v._data.vid_value); break;
+       case INT_TYPE: value_str = boost::lexical_cast<std::string> (v._data.int_value); break;
+       case DOUBLE_TYPE: value_str = boost::lexical_cast<std::string> (v._data.double_value); break;
+       case STRING_TYPE: value_str = std::string(v._data.bytes); break; 
+       default: value_str = "***";
+      }
+    }
+    strm << value_str << ": " << graph_datatypes_string[v._type];
+    return strm;
+  }
+ };
 } // namespace graphlab
 #endif

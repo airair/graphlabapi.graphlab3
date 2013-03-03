@@ -63,6 +63,16 @@ inline bool is_scalar_graph_datatype(graph_datatypes_enum e) {
   }
 }
 
+static const char* graph_datatypes_string[] = {
+  "VID",
+  "INT",
+  "DOUBLE",
+  "STRING",
+  "BLOB",
+  "DOUBLE_VEC"
+};
+
+
 /// \ingroup group_graph_database
 /// IDs used for shards
 typedef uint32_t graph_shard_id_t;

@@ -62,7 +62,7 @@ class graph_database_sharedmem : public graph_database {
                             const std::vector<graph_shard_id_t>& hosted_shards,
                             size_t numshards) : 
        vertex_fields(vertex_fields), edge_fields(edge_fields), sharding_graph(numshards, "grid"),
- _num_shards(numshards) { 
+ _num_shards(hosted_shards.size()) { 
      shardarr = new graph_shard[hosted_shards.size()];
      for (size_t i = 0; i < hosted_shards.size(); i++) {
        shardarr[i].shard_impl.shard_id = hosted_shards[i];
@@ -150,12 +150,48 @@ class graph_database_sharedmem : public graph_database {
     if (shards[shardid] == NULL || eid >= shards[shardid]->num_edges()) {
       return NULL;
     } else {
-      std::pair<graph_vid_t, graph_vid_t> pair = shards[shardid]->edge(eid);
-      graph_row* edge_data = shards[shardid]->edge_data(eid);
-      return (new graph_edge_sharedmem(pair.first, pair.second, eid, edge_data, shardid, this));
+      return (new graph_edge_sharedmem(eid, shardid, this));
     } 
   }
 
+  /** Gets part of the adjacency list of vertex vid belonging to shard shard_id.
+   *  The shardid must be a local shard.
+   *  Returns NULL on failure. The returned edges must be freed using
+   *  graph_database::free_edge() for graph_database::free_edge_vector()
+   *
+   *  out_inadj will be filled to contain a list of graph edges where the 
+   *  destination vertex is the current vertex. out_outadj will be filled to
+   *  contain a list of graph edges where the source vertex is the current 
+   *  vertex.
+   *
+   *  Either out_inadj or out_outadj may be NULL in which case those edges
+   *  are not retrieved (for instance, I am only interested in the in edges of 
+   *  the vertex).
+   *
+   *  If prefetch_data does not have effect. 
+   */ 
+  void get_adj_list(graph_vid_t vid, graph_shard_id_t shard_id,
+                    bool prefetch_data,
+                    std::vector<graph_edge*>* out_inadj,
+                    std::vector<graph_edge*>* out_outadj) {
+    graph_shard* shard = get_shard(shard_id);
+    ASSERT_TRUE(shard != NULL);
+    std::vector<size_t> index_in;
+    std::vector<size_t> index_out;
+    bool getIn = !(out_inadj == NULL);
+    bool getOut = !(out_outadj == NULL);
+    shard->shard_impl.edge_index.get_edge_index(index_in, index_out, getIn, getOut, vid);
+
+    foreach(size_t& idx, index_in) {  
+      std::pair<graph_vid_t, graph_vid_t> pair = shard->edge(idx);
+      out_inadj->push_back(new graph_edge_sharedmem(idx, shard_id, this)); 
+    }
+
+    foreach(size_t& idx, index_out) {  
+      std::pair<graph_vid_t, graph_vid_t> pair = shard->edge(idx);
+      out_outadj->push_back(new graph_edge_sharedmem(idx, shard_id, this)); 
+    }
+  }
 
   /**
    *  Finds a vertex using an indexed integer field. Returns the vertex IDs
@@ -377,25 +413,34 @@ class graph_database_sharedmem : public graph_database {
    * Insert the vertex v into a shard = hash(v) as master
    * The insertion updates the global <code>vertex_store</code> as well as the master shard.
    * The corresponding <code>vid2master</code> and <code>vertex_index</code> are updated.
-   * Return false if v is already inserted.
+   * Return false if data is not NULL and v is already inserted with non-empty value.
    */
   bool add_vertex(graph_vid_t vid, graph_shard_id_t master, graph_row* data=NULL) {
     ASSERT_TRUE(shards[master] != NULL);
 
-    if (shards[master]->has_vertex(vid)) {
-      return false;
+    if (shards[master]->has_vertex(vid)) { // vertex has already been inserted 
+      if (data) {
+        graph_row* row =  shards[master]->vertex_data_by_id(vid);
+        if (row->is_null()) { // existing vertex has no value, update with new value
+          data->copy_transfer_owner(*row);
+          delete data;
+          return true;
+        } else { // existing vertex has value, cannot overwrite, return false
+          return false;
+        }
+      } else { // new insertion does not have value, do nothing and return true;
+        return true;
+      }
+    } else {
+      // create a new row of all null values.
+      graph_row* row = (data==NULL) ? new graph_row(vertex_fields, true) : data;
+      row->_is_vertex = true;
+      
+      // Insert into shard. This operation transfers the data ownership to the row in the shard
+      // so that we can free the row at the end of the function.
+      shards[master]->shard_impl.add_vertex(vid, row);
+      return true;
     }
-
-    // create a new row of all null values.
-    graph_row* row = (data==NULL) ? new graph_row(vertex_fields, true) : data;
-    row->_is_vertex = true;
-    
-    // Insert into shard. This operation transfers the data ownership to the row in the shard
-    // so that we can free the row at the end of the function.
-    shards[master]->shard_impl.add_vertex(vid, row);
-
-    delete row;
-    return true;
   }
 
   /**
@@ -412,8 +457,6 @@ class graph_database_sharedmem : public graph_database {
     // Insert into shard. This operation transfers the data ownership to the row in the shard
     // so that we can free the row at the end of the function.
     shards[shard_id]->shard_impl.add_edge(source, target, row);
-
-    delete row;
   }
 
   /**
@@ -422,6 +465,9 @@ class graph_database_sharedmem : public graph_database {
    */
   void add_vertex_mirror (graph_vid_t vid, graph_shard_id_t master, graph_shard_id_t mirror_shard) {
     ASSERT_TRUE(shards[master] != NULL);
+    if (!shards[master]->has_vertex(vid)) {
+      add_vertex(vid, master);
+    }
     shards[master]->shard_impl.add_vertex_mirror(vid, mirror_shard);
   }
 };

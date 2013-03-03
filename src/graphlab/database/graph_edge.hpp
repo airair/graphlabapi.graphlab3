@@ -19,18 +19,18 @@ class graph_edge {
   /**
    * Returns the source ID of this edge
    */
-  virtual graph_vid_t get_src() = 0; 
+  virtual graph_vid_t get_src() const = 0; 
 
   /**
    * Returns the destination ID of this edge
    */
-  virtual graph_vid_t get_dest() = 0;
+  virtual graph_vid_t get_dest() const = 0;
 
   /**
    * Returns the internal id of this edge
    * The id is the unique index of this edge with respect to a shard.
    */
-  virtual graph_eid_t get_id() = 0;
+  virtual graph_eid_t get_id() const = 0;
 
 
   /** Returns a pointer to the graph_row representing the data
@@ -103,7 +103,19 @@ class graph_edge {
   /**
    * Returns the ID of the shard owning this edge
    */
-  virtual graph_shard_id_t master_shard() = 0;
+  virtual graph_shard_id_t master_shard() const = 0;
+
+
+  friend std::ostream& operator<<(std::ostream &strm, graph_edge& e) {
+    strm << "(" << e.get_src() << ", " << e.get_dest()<< "): "; 
+    if (e.data()!= NULL) {
+      strm << *(e.data());
+    } else {
+      strm  << "not available" << std::endl;
+    }
+    return strm;
+  }
+
  private:
   // copy constructor deleted. It is not safe to copy this object.
   // graph_edge(const graph_edge&) { }

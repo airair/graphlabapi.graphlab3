@@ -1,10 +1,13 @@
-#ifndef GRAPHLAB_DATABASE_DISTRIBUTED_GRAPH_VERTES_HPP
-#define GRAPHLAB_DATABASE_DISTRIBUTED_GRAPH_VERTES_HPP
+#ifndef GRAPHLAB_DATABASE_DISTRIBUTED_GRAPH_VERTEX_HPP
+#define GRAPHLAB_DATABASE_DISTRIBUTED_GRAPH_VERTEX_HPP
 #include <vector>
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/database/graph_row.hpp>
 #include <graphlab/database/graph_edge.hpp>
 #include <graphlab/database/graph_vertex.hpp>
+#include <graphlab/database/distributed_graph/idistributed_graph.hpp>
+#include <graphlab/database/distributed_graph/distributed_graph_edge.hpp>
+#include <graphlab/database/query_messages.hpp>
 #include <boost/unordered_set.hpp>
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
@@ -21,29 +24,34 @@ class distributed_graph;
  */
 class distributed_graph_vertex: public graph_vertex {
  private:
-
   // Id of the vertex.
   graph_vid_t vid;
 
   // A cache of the vertex data.
   graph_row* vdata;
 
+  // Master of the vertex.
+  graph_shard_id_t master;
+
+  // Mirrors
+  std::vector<graph_shard_id_t> mirrors;
+
   // Pointer to the distributed graph.
-  distributed_graph* graph;
+  idistributed_graph* graph;
 
  public:
   /**
    * Creates a graph vertex object 
    */
-  distributed_graph_vertex(graph_vid_t vid,
-                           graph_row* data,
-                           distributed_graph* graph) : 
-      vid(vid), vdata(data), graph(graph) {}
+  distributed_graph_vertex(idistributed_graph* graph) : 
+      vid(-1), vdata(NULL), master(-1), graph(graph) {}
+  
+  ~distributed_graph_vertex() { }
 
   /**
    * Returns the ID of the vertex
    */
-  graph_vid_t get_id() {
+  graph_vid_t get_id() const {
     return vid;
   }
 
@@ -53,7 +61,7 @@ class distributed_graph_vertex: public graph_vertex {
    * to the database through a write_* call.
    */
   graph_row* data() {
-    if (data == NULL)
+    if (vdata == NULL)
       refresh();
     return vdata;
   };
@@ -68,7 +76,7 @@ class distributed_graph_vertex: public graph_vertex {
    * TODO: check delta commit.
    */ 
   void write_changes() {  
-    if (data == NULL)
+    if (vdata == NULL)
       return;
 
     // NOT IMPLEMENTED 
@@ -86,6 +94,7 @@ class distributed_graph_vertex: public graph_vertex {
    * Request vertex data from the server.
    */ 
   void refresh() { 
+    ASSERT_TRUE(false);
   }
 
   /**
@@ -101,22 +110,24 @@ class distributed_graph_vertex: public graph_vertex {
   /**
    * Returns the ID of the shard that owns this vertex
    */
-  graph_shard_id_t master_shard() {
+  graph_shard_id_t master_shard() const {
     return master;
   };
 
   /**
    * returns the number of shards this vertex spans
    */
-  size_t get_num_shards() {
+  size_t get_num_shards() const {
     return mirrors.size() + 1;
   };
 
   /**
    * returns a vector containing the shard IDs this vertex spans
    */
-  std::vector<graph_shard_id_t> get_shard_list() {
-    return std::vector<graph_shard_id_t>(mirrors.begin(), mirrors.end());
+  std::vector<graph_shard_id_t> get_shard_list() const {
+    std::vector<graph_shard_id_t> ret(mirrors);
+    ret.push_back(master);
+    return ret; 
   };
 
   // --- adjacency ---
@@ -134,30 +145,51 @@ class distributed_graph_vertex: public graph_vertex {
    *  are not retrieved (for instance, I am only interested in the in edges of 
    *  the vertex).
    *
-   *  The prefetch behavior is ignored. We always pass the data pointer to the new edge. 
    */ 
   void get_adj_list(graph_shard_id_t shard_id, 
                             bool prefetch_data,
                             std::vector<graph_edge*>* out_inadj,
                             std::vector<graph_edge*>* out_outadj) {
-    std::vector<size_t> index_in;
-    std::vector<size_t> index_out;
-    bool getIn = out_inadj!=NULL;
-    bool getOut = out_outadj!=NULL;
-    edge_index[shard_id]->get_edge_index(index_in, index_out, getIn, getOut, vid);
+    int msg_len;
+    bool getin = !(out_inadj == NULL);
+    bool getout = !(out_outadj == NULL);
+    QueryMessages messages;
+    char* request = messages.vertex_adj_request(&msg_len, vid, shard_id, getin, getout);
+    std::string reply = graph->query(graph->find_server(shard_id), request, msg_len);
 
-    foreach(size_t& idx, index_in) {  
-      std::pair<graph_vid_t, graph_vid_t> pair = database->get_shard(shard_id)->edge(idx);
-      graph_row* row  = database->get_shard(shard_id)->edge_data(idx);
-      out_inadj->push_back(new graph_edge_sharedmem(pair.first, pair.second, idx, row, shard_id, database)); 
-    }
+    distributed_graph_edge::vertex_adjacency_record record(graph);
 
-    foreach(size_t& idx, index_out) {  
-      std::pair<graph_vid_t, graph_vid_t> pair = database->get_shard(shard_id)->edge(idx);
-      graph_row* row = database->get_shard(shard_id)->edge_data(idx);
-      out_outadj->push_back(new graph_edge_sharedmem(pair.first, pair.second, idx, row, shard_id, database)); 
+    std::string errormsg;
+    if (messages.parse_reply(reply, record, errormsg)) {
+      for (size_t i = 0; i < record.num_in_edges; i++) {
+        out_inadj->push_back(&record.inEdges[i]);
+      }
+      for (size_t i = 0; i < record.num_out_edges; i++) {
+        out_outadj->push_back(&record.outEdges[i]);
+      }
     }
   }
+
+  void save(oarchive& oarc) const {
+    oarc << vid << master << mirrors;
+    if (vdata == NULL) {
+      oarc << false;
+    } else {
+      oarc << true << *vdata;
+    }
+  }
+
+  void load(iarchive& iarc) {
+    iarc >> vid >> master >> mirrors;
+    bool hasdata = false;
+    iarc >> hasdata;
+    if (hasdata) {
+      vdata = new graph_row();
+      iarc >> *vdata;
+    }
+  }
+
+  friend class graph_database_server;
 }; // end of class
 } // namespace graphlab
 #include <graphlab/macros_undef.hpp>

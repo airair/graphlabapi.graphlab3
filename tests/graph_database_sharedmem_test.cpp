@@ -18,16 +18,13 @@ void testAddVertex() {
   const graphlab::sharding_constraint& constraint_graph = db.get_sharding_constraint();
 
   // Add 100 vertices
-  size_t nverts_expected = 100;
+  size_t nverts_expected = 100000;
+
+  std::cout << "Test adding vertices. Num vertices = " << nverts_expected << std::endl;
+
   for (size_t i = 0; i < nverts_expected; i++) {
     graphlab::graph_shard_id_t master = constraint_graph.get_master(i);
     db.add_vertex(i, master);
-  }
-  ASSERT_EQ(db.num_vertices(), nverts_expected);
-  // Add the same vertices should not succeed
-  for (size_t i = 0; i < nverts_expected; i++) {
-    graphlab::graph_shard_id_t master = constraint_graph.get_master(i);
-    ASSERT_FALSE(db.add_vertex(i, master));
   }
   ASSERT_EQ(db.num_vertices(), nverts_expected);
 
@@ -90,7 +87,9 @@ void testAddEdge() {
   const graphlab::sharding_constraint& constraint_graph = db.get_sharding_constraint();
 
   size_t nverts = 10000; // 10k vertices
-  size_t nedges = 5000000; // 5M edges
+  size_t nedges = 500000; // 500k edges
+
+  std::cout << "Test add edges. Num edges =  " << nedges << std::endl;
 
   for (size_t i = 0; i < nverts; i++) {
     graphlab::graph_shard_id_t master = constraint_graph.get_master(i);
@@ -112,6 +111,8 @@ void testAddEdge() {
 
   ASSERT_EQ(db.num_edges(), nedges);
   ASSERT_LE(db.num_vertices(),nverts);
+
+  std::cout << "Test transform edges." << std::endl;
 
   // Set the weight on (i->j) to be 1/i.num_out_edges
   std::vector<double> weights;
@@ -162,10 +163,14 @@ void testShardAPI() {
 
   const graphlab::sharding_constraint& constraint_graph = db.get_sharding_constraint();
 
+
   for (size_t i = 0; i < nverts; i++) {
     db.add_vertex(i, constraint_graph.get_master(i));
   }
 
+  std::cout << "Test shard api" << std::endl;
+  std::cout << "Creating graph: nverts = " << nverts << " nedges = " << nedges
+            << "nshards = " << nshards << std::endl;
 
   // Creates a random graph
   for (size_t i = 0; i < nedges; i++) {
@@ -199,6 +204,7 @@ void testShardAPI() {
   ASSERT_EQ(etotal, db.num_edges());
 
 
+  std::cout << "Transform vertices ... " << std::endl;
   // Transform vertex by setting the url field 
   for (size_t i = 0; i < shards.size(); i++) {
     for (size_t j = 0; j < shards[i]->num_vertices(); j++) {
@@ -208,6 +214,7 @@ void testShardAPI() {
     }
   }
 
+  std::cout << "Transform edges... " << std::endl;
   // Transform edge by setting the weight field
   boost::unordered_map<graphlab::graph_vid_t, size_t> outedges;
   for (size_t i = 0; i < shards.size(); i++) {
@@ -227,12 +234,14 @@ void testShardAPI() {
     }
   }
 
+  std::cout << "Commit changes... " << std::endl;
   // Commit all changes;
   for (size_t i = 0; i < shards.size(); i++) {
     db.commit_shard(shards[i]);
     db.free_shard(shards[i]);
   }
 
+  std::cout << "Verify changes... " << std::endl;
   // Get content of shard i that is adjacent to shard j
   // Set every edge in the intersection to 0.0.
   // This should traverse every edge twice.

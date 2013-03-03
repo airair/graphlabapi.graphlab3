@@ -13,37 +13,30 @@ namespace graphlab {
  * This object is not thread-safe, and may not copied.
  */
 class graph_edge_sharedmem : public graph_edge {
- graph_vid_t sourceid;
- graph_vid_t targetid;
- graph_eid_t edgeid;
- graph_row* edata;
+ graph_eid_t eid;
  graph_shard_id_t master;
  graph_database* database;
  public:
-  graph_edge_sharedmem(const graph_vid_t& sourceid,
-                       const graph_vid_t& targetid,
-                       const graph_eid_t& edgeid,
-                       graph_row* data,
+  graph_edge_sharedmem(graph_eid_t edgeid,
                        graph_shard_id_t master,
                        graph_database* database) :
-  sourceid(sourceid), targetid(targetid), edgeid(edgeid), edata(data),
-    master(master), database(database) {}
+    eid(edgeid), master(master), database(database) {}
 
   /**
    * Returns the source ID of this edge
    */
-  graph_vid_t get_src() { return sourceid; } 
+  graph_vid_t get_src() const { return database->get_shard(master)->edge(eid).first;} 
 
   /**
    * Returns the destination ID of this edge
    */
-  graph_vid_t get_dest() { return targetid; }
+  graph_vid_t get_dest() const { return database->get_shard(master)->edge(eid).second;}
 
   /**
    * Returns the internal id of this edge
    * The id is unique with repect to a shard.
    */
-  graph_eid_t get_id() { return edgeid;};
+  graph_eid_t get_id() const { return eid;};
 
   /** 
    * Returns a pointer to the graph_row representing the data
@@ -56,7 +49,7 @@ class graph_edge_sharedmem : public graph_edge {
    * returned by this function are invalidated.
    */
   graph_row* data()  {
-    return edata;
+    return database->get_shard(master)->edge_data(eid);
   };
 
   // --- synchronization ---
@@ -70,8 +63,8 @@ class graph_edge_sharedmem : public graph_edge {
    * TODO: check delta commit.
    */ 
   void write_changes() {  
-    for (size_t i = 0; i < edata->num_fields(); i++) {
-      graph_value* val = edata->get_field(i);
+    for (size_t i = 0; i < data()->num_fields(); i++) {
+      graph_value* val = data()->get_field(i);
       if (val->get_modified()) {
         val->post_commit_state();
       }
@@ -86,9 +79,10 @@ class graph_edge_sharedmem : public graph_edge {
   }
 
   /**
-   * No effects in shared memory.
+   * Fetch the edge pointer from the right shard. 
    */ 
-  void refresh() { }
+  void refresh() {
+  }
 
   /**
    * Commits the change immediately.
@@ -101,7 +95,7 @@ class graph_edge_sharedmem : public graph_edge {
  /**
    * Returns the ID of the shard owning this edge
    */
-  graph_shard_id_t master_shard() {
+  graph_shard_id_t master_shard() const {
     return master;
   };
 };

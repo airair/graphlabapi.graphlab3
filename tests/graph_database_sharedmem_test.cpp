@@ -136,10 +136,9 @@ void testAddEdge() {
         outadjs[j][k]->write_changes();
       }
     }
-
     // Free out edges pointers.
     for (size_t j = 0; j <  db.num_shards(); j++) {
-      db.free_edge_vector(&outadjs[j]);
+      db.free_edge_vector(outadjs[j]);
     }
     db.free_vertex(v);
   }

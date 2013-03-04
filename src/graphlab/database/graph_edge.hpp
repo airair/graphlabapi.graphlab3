@@ -16,6 +16,7 @@ namespace graphlab {
  */
 class graph_edge {
  public:
+  graph_edge() {};
   /**
    * Returns the source ID of this edge
    */
@@ -106,6 +107,14 @@ class graph_edge {
   virtual graph_shard_id_t master_shard() const = 0;
 
 
+ private:
+  // copy constructor deleted. It is not safe to copy this object.
+  graph_edge(const graph_edge&) { }
+
+  // assignment operator deleted. It is not safe to copy this object.
+  graph_edge& operator=(const graph_edge&) { return *this; }
+
+  // output the string format to ostream
   friend std::ostream& operator<<(std::ostream &strm, graph_edge& e) {
     strm << "(" << e.get_src() << ", " << e.get_dest()<< "): "; 
     if (e.data()!= NULL) {
@@ -115,13 +124,6 @@ class graph_edge {
     }
     return strm;
   }
-
- private:
-  // copy constructor deleted. It is not safe to copy this object.
-  // graph_edge(const graph_edge&) { }
-
-  // assignment operator deleted. It is not safe to copy this object.
-  graph_edge& operator=(const graph_edge&) { return *this; }
 
 
 };

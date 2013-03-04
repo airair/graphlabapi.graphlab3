@@ -5,6 +5,8 @@
 #include <graphlab/database/graph_edge.hpp>
 namespace graphlab {
 
+  class graph_database_sharedmem;
+
 /**
  * \ingroup group_graph_database
  *  An shared memory implementation of <code>graph_edge</code>.
@@ -17,6 +19,8 @@ class graph_edge_sharedmem : public graph_edge {
  graph_shard_id_t master;
  graph_database* database;
  public:
+  graph_edge_sharedmem() { }
+
   graph_edge_sharedmem(graph_eid_t edgeid,
                        graph_shard_id_t master,
                        graph_database* database) :
@@ -98,6 +102,8 @@ class graph_edge_sharedmem : public graph_edge {
   graph_shard_id_t master_shard() const {
     return master;
   };
+
+  friend class graph_database_sharedmem;
 };
 
 } // namespace graphlab

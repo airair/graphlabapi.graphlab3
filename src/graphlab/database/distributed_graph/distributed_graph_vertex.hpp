@@ -8,6 +8,7 @@
 #include <graphlab/database/distributed_graph/idistributed_graph.hpp>
 #include <graphlab/database/distributed_graph/distributed_graph_edge.hpp>
 #include <graphlab/database/query_messages.hpp>
+#include <fault/query_object_client.hpp>
 #include <boost/unordered_set.hpp>
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
@@ -15,10 +16,8 @@ namespace graphlab {
 class distributed_graph;
 /**
  * \ingroup group_graph_database
- *  An shared memory implementation of <code>graph_vertex</code>.
- *  The vertex data is directly accessible through pointers. 
- *  Adjacency information is accessible through <code>edge_index</code>
- *  object passed from the <code>graph_database_sharedmem</code>.
+ *  An implementation of <code>graph_vertex</code> for the distributed_graph client.
+ * This class is responsible for the free of the data pointers. 
  *
  * This object is not thread-safe, and may not copied.
  */
@@ -39,6 +38,11 @@ class distributed_graph_vertex: public graph_vertex {
   // Pointer to the distributed graph.
   idistributed_graph* graph;
 
+
+  typedef libfault::query_object_client::query_result query_result;
+
+  std::vector<query_result> reply_queue;
+
  public:
   /**
    * Creates a graph vertex object 
@@ -46,7 +50,11 @@ class distributed_graph_vertex: public graph_vertex {
   distributed_graph_vertex(idistributed_graph* graph) : 
       vid(-1), vdata(NULL), master(-1), graph(graph) {}
   
-  ~distributed_graph_vertex() { }
+  ~distributed_graph_vertex() { 
+    if (vdata != NULL) {
+      delete vdata;
+    }
+  }
 
   /**
    * Returns the ID of the vertex
@@ -72,29 +80,45 @@ class distributed_graph_vertex: public graph_vertex {
    * Commits changes made to the data on this vertex synchronously.
    * This resets the modification and delta flags on all values in the 
    * graph_row.
-   *
-   * TODO: check delta commit.
    */ 
   void write_changes() {  
     if (vdata == NULL)
       return;
-
-    // NOT IMPLEMENTED 
-    ASSERT_TRUE(false);
+    QueryMessages messages;
+    int len;
+    char* msg = messages.update_vertex_request(&len, vid, vdata);
+    std::string reply = graph->update(graph->find_server(master), msg, len); 
+    std::string errormsg;
+    ASSERT_TRUE(messages.parse_reply(reply, errormsg));
   }
 
   /**
    * Same as synchronous commit in shared memory.
    */ 
   void write_changes_async() { 
-    write_changes();
+    if (vdata == NULL)
+      return;
+    QueryMessages messages;
+    int len;
+    char* msg = messages.update_vertex_request(&len, vid, vdata);
+    graph->update_async(graph->find_server(master), msg, len, reply_queue); 
   }
 
   /**
    * Request vertex data from the server.
    */ 
   void refresh() { 
-    ASSERT_TRUE(false);
+    QueryMessages messages;
+    int len;
+    char* request = messages.vertex_row_request(&len, vid);
+    std::string reply = graph->query(graph->find_server(master), request, len);
+
+    if (vdata ==  NULL)
+      vdata = new graph_row(); 
+    std::string errormsg;
+
+    bool success = messages.parse_reply(reply, *vdata, errormsg);
+    ASSERT_TRUE(success);
   }
 
   /**
@@ -184,7 +208,8 @@ class distributed_graph_vertex: public graph_vertex {
     bool hasdata = false;
     iarc >> hasdata;
     if (hasdata) {
-      vdata = new graph_row();
+      if (vdata == NULL)
+        vdata = new graph_row();
       iarc >> *vdata;
     }
   }

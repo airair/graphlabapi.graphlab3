@@ -182,14 +182,26 @@ class graph_database_sharedmem : public graph_database {
     bool getOut = !(out_outadj == NULL);
     shard->shard_impl.edge_index.get_edge_index(index_in, index_out, getIn, getOut, vid);
 
-    foreach(size_t& idx, index_in) {  
-      std::pair<graph_vid_t, graph_vid_t> pair = shard->edge(idx);
-      out_inadj->push_back(new graph_edge_sharedmem(idx, shard_id, this)); 
+    if (getIn) {
+      graph_edge_sharedmem* inadj = new graph_edge_sharedmem[index_in.size()];
+      for(size_t i = 0; i < index_in.size(); i++) {
+        std::pair<graph_vid_t, graph_vid_t> pair = shard->edge(index_in[i]);
+        inadj[i].eid = index_in[i];
+        inadj[i].master = shard_id;
+        inadj[i].database = this;
+        out_inadj->push_back(&inadj[i]);
+      }
     }
 
-    foreach(size_t& idx, index_out) {  
-      std::pair<graph_vid_t, graph_vid_t> pair = shard->edge(idx);
-      out_outadj->push_back(new graph_edge_sharedmem(idx, shard_id, this)); 
+    if (getOut) {
+      graph_edge_sharedmem* outadj = new graph_edge_sharedmem[index_out.size()];
+      for (size_t i = 0; i < index_out.size(); i++) {  
+        std::pair<graph_vid_t, graph_vid_t> pair = shard->edge(index_out[i]);
+        outadj[i].eid = index_out[i];
+        outadj[i].master = shard_id;
+        outadj[i].database = this;
+        out_outadj->push_back(&outadj[i]);
+      }
     }
   }
 
@@ -242,10 +254,12 @@ class graph_database_sharedmem : public graph_database {
   /**
    * Frees a collection of edges. The vector will be cleared on return.
    */
-  void free_edge_vector(std::vector<graph_edge*>* edgelist) {
-    foreach(graph_edge*& e, *edgelist)
-        free_edge(e);
-    edgelist->clear();
+  void free_edge_vector(std::vector<graph_edge*>& edgelist) {
+    if (edgelist.size() == 0)
+      return;
+    graph_edge_sharedmem* head = (graph_edge_sharedmem*)edgelist[0];
+    delete[] head;
+    edgelist.clear();
   }
 
 

@@ -22,21 +22,17 @@ class graph_database;
  *
  * \note 
  * This object may or may not be responsible of the data. If <code>_own_data</code>
- * is set, then it maintians the ownership of the data, and will free the data in its deconstructor.
- * Normally, graph_row that owns the data is stored in the <code>graph_shard</code>.
+ * is set, then it obtains the ownership of the data, and will free the data in its deconstructor.
+ * graph_row stored in the <code>graph_shard</code> has the ownership of the data.
  *
  * This object is not thread-safe, and may not copied.
  *
  * \note
  *  This struct is intentionally make fully public to allows the graph_row
  *  type to be used natively in the database implementations easily.
- *
  */
 class graph_row {
  public:
-  // /// A pointer to the parent database
-  // graph_database* _database;
-  // 
   /// An array of all the values on this row
   graph_value* _data;
 
@@ -118,19 +114,10 @@ class graph_row {
    */
   graph_value* get_field(size_t fieldpos);
 
-  /** 
-   * Returns a pointer to the value of a particular field.
-   * Returns a pointer to the value. Returns NULL if the name is invalid.
+
+  /**
+   * Serialization interface. Save the values and associated state into oarchive.
    */
-  // graph_value* get_field(const char* fieldname);
-
-  /** 
-   * Returns the name of a field from its position. 
-   * Returns the field name on success and an empty string on failure. 
-   */
-  // std::string get_field_metadata(size_t fieldpos);
-
-
   void save (oarchive& oarc) const {
     oarc << _is_vertex << _nfields;
     for (size_t i = 0; i < _nfields; i++) {
@@ -138,10 +125,15 @@ class graph_row {
     }
   }
 
+  /**
+   * Serialization interface. Load the values and associated state from iarchive.
+   * The graph_row owns the data loaded from the iarchive. 
+   */
   void load (iarchive& iarc) {
     iarc >> _is_vertex >> _nfields;
     _own_data = true;
-    _data = new graph_value[_nfields];
+    if (_data == NULL) 
+      _data = new graph_value[_nfields];
     for (size_t i = 0; i < _nfields; i++) {
       iarc >> _data[i];
     }
@@ -170,6 +162,9 @@ class graph_row {
   void copy_transfer_owner(graph_row& out_row);
 
 
+  /**
+   * Output the string format to ostream.
+   */
   friend std::ostream& operator<<(std::ostream &strm, const graph_row& row) {
     if (row._is_vertex) {
       strm << "[v] {";

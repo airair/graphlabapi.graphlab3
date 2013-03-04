@@ -6,17 +6,27 @@
 
 namespace graphlab {
 
+  /**
+   * This class defines the communication protocol between <code>graph_database_server</code>
+   * and the <code>distributed_graph</code> client.
+   */
   class QueryMessages {
    public:
     typedef libfault::query_object_client::query_result query_result;
 
    public:
+    /**
+     * Struct holding information of a vertex during ingress. 
+     */
      struct vertex_record {
        graph_vid_t vid;
        const graph_row* data;
        vertex_record(graph_vid_t vid, const graph_row* data) : vid(vid), data(data) { }
      };
 
+    /**
+     * Struct holding information of an edge during ingress. 
+     */
      struct edge_record {
        graph_vid_t source;
        graph_vid_t target;
@@ -25,6 +35,9 @@ namespace graphlab {
            source(source), target(target), data(data) { }
      };
 
+    /**
+     * Struct holding information of (vertex, mirrors) pair during ingress. 
+     */
      struct mirror_record {
        graph_vid_t vid;
        boost::unordered_set<graph_shard_id_t> mirrors;
@@ -32,7 +45,9 @@ namespace graphlab {
      };
 
    public:
+
      // ------------- Query requests  ----------------
+     ///  returns a message for querying the vertex field meta data
      char* vfield_request(int* msg_len) {
        oarchive oarc;
        oarc << std::string("vertex_fields_meta");
@@ -40,6 +55,7 @@ namespace graphlab {
        return oarc.buf;
      }
 
+     ///  returns a message for querying the edge field meta data
      char* efield_request(int* msg_len) {
        oarchive oarc;
        oarc << std::string("edge_fields_meta");
@@ -47,6 +63,7 @@ namespace graphlab {
        return oarc.buf;
      }
 
+     ///  returns a message for querying the sharding constraint graph 
      char* sharding_graph_request(int* msg_len) {
        oarchive oarc;
        oarc << std::string("sharding_graph");
@@ -54,6 +71,7 @@ namespace graphlab {
        return oarc.buf;
      }
 
+     ///  returns a message for querying the entire vertex data of vid 
      char* vertex_row_request(int* msg_len, graph_vid_t vid) {
        oarchive oarc;
        oarc << std::string("vertex_data_row") << vid;
@@ -61,6 +79,7 @@ namespace graphlab {
        return oarc.buf;
      }
 
+     ///  returns a message for querying a vertex 
      char* vertex_request(int* msg_len, graph_vid_t vid) {
        oarchive oarc;
        oarc << std::string("vertex") << vid; 
@@ -68,6 +87,26 @@ namespace graphlab {
        return oarc.buf;
      }
 
+     ///  returns a message for querying the entire vertex data of vid 
+     char* edge_row_request(int* msg_len, graph_eid_t eid, graph_shard_id_t shardid) {
+       oarchive oarc;
+       oarc << std::string("edge_data_row") << eid << shardid;
+       *msg_len=oarc.off;
+       return oarc.buf;
+     }
+
+
+     ///  returns a message for querying an edge 
+     char* edge_request(int* msg_len, graph_vid_t eid,
+                          graph_shard_id_t shardid) {
+       oarchive oarc;
+       oarc << std::string("edge") << eid << shardid; 
+       *msg_len=oarc.off;
+       return oarc.buf;
+     }
+
+
+     ///  returns a message for querying a shard 
      char* shard_request(int* msg_len, graph_shard_id_t shardid) {
        oarchive oarc;
        oarc << std::string("shard") << shardid;
@@ -75,15 +114,17 @@ namespace graphlab {
        return oarc.buf;
      }
 
+     ///  returns a message for querying a shard content adjacent to list of vertices
      char* shard_content_adj_request (int* msg_len,
-                                      graph_shard_id_t from,
+                                      const std::vector<graph_vid_t>& vids,
                                       graph_shard_id_t to) {
        oarchive oarc;
-       oarc << std::string("shard_content_adj") << from << to;
+       oarc << std::string("shard_adj") << vids << to;
        *msg_len=oarc.off;
        return oarc.buf;
      }
 
+     ///  returns a message for querying the adjacent edges of a vertex
      char* vertex_adj_request(int* msg_len,
                               graph_vid_t vid,
                               graph_shard_id_t shardid,
@@ -95,6 +136,7 @@ namespace graphlab {
        return oarc.buf;
      }
 
+     ///  returns a message for querying the number of shards (on the target server) 
      char* num_shards_request (int* msg_len) {
        oarchive oarc;
        oarc << std::string("num_shards"); 
@@ -102,6 +144,7 @@ namespace graphlab {
        return oarc.buf;
      }
 
+     ///  returns a message for querying the number of vertices (on the target server) 
      char* num_verts_request (int* msg_len) {
        oarchive oarc;
        oarc << std::string("num_vertices"); 
@@ -109,6 +152,7 @@ namespace graphlab {
        return oarc.buf;
      }
 
+     ///  returns a message for querying the number of edges (on the target server) 
      char* num_edges_request (int* msg_len) {
        oarchive oarc;
        oarc << std::string("num_edges"); 
@@ -116,11 +160,70 @@ namespace graphlab {
        return oarc.buf;
      }
 
+     // ------------- Update request ------------------
+     /*
+      * Returns a message for updateing the vertex data.
+      * The message includes the modified fields of the vertex data. 
+      * Currently the message sends the new data (not delta).
+      * TODO: check delta commit
+      */
+     char* update_vertex_request(int* msg_len, 
+                                 graph_vid_t vid,
+                                 graph_row* data) {
+       oarchive oarc;
+       oarc << std::string("vertex_row") << vid;
+       std::vector<size_t> modified_fields;
+       for (size_t i = 0; i < data->num_fields(); i++) {
+         graph_value* val = data->get_field(i);
+         if (!val->is_null() && val->get_modified()) {
+           modified_fields.push_back(i);
+         }
+       }
+       oarc << modified_fields.size(); 
+       for (size_t i = 0; i < modified_fields.size(); i++) {
+         graph_value* val = data->get_field(modified_fields[i]);
+         oarc << modified_fields[i] << val->data_length();
+         oarc.write((char*)val->get_raw_pointer(), val->data_length());
+       }
+       *msg_len=oarc.off;
+       return oarc.buf;
+     }
+
+     /*
+      * Returns a message for updateing the edge data.
+      * The message includes the modified fields of the edge data. 
+      * Currently the message sends the new data (not delta).
+      * TODO: check delta commit
+      */
+     char* update_edge_request(int* msg_len, 
+                                 graph_eid_t eid,
+                                 graph_shard_id_t shardid,
+                                 graph_row* data) {
+       oarchive oarc;
+       oarc << std::string("edge_row") << eid << shardid;
+       std::vector<size_t> modified_fields;
+       for (size_t i = 0; i < data->num_fields(); i++) {
+         graph_value* val = data->get_field(i);
+         if (!val->is_null() && val->get_modified()) {
+           modified_fields.push_back(i);
+         }
+       }
+       oarc << modified_fields.size(); 
+       for (size_t i = 0; i < modified_fields.size(); i++) {
+         graph_value* val = data->get_field(modified_fields[i]);
+         oarc << modified_fields[i] << val->data_length();
+         oarc.write((char*)val->get_raw_pointer(), val->data_length());
+       }
+       *msg_len=oarc.off;
+       return oarc.buf;
+     }
+
+
      // ------------- Ingress requests  ----------------
+     ///  returns a message for adding the a vertex
      char* add_vertex_request(int* msg_len,
                               graph_shard_id_t shardid,
-                              vertex_record& vrecord
-                             ) {
+                              vertex_record& vrecord) {
        oarchive oarc;
        oarc << std::string("add_vertex") << vrecord.vid << shardid; 
        if (vrecord.data!= NULL) {
@@ -132,6 +235,7 @@ namespace graphlab {
        return oarc.buf;
      }
 
+     ///  returns a message for adding the a list of vertices 
      char* batch_add_vertex_request(int* msg_len,
                                     graph_shard_id_t shardid,
                                     std::vector<vertex_record>& vrecords) {
@@ -150,6 +254,7 @@ namespace graphlab {
        return oarc.buf;
      }
 
+     ///  returns a message for adding the an edge 
      char* add_edge_request(int* msg_len,
                             graph_shard_id_t shardid,
                             edge_record& erecord) {
@@ -164,6 +269,7 @@ namespace graphlab {
        return oarc.buf;
      }
 
+     ///  returns a message for adding the a list of edges 
      char* batch_add_edge_request(int* msg_len,
                                   graph_shard_id_t shardid,
                                   std::vector<edge_record>& erecords) {
@@ -182,6 +288,7 @@ namespace graphlab {
        return oarc.buf;
      }
 
+     ///  returns a message for adding a vertex mirror 
      char* add_vertex_mirror_request(int* msg_len,
                                      graph_shard_id_t shardid,
                                      mirror_record& mrecord){
@@ -195,6 +302,7 @@ namespace graphlab {
        return oarc.buf;
      }
 
+     ///  returns a message for adding a list of vertex mirror 
      char* batch_add_vertex_mirror_request(int* msg_len,
                                            graph_shard_id_t shardid,
                                            boost::unordered_map<graph_vid_t, mirror_record>& mrecords) {
@@ -218,19 +326,25 @@ namespace graphlab {
 
      // --------------------------- Reply parsers ---------------------------
      template<typename T>
-         bool parse_reply(std::string reply, T& out, std::string& errormsg) {
-           iarchive iarc(reply.c_str(), reply.length());
-           bool success;
-           iarc >> success;
-           if (!success) {
-             iarc >> errormsg;
-             logstream(LOG_ERROR) <<  errormsg << std::endl;
-           } else {
-             iarc >> out;
-           }
-           return success;
-         }
+     /**
+      * Parse a reply that has return content into the out variable.
+      */
+     bool parse_reply(std::string reply, T& out, std::string& errormsg) {
+       iarchive iarc(reply.c_str(), reply.length());
+       bool success;
+       iarc >> success;
+       if (!success) {
+         iarc >> errormsg;
+         logstream(LOG_ERROR) <<  errormsg << std::endl;
+       } else {
+         iarc >> out;
+       }
+       return success;
+     }
 
+     /**
+      * Parse a reply that has no content. 
+      */
      bool parse_reply(std::string reply, std::string& errormsg) {
        iarchive iarc(reply.c_str(), reply.length());
        bool success;
@@ -241,6 +355,7 @@ namespace graphlab {
        } 
        return success;
      }
+
      // template<typename F, typename T>
      // bool parse_future_reply(std::vector<query_result>& futures, F fun, T& acc, std::string& errormsg) {
      //   bool success = true;

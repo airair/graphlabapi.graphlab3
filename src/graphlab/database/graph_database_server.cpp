@@ -49,6 +49,23 @@ namespace graphlab {
     }
   }
 
+  void graph_database_server::get_edge(iarchive& iarc, oarchive& oarc) {
+    graph_shard_id_t shardid;
+    graph_eid_t eid;
+    iarc >> eid >> shardid;
+    graph_edge* e = database->get_edge(eid, shardid);
+    if (e == NULL) {
+      std::string msg = (std::string("Fail to get edge id = ") + boost::lexical_cast<std::string>(eid) + " on shard id = " + boost::lexical_cast<std::string>(shardid) + std::string(". Edge does not exist."));
+      oarc << false << msg;
+    } else {
+      graph_shard_id_t master = e->master_shard();
+      oarc << true << e->get_src() << e->get_dest() << e->get_id() << master 
+           << true << *(e->data());
+      database->free_edge(e);
+    }
+  }
+
+
   void graph_database_server::get_vertex_data_row(iarchive& iarc, oarchive& oarc) {
     graph_vid_t vid;
     iarc >> vid;
@@ -86,6 +103,7 @@ namespace graphlab {
     bool get_in, get_out;
     iarc >> vid >> shardid >> get_in >> get_out;
 
+
     std::vector<graph_edge*> _inadj;
     std::vector<graph_edge*> _outadj;
     std::vector<graph_edge*>* out_inadj = get_in ? &(_inadj) : NULL;
@@ -93,21 +111,20 @@ namespace graphlab {
 
     database->get_adj_list(vid, shardid, true, out_inadj, out_outadj);
 
-    size_t numin = get_in ? out_inadj->size() : 0;
-    size_t numout = get_out ? out_outadj->size() : 0;
-
-    oarc << true << vid << shardid << numin << numout;
-
-    for (size_t i = 0; i < numin; i++) {
-      oarc << _inadj[i]->get_src() << _inadj[i]->get_id() << *(_inadj[i]->data());
-    }
-    for (size_t i = 0; i < numout; i++) {
-      oarc << _outadj[i]->get_dest() << _outadj[i]->get_id() << *(_outadj[i]->data());
+    oarc << true << vid << shardid << _inadj.size() << _outadj.size();
+    if (get_in) {
+      for (size_t i = 0; i < _inadj.size(); i++) {
+         oarc << _inadj[i]->get_src() << _inadj[i]->get_id() << *(_inadj[i]->data());
+      }
+      database->free_edge_vector(_inadj);
     }
 
-    if (out_inadj) database->free_edge_vector(out_inadj);
-    
-    if (out_outadj) database->free_edge_vector(out_outadj);
+    if (get_out) {
+      for (size_t i = 0; i < _outadj.size(); i++) {
+        oarc << _outadj[i]->get_dest() << _outadj[i]->get_id() << *(_outadj[i]->data());
+      }
+      database->free_edge_vector(_outadj);
+    }
   }
 
 
@@ -126,9 +143,10 @@ namespace graphlab {
   }
 
   void graph_database_server::get_shard_contents_adj_to(iarchive& iarc, oarchive& oarc) {
-    graph_shard_id_t shard_from, shard_to;
-    iarc >> shard_from >> shard_to;
-    graph_shard* shard = database->get_shard_contents_adj_to(shard_from, shard_to);
+    graph_shard_id_t shard_to;
+    std::vector<graph_vid_t> vids;
+    iarc >> vids >> shard_to;
+    graph_shard* shard = database->get_shard_contents_adj_to(vids, shard_to);
     if (shard == NULL) {
       std::string errormsg = ("Shard " + boost::lexical_cast<std::string>(shard_to) + " does not exist");
       logstream(LOG_WARNING) << errormsg << std::endl;
@@ -139,9 +157,7 @@ namespace graphlab {
   }
 
 
-
   // ----------- Modification Handlers ----------------
-
   void graph_database_server::set_vertex_field (iarchive& iarc,
                                                 oarchive& oarc) {
     graph_vid_t vid;
@@ -156,13 +172,49 @@ namespace graphlab {
                          + boost::lexical_cast<std::string>(vid)
                          + std::string(". Vid does not exist."));
       oarc << false << msg;
-    } else {
-      bool success = v->data()->get_field(fieldpos)->set_val(val, len);
-      v->write_changes();
-      database->free_vertex(v);
-      oarchive oarc;
-      oarc << success;
+      return;
     }
+
+    bool success = v->data()->get_field(fieldpos)->set_val(val, len);
+    v->write_changes();
+    database->free_vertex(v);
+    if (success) {
+      oarc << success;
+    } else {
+      oarc << false << ("Faile to set field " + boost::lexical_cast<std::string>(fieldpos));
+    }
+  }
+
+  void graph_database_server::set_vertex_row(iarchive& iarc,
+                                             oarchive& oarc) {
+    graph_vid_t vid;
+    size_t num_changes, fieldpos, len;
+    iarc >> vid >> num_changes;
+    graph_vertex* v = database->get_vertex(vid);
+    if (v == NULL) {
+      std::string msg = (std::string("Fail to get vertex id = ")
+                         + boost::lexical_cast<std::string>(vid)
+                         + std::string(". Vid does not exist."));
+      oarc << false << msg;
+      return;
+    }
+
+    std::vector<std::string> errors;
+    for (size_t i = 0; i < num_changes; i++) {
+      iarc >> fieldpos >> len;
+      char* val = (char*)malloc(len);
+      iarc.read(val, len);
+      bool success = v->data()->get_field(fieldpos)->set_val(val, len);
+      if (!success)
+        errors.push_back("Fail to set value for field " + boost::lexical_cast<std::string>(fieldpos));
+    }
+    v->write_changes();
+    if (errors.size() > 0) { 
+      oarc << false << boost::algorithm::join(errors, "\n");
+    } else {
+      oarc << true;
+    }
+    database->free_vertex(v);
   }
 
   void graph_database_server::set_edge_field(iarchive& iarc,
@@ -186,6 +238,11 @@ namespace graphlab {
       database->free_edge(e);
       oarc << success;
     }
+  }
+
+  void graph_database_server::set_edge_row(iarchive& iarc, oarchive& oarc) {
+    // unimplemented
+    ASSERT_TRUE(false);
   }
 
   // ------------------ Ingress Handlers -----------------

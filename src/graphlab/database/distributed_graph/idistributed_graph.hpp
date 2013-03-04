@@ -69,12 +69,12 @@ namespace graphlab {
     virtual graph_edge* get_edge(graph_eid_t eid, graph_shard_id_t shardid) = 0 ;
     virtual void free_vertex(graph_vertex* vertex) = 0;
     virtual void free_edge(graph_edge* edge) = 0;
-    virtual void free_edge_vector(std::vector<graph_edge*>* edgelist)  = 0;
+    virtual void free_edge_vector(std::vector<graph_edge*>& edgelist)  = 0;
 
     // ------------ Corse grained API --------------------
     virtual size_t num_shards() = 0;
     virtual graph_shard* get_shard(graph_shard_id_t shardid) = 0;
-    virtual graph_shard* get_shard_contents_adj_to(graph_shard_id_t shardid,
+    virtual graph_shard* get_shard_contents_adj_to(const std::vector<graph_vid_t>& vids,
                                        graph_shard_id_t adjacent_to) = 0;
     virtual void free_shard(graph_shard* shard) = 0;
     virtual void adjacent_shards(graph_shard_id_t shard_id,

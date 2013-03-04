@@ -41,7 +41,7 @@ typedef Eigen::MatrixXi graphlab_mati_t;
 typedef std::vector<double> graph_d_vector_t;
 
 /// \ingroup group_graph_database
-/// Possible data types for fields
+// Possible data types for fields
 enum graph_datatypes_enum {
 	VID_TYPE,
 	INT_TYPE,

@@ -9,8 +9,8 @@ namespace graphlab {
 
 /**
  * \ingroup group_graph_database
- *  An shared memory implementation of <code>graph_edge</code>.
- *  The edge data is directly accessible through pointers. 
+ * An implementation of <code>graph_edge</code> for the distributed_graph client.
+ * This class is responsible for the free of the data pointers. 
  *
  * This object is not thread-safe, and may not copied.
  */
@@ -29,6 +29,10 @@ class distributed_graph_edge : public graph_edge {
  idistributed_graph* graph;
 
  public:
+ /**
+  * Struct holds the adjacency list information for the  
+  * get_adj_list protocol defined in QueryMessages.
+  */
   struct vertex_adjacency_record {
     graph_vid_t vid; 
     graph_shard_id_t shardid;
@@ -37,7 +41,9 @@ class distributed_graph_edge : public graph_edge {
     idistributed_graph* graph;
     size_t num_in_edges, num_out_edges;
 
-    vertex_adjacency_record(idistributed_graph* graph) : graph(graph) {}
+    vertex_adjacency_record(idistributed_graph* graph) : vid(-1), shardid(-1), 
+        inEdges(NULL), outEdges(NULL), graph(graph), num_in_edges(0),
+        num_out_edges(0) {}
 
     void save (oarchive& oarc) const{
       oarc << vid << shardid << num_in_edges << num_out_edges;
@@ -49,6 +55,8 @@ class distributed_graph_edge : public graph_edge {
 
     void load (iarchive& iarc) {
       iarc >> vid >> shardid >> num_in_edges >> num_out_edges;
+      ASSERT_TRUE(inEdges == NULL);
+      ASSERT_TRUE(outEdges == NULL);
       inEdges = new distributed_graph_edge[num_in_edges];
       outEdges = new distributed_graph_edge[num_out_edges];
       for (size_t i = 0; i < num_in_edges; i++) {
@@ -79,11 +87,17 @@ class distributed_graph_edge : public graph_edge {
     }
   };
 
+  typedef libfault::query_object_client::query_result query_result;
 
  public:
  distributed_graph_edge() :
      sourceid(-1), targetid(-1), eid(-1), edata(NULL),
      master(-1), graph(NULL) {}
+
+ distributed_graph_edge(idistributed_graph* graph) :
+     sourceid(-1), targetid(-1), eid(-1), edata(NULL),
+     master(-1), graph(graph) {}
+
 
  ~distributed_graph_edge () {
    if (edata != NULL)
@@ -123,35 +137,63 @@ class distributed_graph_edge : public graph_edge {
   };
 
   // --- synchronization ---
-
-
   /**
-   * Commits changes made to the data on this vertex synchronously.
+   * Commits changes made to the data on this edge synchronously.
    * This resets the modification and delta flags on all values in the 
    * graph_row.
-   *
-   * TODO: check delta commit.
    */ 
   void write_changes() {  
     if (edata == NULL)
       return;
+    QueryMessages messages;
+    int len;
+    char* msg = messages.update_edge_request(&len, eid, master, edata);
+    std::string reply = graph->update(graph->find_server(master), msg, len); 
+    std::string errormsg;
+    ASSERT_TRUE(messages.parse_reply(reply, errormsg));
 
-    // NOT IMPLEMENTED 
-    ASSERT_TRUE(false);
+    for (size_t i = 0; i < data()->num_fields(); i++) {
+      graph_value* val = data()->get_field(i);
+      if (val->get_modified()) {
+        val->post_commit_state();
+      }
+    }
   }
 
   /**
    * Same as synchronous commit in shared memory.
    */ 
   void write_changes_async() { 
-    write_changes();
+    if (edata == NULL)
+      return;
+    QueryMessages messages;
+    int len;
+    char* msg = messages.update_edge_request(&len, eid, master, edata);
+    graph->update_async(graph->find_server(master), msg, len, reply_queue); 
+    //TODO: check reply success
+    for (size_t i = 0; i < data()->num_fields(); i++) {
+      graph_value* val = data()->get_field(i);
+      if (val->get_modified()) {
+        val->post_commit_state();
+      }
+    }
   }
 
   /**
-   * No effects in shared memory.
+   * Request the latest data from server synchronously.
    */ 
   void refresh() { 
-    ASSERT_TRUE(false);
+    QueryMessages messages;
+    int len;
+    char* request = messages.edge_row_request(&len, eid, master);
+    std::string reply = graph->query(graph->find_server(master), request, len);
+
+    if (edata ==  NULL)
+      edata = new graph_row(); 
+    std::string errormsg;
+
+    bool success = messages.parse_reply(reply, *edata, errormsg);
+    ASSERT_TRUE(success);
   }
 
   /**
@@ -160,6 +202,7 @@ class distributed_graph_edge : public graph_edge {
    */ 
   void write_and_refresh() { 
     write_changes();
+    refresh();
   }
 
  /**
@@ -184,10 +227,13 @@ class distributed_graph_edge : public graph_edge {
     bool hasdata = false;
     iarc >> hasdata;
     if (hasdata) {
-      edata = new graph_row();
+      if (edata == NULL)
+        edata = new graph_row();
       iarc >> *edata;
     }
   }
+
+  std::vector<query_result> reply_queue;
 };
 
 } // namespace graphlab

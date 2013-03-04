@@ -30,6 +30,8 @@ namespace graphlab {
 class graph_vertex {
  public:
 
+  graph_vertex() {}
+
   inline virtual ~graph_vertex() { }
 
   /**
@@ -145,6 +147,15 @@ class graph_vertex {
                             std::vector<graph_edge*>* out_outadj) = 0;
 
 
+
+ private:
+  // copy constructor deleted. It is not safe to copy this object.
+  graph_vertex(const graph_vertex&) { }
+
+  // assignment operator deleted. It is not safe to copy this object.
+  graph_vertex& operator=(const graph_vertex&) { return *this; }
+
+  // output the string format to ostream.
   friend std::ostream& operator<<(std::ostream &strm, graph_vertex& v) {
     strm << "vertex: " << v.get_id() << "\t" << "master: " << v.master_shard() << "\n"
          << "span: [";
@@ -162,15 +173,6 @@ class graph_vertex {
     }
     return strm;
   }
-
-
- private:
-  // copy constructor deleted. It is not safe to copy this object.
-  // graph_vertex(const graph_vertex&) { }
-
-  // assignment operator deleted. It is not safe to copy this object.
-  graph_vertex& operator=(const graph_vertex&) { return *this; }
-
 };
 
 } // namespace graphlab

@@ -134,7 +134,7 @@ class graph_database {
   /**
    * Frees a collection of edges. The vector will be cleared. on return.
    */
-  virtual void free_edge_vector(std::vector<graph_edge*>* edgelist) = 0;
+  virtual void free_edge_vector(std::vector<graph_edge*>& edgelist) = 0;
 
 
 //  ------ Coarse Grained API ---------
@@ -156,6 +156,14 @@ class graph_database {
    */
   virtual graph_shard* get_shard_contents_adj_to(graph_shard_id_t shard_id,
                                                  graph_shard_id_t adjacent_to) = 0;
+
+  /**
+   * Gets the contents of the shard which are adjacent to some other shard
+   * Returns NULL on failure
+   */
+  virtual graph_shard* get_shard_contents_adj_to(const std::vector<graph_vid_t>& vids,
+                                                 graph_shard_id_t adjacent_to) = 0;
+
   /**
    * Frees a shard.
    */  

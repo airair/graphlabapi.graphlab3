@@ -15,6 +15,7 @@
 
 #include <fault/query_object_client.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string/join.hpp>
 
 namespace graphlab {
 /**
@@ -23,26 +24,33 @@ namespace graphlab {
  */
 class graph_database_server {
 
+  // Pointer to the underlying database.
   graph_database* database;
 
-  // Graph Database Server object, will be replace to comm object in the future
+  // Defines the communication protocols. 
   QueryMessages messages;
 
-  // the actual query object which connects to the graph db server.
+  // Query object client that can talk to other servers. 
   libfault::query_object_client* qoclient;
 
-  // a list of shard server names.
+  // A list of names of all shard servers.
   std::vector<std::string> server_list;
 
   typedef libfault::query_object_client::query_result query_result;
 
  public:
 
+  /**
+   * Creates a shard server which is not able to talk to other servers.
+   */
   graph_database_server(graph_database* db) : database(db), qoclient(NULL) { 
     ASSERT_TRUE(db != NULL);
     server_list.push_back("local");
   }
 
+  /**
+   * Creates a shard server with query_object_client configuration.
+   */
   graph_database_server(graph_database* db,
                         void* zmq_ctx,
                         std::vector<std::string> zkhosts,
@@ -59,24 +67,21 @@ class graph_database_server {
 
   /**
    * Handle the SET queries.
-   * This function takes over the pointer of the request message.
-   *
-   * Current support queries:
-   *  // Set the vertex data at a given field.
-   *  header("vertex_data") >> vid >> fieldpos >> len >> data
-   *
-   *  // Set the edge data at a given field.
-   *  header("edge_data") >> eid >> shardid >> fieldpos >> len >> data
+   * This function does not free the request message.
    */
   std::string update(char* request, size_t len) {
     std::string header;
     iarchive iarc(request, len);
     iarc >> header;
     oarchive oarc;
-    if (header == "vertex_data") {
+    if (header == "vertex_field") {
       set_vertex_field(iarc, oarc);
-    } else if (header == "edge_data") {
+    } else if (header == "edge_field") {
       set_edge_field(iarc, oarc);
+    } else if (header == "vertex_row") {
+      set_vertex_row(iarc, oarc);
+    } else if (header == "edge_row") {
+      set_edge_row(iarc, oarc);
     } else if (header == "add_vertex") {
       add_vertex(iarc, oarc);
     } else if (header == "batch_add_vertex") {
@@ -101,25 +106,9 @@ class graph_database_server {
 
   /**
    * Handle the GET queries.
-   * This function takes over the pointer of the request message.
-   *
-   * Current support queries:
-   *  // get vertex fields metadata
-   *  header("vertex_fields_meta")      
-   *
-   *  // get edge_fields metat data
-   *  header("edge_fields_meta")
-   *
-   *  // get the value of a vertex at a given field
-   *  header("vertex_data_field") >> vid >> fieldpos  
-   *
-   *  // get the entire row of a vertex
-   *  header("vertex_data_row") >> vid >> row             
-   *
-   *  // get  the adjacency edges of vertex at a given shard. Boolean options: getin, getout, and prefetch_data. 
-   *  header("vertex_adj") >> vid >> shardid >> getin >> getout >> prefetch_data     
+   * This function does not free the request message.
    */
-  std::string query(char* request, size_t len) {
+  std::string query(const char* request, size_t len) {
     iarchive iarc(request, len);
     std::string header;
     iarc >> header;
@@ -139,7 +128,9 @@ class graph_database_server {
       get_num_shards(iarc, oarc);
     } else if (header == "vertex") {
       get_vertex(iarc, oarc);
-    } else if (header == "vertex_data_field") {
+    } else if (header == "edge") {
+      get_edge(iarc, oarc);
+    }else if (header == "vertex_data_field") {
       get_vertex_data_field(iarc, oarc);
     } else if (header == "vertex_data_row") {
       get_vertex_data_row(iarc, oarc);
@@ -147,6 +138,8 @@ class graph_database_server {
       get_vertex_adj(iarc, oarc);
     } else if (header == "shard") {
       get_shard(iarc, oarc);
+    } else if (header == "shard_adj") {
+      get_shard_contents_adj_to(iarc, oarc);
     }else {
       logstream(LOG_WARNING) <<  ("Unknown query header: " + header) << std::endl;
       oarc << false << ("Unknown query header: " + header);
@@ -156,66 +149,73 @@ class graph_database_server {
     return  ret;
   }
 
+
   // ------------- Modification Handlers ---------------
   /**
    * Set the value of vertex (id=vid) at field fieldpos to the provided argument.
-   * Return a false if the set operation failed. 
+   * Reply is header only.
    */
   void set_vertex_field(iarchive& iarc, oarchive& oarc);
 
   /**
    * Set the value of edge (id=eid) in shard (id=shardid) at field fieldpos to the provided argument.
-   * Return a false if the set operation failed. 
+   * Reply is header only.
    */
   void set_edge_field(iarchive& iarc, oarchive& oarc);
+
+  /**
+   * Set the entire row of vertex (id=vid) to the provided argument.
+   * Reply is header only.
+   */
+  void set_vertex_row(iarchive& iarc, oarchive& oarc);
+
+  /**
+   * Set the entire row of vertex (id=vid) to the provided argument.
+   * Reply is header only.
+   */
+  void set_edge_row(iarchive& iarc, oarchive& oarc);
 
 
   // ------------- Query Handlers ---------------
 
   /**
    * Returns a serialized string of the vertex field vector. 
-   *
-   * Serialization format:
+   * Reply format:
    *  success << vector<graph_field>
    */
   void get_vertex_fields(iarchive& iarc, oarchive& oarc);
 
   /**
    * Returns a serialized string of the edge field vector.
-   *
-   * Serialization format:
+   * Reply format:
    *  success << vector<graph_field>
    */
   void get_edge_fields(iarchive& iarc, oarchive& oarc);
 
   /**
    * Returns a serilaized string of number of edges
-   *
-   * Serialization format:
+   * Reply format:
    *  success << num_edges 
    */
   void get_num_edges(iarchive& iarc, oarchive& oarc);
 
   /**
    * Returns a serilaized string of number of edges
-   *
-   * Serialization format:
+   * Reply format:
    *  success << num_vertices 
    */
   void get_num_vertices(iarchive& iarc, oarchive& oarc);
 
   /**
    * Returns a serilaized string of number of edges
-   *
-   * Serialization format:
+   * Reply format:
    *  success << num_shards
    */
   void get_num_shards(iarchive& iarc, oarchive& oarc);
 
   /**
    * Returns a serialized string of the sharding graph.
-   *
-   * Serialization format:
+   * Reply format:
    *  success << sharding_graph
    */
   void get_sharding_constraint(iarchive& iarc, oarchive& oarc);
@@ -223,25 +223,29 @@ class graph_database_server {
 
   /**
    * Returns a serialized string of the query vertex.
-   *
-   * Serialization format:
-   *  success << distributed_vertex.
+   * Reply format:
+   *  success << distributed_graph_vertex.
    */
   void get_vertex(iarchive& iarc, oarchive& oarc);
 
   /**
+   * Returns a serialized string of the query edge.
+   * Reply format:
+   *  success << distributed_graph_edge.
+   */
+  void get_edge(iarchive& iarc, oarchive& oarc);
+
+
+  /**
    * Returns the serialized string of the entire row corresponding to the query vertex.
-   *
-   * Serialization format:
+   * Reply format:
    *  success << row
-   *
    */
   void get_vertex_data_row(iarchive& iarc, oarchive& oarc);
 
    /**
    * Returns the serialization of graph value corresponding to the query vertex and field index.
-   *
-   * Serialization format:
+   * Reply format:
    *  success << graph_value 
    */
   void get_vertex_data_field(iarchive& iarc, oarchive& oarc);
@@ -251,27 +255,26 @@ class graph_database_server {
    * query vertex on a local shard with shard id.
    * The query vertex may not be local.
    *
-   * Serialization format:
-   *  success << numin << numout << prefetch_data << ADJACENCY(in) << ADJACENCY(out)
-   *  ADJACENCY format: e1.src << e1.dst [<< e1.data] << e2.src << e2.dst [<< d2.data]
+   * Reply format:
+   *  success << numin << numout 
+   *          << std::vector<distributed_graph_edge::vertex_adjacency_record>
+   *          << std::vector<distributed_graph_edge::vertex_adjacency_record> 
    */
   void get_vertex_adj(iarchive& iarc, oarchive& oarc);
 
   /**
    * Returns the serialization of the shards corresponding to the 
    * query shard id in iarc.
-   *
-   * Serialization format:
-   *  success << shard 
+   * Reply format:
+   *  success << graph_shard 
    */
   void get_shard(iarchive& iarc, oarchive& oarc);
 
   /**
    * Returns the serialization of the shard corresponding to the 
    * query adjacent shard ids in iarc.
-   *
-   * Serialization format:
-   *  success << shard 
+   * Reply format:
+   *  success << grpah_shard 
    */
   void get_shard_contents_adj_to(iarchive& iarc, oarchive& oarc);
 

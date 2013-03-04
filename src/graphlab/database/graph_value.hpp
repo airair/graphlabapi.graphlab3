@@ -242,6 +242,38 @@ class graph_value {
   }
 
 
+  /* 
+   * Sets the value field to the argument (ascii representation) based on the type and delta commit flag.
+   * Returns true on success. Returns false if the data
+   * cannot be cast to the matching type, or the data is NULL.
+   */
+  bool set_val(const std::string& val_str) {
+    switch(_type) {
+     case INT_TYPE:
+       {
+        graph_int_t intval = boost::lexical_cast<graph_int_t>(val_str); 
+        return get_use_delta_commit() ? set_integer(intval + _old.int_value) 
+            : set_integer(intval);
+        }
+     case DOUBLE_TYPE:
+       {
+       graph_double_t doubleval = boost::lexical_cast<graph_double_t>(val_str);
+       return get_use_delta_commit() ? set_double(doubleval + _old.double_value) 
+           : set_double(doubleval);
+       }
+     case VID_TYPE:
+       return set_vid(boost::lexical_cast<graph_vid_t>(val_str));
+     case STRING_TYPE:
+       return set_string(val_str);
+     case BLOB_TYPE:
+       return set_blob(val_str.c_str(), val_str.size());
+     default:
+       return false;
+    }
+    return false;
+  }
+
+
   /** Returns true if the data was modified. The data could be flagged as 
    * modified by calling any of the set_* functions, 
    * get_mutable_raw_pointer(), or set_modified().
@@ -257,7 +289,8 @@ class graph_value {
     _modified = true;
   }
 
-  /** Returns true if the delta commit flag is set.
+  /** 
+   * Returns true if the delta commit flag is set.
    * If the delta commit flag is set, changes made will be committed 
    * as a delta (i.e. add 10, subtract 5.1) instead of as a value 
    * (set value to 51).
@@ -281,6 +314,10 @@ class graph_value {
     }
   }
 
+  // Deepcopy into out_value. 
+  void deepcopy(graph_value& out_value);
+
+
   /**
    * Set the value to post commit state: setting oldvalue to be new value,
    * remove modification flags.
@@ -292,6 +329,10 @@ class graph_value {
     _modified = false;
   }
 
+  /**
+   * Serialization interface. Save the current value. 
+   * \note old value and modification flag are ignored.
+   */
   void save(oarchive& oarc) const {
     oarc << _type << _null_value << _use_delta_commit << _len;
     if (!_null_value) {
@@ -303,20 +344,25 @@ class graph_value {
     }
   }
 
+  /**
+   * Serialization interface. Load the current value. 
+   * \note old value and modification flag are ignored.
+   */
   void load(iarchive& iarc) {
     iarc >> _type >> _null_value >> _use_delta_commit >> _len;
      if (!_null_value) {
        if (is_scalar_graph_datatype(_type)) {
           iarc.read((char*)(&_data), _len);
        } else {
-          _data.bytes = (char*)malloc(_len);
+         if (_data.bytes == NULL) {
+            _data.bytes = (char*)malloc(_len);
+         } else {
+            _data.bytes = (char*)realloc(_data.bytes, _len);
+         }
           iarc.read(_data.bytes, _len);
        }
      }
   }
-
-  // Deepcopy into out_value. 
-  void deepcopy(graph_value& out_value);
 
  private:
   // copy constructor deleted. It is not safe to copy this object.
@@ -325,6 +371,7 @@ class graph_value {
   // assignment operator deleted. It is not safe to copy this object.
   graph_value& operator=(const graph_value&) { return *this; }
 
+  // output the string format to ostream.
   friend std::ostream& operator<<(std::ostream &strm, const graph_value& v) {
     std::string value_str; 
     if (v.is_null()) {

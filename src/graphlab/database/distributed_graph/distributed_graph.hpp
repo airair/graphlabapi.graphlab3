@@ -57,7 +57,6 @@ namespace graphlab {
     // Hash function for edge id.
     boost::hash<std::pair<graph_vid_t, graph_vid_t> > edge_hash;
 
-
     typedef libfault::query_object_client::query_result query_result;
 
     // Graph Database Server object, will be replace to comm object in the future
@@ -79,6 +78,10 @@ namespace graphlab {
     typedef boost::function<bool(distributed_graph&, const std::string&,
                                  const std::string&)> line_parser_type;
 
+    /**
+     * Query server with a query message. Block until getting the reply.
+     * This function takes over the msg pointer.
+     */
     std::string query (const std::string& server_name, char* msg, size_t msg_len) {
       if (server != NULL)  {
         std::string reply = server->query(msg, msg_len);
@@ -95,6 +98,10 @@ namespace graphlab {
       }
     }
 
+    /**
+     * Query server with a update message. Block until getting the reply.
+     * This function takes over the msg pointer.
+     */
     std::string update (const std::string& server_name, char* msg, size_t msg_len) {
       if (server != NULL)  {
         std::string reply = server->update(msg, msg_len);
@@ -112,6 +119,10 @@ namespace graphlab {
     }
 
 
+    /**
+     * Send query message asynchronously. The future reply object is pushed into the given reply queue. 
+     * This function takes over the msg pointer.
+     */
     void update_async(const std::string& server_name, char* msg, size_t msg_len, std::vector<query_result>& queue) {
       if (server != NULL)  {
         std::string reply = server->update(msg, msg_len);
@@ -122,6 +133,10 @@ namespace graphlab {
       }
     }
 
+    /**
+     * Send update message asynchronously. The future reply object is pushed into the given reply queue. 
+     * This function takes over the msg pointer.
+     */
     void query_async(const std::string& server_name, char* msg, size_t msg_len, std::vector<query_result>& queue) {
       if (server != NULL)  {
         std::string reply = server->query(msg, msg_len);
@@ -133,56 +148,25 @@ namespace graphlab {
     }
 
    public:
+    /**
+     * Creates a local simulated distributed_graph client with pointer to a shared memory
+     * server.
+     */
     distributed_graph (graph_database_server*  server) : server(server), qoclient(NULL) { 
-      int vfield_req_len, efield_req_len, sharding_req_len;
-      char* vfieldreq = messages.vfield_request(&vfield_req_len);
-      char* efieldreq = messages.efield_request(&efield_req_len);
-      char* shardingreq = messages.sharding_graph_request(&sharding_req_len);
-
-      std::string vfieldrep = query("local", vfieldreq, vfield_req_len);
-      std::string efieldrep = query("local", efieldreq, efield_req_len);
-      std::string shardingrep = query("local", shardingreq, sharding_req_len);
-
-      bool success = true;
-      std::string errormsg;
-      success &= messages.parse_reply(vfieldrep, vertex_fields, errormsg);
-      success &= messages.parse_reply(efieldrep, edge_fields, errormsg);
-      success &= messages.parse_reply(shardingrep, sharding_graph, errormsg);
-      ASSERT_TRUE(success);
-
       server_list.push_back("local"); // in local mode, there is only one server
-
-      vertex_buffer.resize(sharding_graph.num_shards());
-      edge_buffer.resize(sharding_graph.num_shards());
-      mirror_buffer.resize(sharding_graph.num_shards());
+      get_basic_info();
     }
 
+    /**
+     * Creates a distributed_graph client query_object_client configuration and a server name list.
+     */
     distributed_graph (void* zmq_ctx,
                        std::vector<std::string> zkhosts,
                        std::string& prefix,
                        std::vector<std::string> server_list) : server(NULL), server_list(server_list) {
       qoclient = new libfault::query_object_client(zmq_ctx, zkhosts, prefix);
       ASSERT_GT(server_list.size(), 0);
-
-      int vfield_req_len, efield_req_len, sharding_req_len;
-      char* vfieldreq = messages.vfield_request(&vfield_req_len);
-      char* efieldreq = messages.efield_request(&efield_req_len);
-      char* shardingreq = messages.sharding_graph_request(&sharding_req_len);
-
-      std::string vfieldrep = query(server_list[0], vfieldreq, vfield_req_len);
-      std::string efieldrep = query(server_list[0], efieldreq, efield_req_len);
-      std::string shardingrep = query(server_list[0], shardingreq, sharding_req_len);
-
-      bool success = true;
-      std::string errormsg;
-      success &= messages.parse_reply(vfieldrep, vertex_fields, errormsg);
-      success &= messages.parse_reply(efieldrep, edge_fields, errormsg);
-      success &= messages.parse_reply(shardingrep, sharding_graph, errormsg);
-      ASSERT_TRUE(success);
-
-      vertex_buffer.resize(sharding_graph.num_shards());
-      edge_buffer.resize(sharding_graph.num_shards());
-      mirror_buffer.resize(sharding_graph.num_shards());
+      get_basic_info();
     }
 
     /**
@@ -261,7 +245,7 @@ namespace graphlab {
 
     /**
      * Returns a graph_vertex object for the queried vid. Returns NULL on failure
-     * The vertex data is passed eagerly as a pointer. Adjacency information is passed through the <code>edge_index</code>. 
+     * Returns NULL on failure.
      * The returned vertex pointer must be freed using free_vertex
      */
     graph_vertex* get_vertex(graph_vid_t vid) {
@@ -280,11 +264,20 @@ namespace graphlab {
 
     /**
      * Returns a graph_edge object for quereid eid, and shardid. Returns NULL on failure.
-     * The edge data is passed eagerly as a pointer. 
      * The returned edge pointer must be freed using free_edge.
      */
     graph_edge* get_edge(graph_eid_t eid, graph_shard_id_t shardid) {
-      return NULL;
+      int msg_len;
+      char* request = messages.edge_request(&msg_len, eid, shardid);
+      std::string reply = query(find_server(shardid), request, msg_len);
+      distributed_graph_edge* ret = new distributed_graph_edge(this);
+      std::string errormsg; 
+      if (messages.parse_reply(reply, *ret, errormsg)) {
+        return ret;
+      } else {
+        delete ret;
+        return NULL;
+      }
     }
 
     /**
@@ -320,8 +313,7 @@ namespace graphlab {
      * The associated data is not freed. 
      */
     void free_vertex(graph_vertex* vertex) {
-      // not implemented
-      ASSERT_TRUE(false);
+      delete vertex;
     };
 
     /**
@@ -329,17 +321,18 @@ namespace graphlab {
      * The associated data is not freed. 
      */
     void free_edge(graph_edge* edge) {
-      // not implemented
-      ASSERT_TRUE(false);
-
+      delete edge;
     }
 
     /**
      * Frees a collection of edges. The vector will be cleared on return.
      */
-    void free_edge_vector(std::vector<graph_edge*>* edgelist) {
-      // not implemented
-      ASSERT_TRUE(false);
+    void free_edge_vector(std::vector<graph_edge*>& edgelist) {
+      if (edgelist.size() == 0)
+        return;
+      distributed_graph_edge* head = (distributed_graph_edge*)edgelist[0];
+      delete[] head;
+      edgelist.clear();
     }
 
 
@@ -351,7 +344,8 @@ namespace graphlab {
     size_t num_shards() { return sharding_graph.num_shards(); }
 
     /**
-     * Returns a reference of the shard from storage.
+     * Returns a graph_shard object for the query shardid. Returns NULL on failure.
+     * The returned shard pointer must be freed using free_shard.
      */
     graph_shard* get_shard(graph_shard_id_t shardid) {
       int msg_len;
@@ -370,16 +364,14 @@ namespace graphlab {
     }
 
     /**
-     * Gets the contents of the shard which are adjacent to some other shard.
-     * Creats a new shard with only the relevant edges, and no vertices.
-     * It makes a copy of the edge data from the original shard, and fills in the <code>shard_impl.edgeid</code>
-     * with the index from the original shard.
+     * Gets the ontents of the shard which are adjacent to a list of vertices.
+     * Creates a new shard with only the relevant edges, and no vertices.
      * Returns NULL on failure.
      */
-    graph_shard* get_shard_contents_adj_to(graph_shard_id_t shard_id,
+    graph_shard* get_shard_contents_adj_to(const std::vector<graph_vid_t>& vids,
                                            graph_shard_id_t adjacent_to) {
       int msg_len;
-      char* shardreq = messages.shard_content_adj_request(&msg_len, shard_id, adjacent_to);
+      char* shardreq = messages.shard_content_adj_request(&msg_len, vids, adjacent_to);
       std::string server_name = find_server(adjacent_to);
       std::string shardrep = query(server_name, shardreq, msg_len);
 
@@ -388,7 +380,8 @@ namespace graphlab {
       graph_shard* shard  = new graph_shard();
       success = messages.parse_reply(shardrep, *shard, errormsg);
       if (!success) {
-        free_shard(shard);
+        delete shard;
+        shard = NULL;
       }
       return shard;
     }
@@ -398,9 +391,7 @@ namespace graphlab {
      * All pointers to the data in the shard will be invalid. 
      */  
     void free_shard(graph_shard* shard) {
-      shard->clear();
       delete(shard);
-      shard = NULL;
     }
 
     /** 
@@ -435,6 +426,10 @@ namespace graphlab {
 
 
     // ----------- Ingress API -----------------
+    /**
+     * Insert a vertex wth given value.
+     * This call block until getting the reply from server.
+     */
     bool add_vertex_now (graph_vid_t vid, graph_row* data=NULL) {
       graph_shard_id_t master = sharding_graph.get_master(vid);
       int msg_len;
@@ -457,6 +452,7 @@ namespace graphlab {
      * Insert an edge from source to target with given value.
      * This will add vertex mirror info to the master shards if they were not added before.
      * The corresponding vertex mirrors and edge index are updated.
+     * This call block until getting the reply from server.
      */
     void add_edge_now(graph_vid_t source, graph_vid_t target, graph_row* data=NULL) {
       graph_shard_id_t master = sharding_graph.get_master(source, target);
@@ -479,14 +475,24 @@ namespace graphlab {
       }
     }
 
+    /**
+     * Insert a vertex asynchronously. This call will buffer the insertion with buffersize = 1M.
+     * Use flush_vertex_buffer() to send out the buffered request.
+     * The future reply will be pushed into ingress_reply.
+     */
     void add_vertex (graph_vid_t vid, const graph_row* data=NULL) {
       graph_shard_id_t master = sharding_graph.get_master(vid);
       vertex_buffer[master].push_back(vertex_record(vid, data));
-      if (vertex_buffer[master].size() > 100000) {
+      if (vertex_buffer[master].size() > 1000000) {
         flush_vertex_buffer(master);
       }
     }
 
+    /**
+     * Insert an edge asynchronously. This call will buffer the insertion with buffersize = 1M.
+     * Use flush_edge_buffer() to send out the buffered request.
+     * The future reply will be pushed into ingress_reply.
+     */
     void add_edge (graph_vid_t source, graph_vid_t target, const graph_row* data=NULL) {
       graph_shard_id_t master = sharding_graph.get_master(source, target);
       edge_buffer[master].push_back(edge_record(source, target, data));
@@ -513,6 +519,9 @@ namespace graphlab {
       }
     }
 
+    /**
+     * Flush all buffered requests.
+     */
     void flush() {
       for (size_t i = 0; i < vertex_buffer.size(); i++) {
         flush_vertex_buffer(i);
@@ -539,39 +548,39 @@ namespace graphlab {
       } else if (format == "tsv") {
         line_parser = builtin_parsers::tsv_parser<distributed_graph>;
         load(path, line_parser);
-      // } else if (format == "graphjrl") {
-      //   line_parser = builtin_parsers::graphjrl_parser<distributed_graph>;
-      // //   load(path, line_parser);
-      // } else if (format == "bintsv4") {
-      //    load_direct(path,&graph_type::load_bintsv4_from_stream);
-      // } else if (format == "bin") {
-      //    load_binary(path);
-      } else {
-        logstream(LOG_ERROR)
+        // } else if (format == "graphjrl") {
+        //   line_parser = builtin_parsers::graphjrl_parser<distributed_graph>;
+        // //   load(path, line_parser);
+        // } else if (format == "bintsv4") {
+        //    load_direct(path,&graph_type::load_bintsv4_from_stream);
+        // } else if (format == "bin") {
+        //    load_binary(path);
+    } else {
+      logstream(LOG_ERROR)
           << "Unrecognized Format \"" << format << "\"!" << std::endl;
-        return;
-      }
+      return;
+    }
     } // end of load
 
 
     void load(std::string prefix, line_parser_type line_parser) {
       if (prefix.length() == 0) return;
-        load_from_posixfs(prefix, line_parser);
-        clear_buffers();
-        for (size_t i = 0;  i < ingress_reply.size(); ++i) {
-          if (ingress_reply[i].get_status() == 0) {
-            std::string reply = ingress_reply[i].get_reply();
-            std::string errormsg;
-            bool success = messages.parse_reply(reply, errormsg);
-            if (!success) {
-             break;
-            }
-          } else {
-            logstream(LOG_ERROR) << "Loading failed: Couldn't reach server." << std::endl;
+      load_from_posixfs(prefix, line_parser);
+      clear_buffers();
+      for (size_t i = 0;  i < ingress_reply.size(); ++i) {
+        if (ingress_reply[i].get_status() == 0) {
+          std::string reply = ingress_reply[i].get_reply();
+          std::string errormsg;
+          bool success = messages.parse_reply(reply, errormsg);
+          if (!success) {
             break;
           }
+        } else {
+          logstream(LOG_ERROR) << "Loading failed: Couldn't reach server." << std::endl;
+          break;
         }
-        ingress_reply.clear();
+      }
+      ingress_reply.clear();
     } // end of load
 
     /**
@@ -603,29 +612,60 @@ namespace graphlab {
         logstream(LOG_WARNING) << "No files found matching " << original_path << std::endl;
       }
       for(size_t i = 0; i < graph_files.size(); ++i) {
-          logstream(LOG_EMPH) << "Loading graph from file: " << graph_files[i] << std::endl;
-          // is it a gzip file ?
-          const bool gzip = boost::ends_with(graph_files[i], ".gz");
-          // open the stream
-          std::ifstream in_file(graph_files[i].c_str(), 
-                                std::ios_base::in | std::ios_base::binary);
-          // attach gzip if the file is gzip
-          boost::iostreams::filtering_stream<boost::iostreams::input> fin;  
-          // Using gzip filter
-          if (gzip) fin.push(boost::iostreams::gzip_decompressor());
-          fin.push(in_file);
-          const bool success = load_from_stream(graph_files[i], fin, line_parser);
-          if(!success) {
-            logstream(LOG_FATAL) 
+        logstream(LOG_EMPH) << "Loading graph from file: " << graph_files[i] << std::endl;
+        // is it a gzip file ?
+        const bool gzip = boost::ends_with(graph_files[i], ".gz");
+        // open the stream
+        std::ifstream in_file(graph_files[i].c_str(), 
+                              std::ios_base::in | std::ios_base::binary);
+        // attach gzip if the file is gzip
+        boost::iostreams::filtering_stream<boost::iostreams::input> fin;  
+        // Using gzip filter
+        if (gzip) fin.push(boost::iostreams::gzip_decompressor());
+        fin.push(in_file);
+        const bool success = load_from_stream(graph_files[i], fin, line_parser);
+        if(!success) {
+          logstream(LOG_FATAL) 
               << "\n\tError parsing file: " << graph_files[i] << std::endl;
-          }
-          fin.pop();
-          if (gzip) fin.pop();
+        }
+        fin.pop();
+        if (gzip) fin.pop();
       }
     } // end of load from posixfs
 
 
    private: 
+    /**
+     * Request for basic graph informations: vertex and edge field metadata and the sharding
+     * constraint graph.
+     */
+    void get_basic_info() {
+      int vfield_req_len, efield_req_len, sharding_req_len;
+      char* vfieldreq = messages.vfield_request(&vfield_req_len);
+      char* efieldreq = messages.efield_request(&efield_req_len);
+      char* shardingreq = messages.sharding_graph_request(&sharding_req_len);
+
+      std::string vfieldrep = query(server_list[0], vfieldreq, vfield_req_len);
+      std::string efieldrep = query(server_list[0], efieldreq, efield_req_len);
+      std::string shardingrep = query(server_list[0], shardingreq, sharding_req_len);
+
+      bool success = true;
+      std::string errormsg;
+      success &= messages.parse_reply(vfieldrep, vertex_fields, errormsg);
+      success &= messages.parse_reply(efieldrep, edge_fields, errormsg);
+      success &= messages.parse_reply(shardingrep, sharding_graph, errormsg);
+      ASSERT_TRUE(success);
+
+
+      vertex_buffer.resize(sharding_graph.num_shards());
+      edge_buffer.resize(sharding_graph.num_shards());
+      mirror_buffer.resize(sharding_graph.num_shards());
+    }
+
+
+    /**
+     * Insert a vertex mirror info.
+     */
     bool add_vertex_mirror(graph_vid_t vid, graph_shard_id_t mirror) {
       graph_shard_id_t master = sharding_graph.get_master(vid);
       int msg_len;
@@ -649,6 +689,9 @@ namespace graphlab {
       return success;
     }
 
+    /**
+     * Send out the buffered request for vertex insertion.
+     */
     void flush_vertex_buffer(size_t i) {
       if (vertex_buffer[i].size() == 0)
         return;
@@ -656,8 +699,6 @@ namespace graphlab {
       // send vertices in batch
       int len;
       char* msg = messages.batch_add_vertex_request(&len, i, vertex_buffer[i]);
-      // query_result rep = qoclient->update(find_server(i), msg, len);
-      // ingress_reply.push_back(rep); 
       update_async(find_server(i), msg, len, ingress_reply);
       foreach(vertex_record& vrec, vertex_buffer[i]) {
         if (vrec.data != NULL) {
@@ -667,6 +708,9 @@ namespace graphlab {
       vertex_buffer[i].clear();
     }
 
+    /**
+     * Send out the buffered request for edge insertion.
+     */
     void flush_edge_buffer(size_t i) {
       // send edges in batch 
       if (edge_buffer[i].size() == 0)
@@ -674,16 +718,12 @@ namespace graphlab {
 
       int len;
       char* msg = messages.batch_add_edge_request(&len, i, edge_buffer[i]);
-      // query_result rep = qoclient->update(find_server(i), msg, len);
-      // ingress_reply.push_back(rep);
       update_async(find_server(i), msg, len, ingress_reply);
 
       // send mirrors in batch
       if (mirror_buffer[i].size() > 0)  {
         int len;
         char* msg = messages.batch_add_vertex_mirror_request(&len, i, mirror_buffer[i]);
-        // query_result rep = qoclient->update(find_server(i), msg, len);
-        // ingress_reply.push_back(rep);
         update_async(find_server(i), msg, len, ingress_reply);
       }
 
@@ -698,36 +738,36 @@ namespace graphlab {
     }
 
     /**
-       \internal
-       This internal function is used to load a single line from an input stream
-     */
+      \internal
+      This internal function is used to load a single line from an input stream
+      */
     template<typename Fstream>
-    bool load_from_stream(std::string filename, Fstream& fin, 
-                          line_parser_type& line_parser) {
-      size_t linecount = 0;
-      timer ti; ti.start();
-      while(fin.good() && !fin.eof()) {
-        std::string line;
-        std::getline(fin, line);
-        if(line.empty()) continue;
-        if(fin.fail()) break;
-        const bool success = line_parser(*this, filename, line);
-        if (!success) {
-          logstream(LOG_WARNING) 
-            << "Error parsing line " << linecount << " in "
-            << filename << ": " << std::endl
-            << "\t\"" << line << "\"" << std::endl;  
-          return false;
-        }
-        ++linecount;      
-        if (ti.current_time() > 5.0 || (linecount % 100000 == 0)) {
-          logstream(LOG_INFO) << linecount << " Lines read" << std::endl;
-          ti.start();
-        }
-      }
-      flush();
-      return true;
-    } // end of load from stream
+        bool load_from_stream(std::string filename, Fstream& fin, 
+                              line_parser_type& line_parser) {
+          size_t linecount = 0;
+          timer ti; ti.start();
+          while(fin.good() && !fin.eof()) {
+            std::string line;
+            std::getline(fin, line);
+            if(line.empty()) continue;
+            if(fin.fail()) break;
+            const bool success = line_parser(*this, filename, line);
+            if (!success) {
+              logstream(LOG_WARNING) 
+                  << "Error parsing line " << linecount << " in "
+                  << filename << ": " << std::endl
+                  << "\t\"" << line << "\"" << std::endl;  
+              return false;
+            }
+            ++linecount;      
+            if (ti.current_time() > 5.0 || (linecount % 100000 == 0)) {
+              logstream(LOG_INFO) << linecount << " Lines read" << std::endl;
+              ti.start();
+            }
+          }
+          flush();
+          return true;
+        } // end of load from stream
 
 
     void clear_buffers() {
@@ -756,77 +796,3 @@ namespace graphlab {
 } // namespace graphlab
 #include <graphlab/macros_undef.hpp>
 #endif
-
-  // void graph_database_server::get_vertex_global_adj(iarchive& iarc, oarchive& oarc) {
-  //   graph_vid_t vid;
-  //   bool get_in, get_out, prefetch_data;
-  //   iarc >> vid >> get_in >> get_out >> prefetch_data;
-  //   graph_vertex* v = this->database->get_vertex(vid);
-  //   std::vector<query_result> replies;
-  //   if (v == NULL) {
-  //     std::string msg= (std::string("Fail to get vertex id = ")
-  //                       + boost::lexical_cast<std::string>(vid)
-  //                       + std::string(". Vid does not exist."));
-  //     oarc << false << msg;
-  //   } else {
-  //     typedef std::vector<graph_edge*> edge_vec;
-  //     std::vector<graph_shard_id_t>& shards = v->get_shard_list();
-  //     // allocate result spaces for each shard 
-  //     std::vector<edge_vec> _inadjs(shards.size());
-  //     std::vector<edge_vec> _outadjs(shards.size());
-
-  //     for (size_t i = 0; i < shards.size(); i++) {
-  //       if (database->get_shard(shards[i]) != NULL) {
-  //         // local shard
-  //         edge_vec* out_inadj = get_in ? &(_inadjs[i]) : NULL;
-  //         edge_vec* out_outadj = get_out ? &(_outadjs[i]) : NULL;
-  //         database->get_adj_list(vid, shards[i], prefetch_data, out_inadj, out_outadj);
-  //       } else {
-  //         // remote shard
-  //         int msg_len;
-  //         char* query_msg = messages.vertex_adj_request(&msg_len, vid, shards[i],
-  //                                                       getin, getout, prefetch_data);
-  //         replies.push_back(qoclient->query(find_server_name(shards[i], query_msg, msg_len)));
-  //       }
-  //     }
-
-  //     bool success = true;
-  //     // processing results
-  //     for (size_t i = 0; i < replies.size(); i++) {
-  //       if (replies[i].get_status() == 0) {
-  //         std::string reply  = replies.get_reply();
-  //         iarchive iarc(reply.c_str(), reply.length());
-  //       } else {
-
-  //         success = false;
-  //         break;
-  //       }
-  //     }
-
-  //     // getting replies
-  //     if (success) {
-
-  //     } else {
-
-  //     }
-  //     // finalize 
-  //     if (get_in) {
-  //       for (size_t i = 0; i < _inadjs.size(); i++) {
-  //         database.free_edge_vector(&_inadjs[i]);
-  //       }
-  //     }
-  //     if (get_out) {
-  //       for (size_t i = 0; i < _outadjs.size(); i++) {
-  //         database.free_edge_vector(&_outadjs[i]);
-  //       }
-  //     }
-  //   }
-
-  //   for (size_t i = 0; i < replies.size()) {
-
-  //   }
-
-  //   // merge results
-
-  //   database->free_vertex(v);
-  // }

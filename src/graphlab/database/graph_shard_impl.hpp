@@ -110,8 +110,14 @@ struct graph_shard_impl {
    */
   graph_row* edge_data;
 
+  /**
+   * Index for adjacency structure lookup.
+   */
   graph_edge_index edge_index;
 
+  /**
+   * Index for vertex lookup.
+   */
   graph_vertex_index vertex_index;
 
   /**
@@ -146,6 +152,12 @@ struct graph_shard_impl {
          >> num_edges;
 
     iarc >> vertex;
+    if (vertex_data != NULL) {
+      delete[] vertex_data;
+    }
+    if (edge_data != NULL) {
+      delete[] edge_data;
+    }
     vertex_data = new graph_row[num_vertices];
     for (size_t i = 0; i < num_vertices; ++i)
       iarc >> vertex_data[i];
@@ -206,6 +218,7 @@ struct graph_shard_impl {
   }
 
   /**
+   * Insert a (vid, mirror) record into the shard. Shard must be the master of the vertex.
    */
   inline void add_vertex_mirror(graph_vid_t v, graph_shard_id_t mirror_id) {
     if (mirror_id == shard_id)

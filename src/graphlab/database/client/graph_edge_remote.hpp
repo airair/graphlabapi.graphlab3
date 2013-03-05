@@ -1,10 +1,10 @@
-#ifndef GRAPHLAB_DATABASE_DISTRIBUTED_GRAPH_EDGE_HPP
-#define GRAPHLAB_DATABASE_DISTRIBUTED_GRAPH_EDGE_HPP
+#ifndef GRAPHLAB_DATABASE_GRAPH_EDGE_REMOTE_HPP
+#define GRAPHLAB_DATABASE_GRAPH_EDGE_REMOTE_HPP
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/database/graph_row.hpp>
 #include <graphlab/database/graph_edge.hpp>
 #include <graphlab/database/query_messages.hpp>
-#include <graphlab/database/distributed_graph/idistributed_graph.hpp>
+#include <graphlab/database/client/graph_client.hpp>
 namespace graphlab {
 
 /**
@@ -14,7 +14,7 @@ namespace graphlab {
  *
  * This object is not thread-safe, and may not copied.
  */
-class distributed_graph_edge : public graph_edge {
+class graph_edge_remote : public graph_edge {
 
  graph_vid_t sourceid;
 
@@ -26,7 +26,7 @@ class distributed_graph_edge : public graph_edge {
 
  graph_shard_id_t master;
 
- idistributed_graph* graph;
+ graph_client* graph;
 
  public:
  /**
@@ -36,12 +36,12 @@ class distributed_graph_edge : public graph_edge {
   struct vertex_adjacency_record {
     graph_vid_t vid; 
     graph_shard_id_t shardid;
-    distributed_graph_edge* inEdges;
-    distributed_graph_edge* outEdges;
-    idistributed_graph* graph;
+    graph_edge_remote* inEdges;
+    graph_edge_remote* outEdges;
+    graph_client* graph;
     size_t num_in_edges, num_out_edges;
 
-    vertex_adjacency_record(idistributed_graph* graph) : vid(-1), shardid(-1), 
+    vertex_adjacency_record(graph_client* graph) : vid(-1), shardid(-1), 
         inEdges(NULL), outEdges(NULL), graph(graph), num_in_edges(0),
         num_out_edges(0) {}
 
@@ -57,8 +57,8 @@ class distributed_graph_edge : public graph_edge {
       iarc >> vid >> shardid >> num_in_edges >> num_out_edges;
       ASSERT_TRUE(inEdges == NULL);
       ASSERT_TRUE(outEdges == NULL);
-      inEdges = new distributed_graph_edge[num_in_edges];
-      outEdges = new distributed_graph_edge[num_out_edges];
+      inEdges = new graph_edge_remote[num_in_edges];
+      outEdges = new graph_edge_remote[num_out_edges];
       for (size_t i = 0; i < num_in_edges; i++) {
         graph_vid_t source; 
         graph_eid_t eid;
@@ -90,16 +90,16 @@ class distributed_graph_edge : public graph_edge {
   typedef libfault::query_object_client::query_result query_result;
 
  public:
- distributed_graph_edge() :
+ graph_edge_remote() :
      sourceid(-1), targetid(-1), eid(-1), edata(NULL),
      master(-1), graph(NULL) {}
 
- distributed_graph_edge(idistributed_graph* graph) :
+ graph_edge_remote(graph_client* graph) :
      sourceid(-1), targetid(-1), eid(-1), edata(NULL),
      master(-1), graph(graph) {}
 
 
- ~distributed_graph_edge () {
+ ~graph_edge_remote () {
    if (edata != NULL)
      delete edata;
  }

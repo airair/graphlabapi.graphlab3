@@ -11,7 +11,7 @@
 #include <graphlab/database/query_messages.hpp>
 #include <graphlab/serialization/oarchive.hpp>
 
-#include <graphlab/database/distributed_graph/distributed_graph_vertex.hpp>
+#include <graphlab/database/client/graph_vertex_remote.hpp>
 
 #include <fault/query_object_client.hpp>
 #include <boost/lexical_cast.hpp>
@@ -223,14 +223,14 @@ class graph_database_server {
   /**
    * Returns a serialized string of the query vertex.
    * Reply format:
-   *  success << distributed_graph_vertex.
+   *  success << _graph_vertex.
    */
   void get_vertex(iarchive& iarc, oarchive& oarc);
 
   /**
    * Returns a serialized string of the query edge.
    * Reply format:
-   *  success << distributed_graph_edge.
+   *  success << _graph_edge.
    */
   void get_edge(iarchive& iarc, oarchive& oarc);
 
@@ -256,8 +256,8 @@ class graph_database_server {
    *
    * Reply format:
    *  success << numin << numout 
-   *          << std::vector<distributed_graph_edge::vertex_adjacency_record>
-   *          << std::vector<distributed_graph_edge::vertex_adjacency_record> 
+   *          << std::vector<_graph_edge::vertex_adjacency_record>
+   *          << std::vector<_graph_edge::vertex_adjacency_record> 
    */
   void get_vertex_adj(iarchive& iarc, oarchive& oarc);
 

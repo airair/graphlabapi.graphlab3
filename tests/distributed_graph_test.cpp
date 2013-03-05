@@ -1,7 +1,7 @@
-#include <graphlab/database/distributed_graph/distributed_graph.hpp>
+#include <graphlab/database/graph_client/distributed_graph_client.hpp>
 #include <graphlab/database/sharedmem_database/graph_database_sharedmem.hpp>
 #include <graphlab/database/graph_database.hpp>
-#include <graphlab/database/graph_database_server.hpp>
+#include <graphlab/database/graph_server/graph_database_server.hpp>
 #include <graphlab/logger/assertions.hpp>
 #include "graph_database_test_util.hpp"
 

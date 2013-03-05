@@ -1,5 +1,5 @@
 #include <graphlab/database/sharedmem_database/graph_database_sharedmem.hpp>
-#include <graphlab/database/graph_database_server.hpp>
+#include <graphlab/database/server/graph_database_server.hpp>
 #include <graphlab/logger/assertions.hpp>
 #include <graphlab/serialization/iarchive.hpp>
 #include <graphlab/serialization/oarchive.hpp>

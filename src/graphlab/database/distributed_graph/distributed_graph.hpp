@@ -118,7 +118,6 @@ namespace graphlab {
       }
     }
 
-
     /**
      * Send query message asynchronously. The future reply object is pushed into the given reply queue. 
      * This function takes over the msg pointer.

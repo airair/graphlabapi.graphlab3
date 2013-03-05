@@ -185,6 +185,29 @@ namespace graphlab {
     }
   }
 
+  void graph_database_server::set_edge_field(iarchive& iarc,
+                                             oarchive& oarc) {
+    graph_eid_t eid;
+    graph_shard_id_t shardid;
+    size_t fieldpos, len;
+    iarc >> eid >> fieldpos >> len;
+    char* val = (char*)malloc(len);
+    iarc.read(val, len);
+    graph_edge* e = database->get_edge(eid, shardid);
+    if (e == NULL) {
+      std::string msg = (std::string("Fail to get edge eid = ")
+                         + boost::lexical_cast<std::string>(eid)
+                         + " at shard " + boost::lexical_cast<std::string>(shardid)
+                         + std::string(". eid or shardid does not exist."));
+      oarc << false << msg;
+    } else {
+      bool success = e->data()->get_field(fieldpos)->set_val(val, len);
+      e->write_changes();
+      database->free_edge(e);
+      oarc << success;
+    }
+  }
+
   void graph_database_server::set_vertex_row(iarchive& iarc,
                                              oarchive& oarc) {
     graph_vid_t vid;
@@ -217,32 +240,38 @@ namespace graphlab {
     database->free_vertex(v);
   }
 
-  void graph_database_server::set_edge_field(iarchive& iarc,
-                                             oarchive& oarc) {
-    graph_eid_t eid;
-    graph_shard_id_t shardid;
-    size_t fieldpos, len;
-    iarc >> eid >> fieldpos >> len;
-    char* val = (char*)malloc(len);
-    iarc.read(val, len);
-    graph_edge* e = database->get_edge(eid, shardid);
-    if (e == NULL) {
-      std::string msg = (std::string("Fail to get edge eid = ")
-                         + boost::lexical_cast<std::string>(eid)
-                         + " at shard " + boost::lexical_cast<std::string>(shardid)
-                         + std::string(". eid or shardid does not exist."));
-      oarc << false << msg;
-    } else {
-      bool success = e->data()->get_field(fieldpos)->set_val(val, len);
-      e->write_changes();
-      database->free_edge(e);
-      oarc << success;
-    }
-  }
 
   void graph_database_server::set_edge_row(iarchive& iarc, oarchive& oarc) {
-    // unimplemented
-    ASSERT_TRUE(false);
+    graph_eid_t eid;
+    graph_shard_id_t shardid;
+    size_t num_changes, fieldpos, len;
+    iarc >> eid >> shardid >> num_changes;
+    graph_edge* e = database->get_edge(eid, shardid);
+    if (e == NULL) {
+      std::string msg = (std::string("Fail to set edge id = ")
+                         + boost::lexical_cast<std::string>(vid)
+                         + " on shard id = "
+                         + boost::lexical_cast<std::string>(shardid)
+                         + std::string(". Edge does not exist."));
+      oarc << false << msg;
+      return;
+    }
+    std::vector<std::string> errors;
+    for (size_t i = 0; i < num_changes; i++) {
+      iarc >> fieldpos >> len;
+      char* val = (char*)malloc(len);
+      iarc.read(val, len);
+      bool success = e->data()->get_field(fieldpos)->set_val(val, len);
+      if (!success)
+        errors.push_back("Fail to set value for field " + boost::lexical_cast<std::string>(fieldpos));
+    }
+    e->write_changes();
+    if (errors.size() > 0) { 
+      oarc << false << boost::algorithm::join(errors, "\n");
+    } else {
+      oarc << true;
+    }
+    database->free_edge(e);
   }
 
   // ------------------ Ingress Handlers -----------------

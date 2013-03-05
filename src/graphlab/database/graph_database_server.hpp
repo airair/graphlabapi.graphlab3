@@ -149,7 +149,6 @@ class graph_database_server {
     return  ret;
   }
 
-
   // ------------- Modification Handlers ---------------
   /**
    * Set the value of vertex (id=vid) at field fieldpos to the provided argument.
@@ -274,7 +273,7 @@ class graph_database_server {
    * Returns the serialization of the shard corresponding to the 
    * query adjacent shard ids in iarc.
    * Reply format:
-   *  success << grpah_shard 
+   *  success << graph_shard 
    */
   void get_shard_contents_adj_to(iarchive& iarc, oarchive& oarc);
 

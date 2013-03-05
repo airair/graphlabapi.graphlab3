@@ -1,5 +1,5 @@
-#ifndef GRAPHLAB_DATABASE_IDISTRIBUTED_GRAPH_HPP
-#define GRAPHLAB_DATABASE_IDISTRIBUTED_GRAPH_HPP
+#ifndef GRAPHLAB_DATABASE_GRAPH_CLIENT_HPP
+#define GRAPHLAB_DATABASE_GRAPH_CLIENT_HPP
 #include <vector>
 #include <algorithm>
 #include <functional>
@@ -14,11 +14,11 @@
 #include <graphlab/database/graph_edge.hpp>
 #include <graphlab/database/graph_shard.hpp>
 #include <graphlab/database/graph_database.hpp>
-#include <graphlab/database/graph_database_server.hpp>
+#include <graphlab/database/server/graph_database_server.hpp>
 #include <graphlab/database/graph_sharding_constraint.hpp>
 #include <graphlab/database/query_messages.hpp>
-#include <graphlab/database/distributed_graph/builtin_parsers.hpp>
-#include <graphlab/database/distributed_graph/distributed_graph_vertex.hpp>
+#include <graphlab/database/client/builtin_parsers.hpp>
+#include <graphlab/database/client/graph_vertex_remote.hpp>
 #include <graphlab/util/fs_util.hpp>
 #include <fault/query_object_client.hpp>
 
@@ -42,12 +42,12 @@ namespace graphlab {
    * This class implements the <code>graph_database</code> interface
    * as a shared memory instance.
    */
-  class idistributed_graph {
+  class graph_client {
 
    public:
      typedef libfault::query_object_client::query_result query_result;
   
-    virtual ~idistributed_graph() {};
+    virtual ~graph_client() {};
     // ------------ Query Interafce --------------------
     virtual std::string query (const std::string& server_name, char* msg, size_t msg_len) = 0;
     virtual std::string update (const std::string& server_name, char* msg, size_t msg_len) = 0;

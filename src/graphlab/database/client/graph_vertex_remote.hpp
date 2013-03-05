@@ -1,19 +1,19 @@
-#ifndef GRAPHLAB_DATABASE_DISTRIBUTED_GRAPH_VERTEX_HPP
-#define GRAPHLAB_DATABASE_DISTRIBUTED_GRAPH_VERTEX_HPP
+#ifndef GRAPHLAB_DATABASE_GRAPH_VERTEX_REMOTE_HPP
+#define GRAPHLAB_DATABASE_GRAPH_VERTEX_REMOTE_HPP
 #include <vector>
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/database/graph_row.hpp>
 #include <graphlab/database/graph_edge.hpp>
 #include <graphlab/database/graph_vertex.hpp>
-#include <graphlab/database/distributed_graph/idistributed_graph.hpp>
-#include <graphlab/database/distributed_graph/distributed_graph_edge.hpp>
+#include <graphlab/database/client/graph_client.hpp>
+#include <graphlab/database/client/graph_edge_remote.hpp>
 #include <graphlab/database/query_messages.hpp>
 #include <fault/query_object_client.hpp>
 #include <boost/unordered_set.hpp>
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
 
-class distributed_graph;
+class distributed_graph_client;
 /**
  * \ingroup group_graph_database
  *  An implementation of <code>graph_vertex</code> for the distributed_graph client.
@@ -21,7 +21,7 @@ class distributed_graph;
  *
  * This object is not thread-safe, and may not copied.
  */
-class distributed_graph_vertex: public graph_vertex {
+class graph_vertex_remote: public graph_vertex {
  private:
   // Id of the vertex.
   graph_vid_t vid;
@@ -36,7 +36,7 @@ class distributed_graph_vertex: public graph_vertex {
   std::vector<graph_shard_id_t> mirrors;
 
   // Pointer to the distributed graph.
-  idistributed_graph* graph;
+  graph_client* graph;
 
 
   typedef libfault::query_object_client::query_result query_result;
@@ -47,10 +47,10 @@ class distributed_graph_vertex: public graph_vertex {
   /**
    * Creates a graph vertex object 
    */
-  distributed_graph_vertex(idistributed_graph* graph) : 
+  graph_vertex_remote(graph_client* graph) : 
       vid(-1), vdata(NULL), master(-1), graph(graph) {}
   
-  ~distributed_graph_vertex() { 
+  ~graph_vertex_remote() { 
     if (vdata != NULL) {
       delete vdata;
     }
@@ -181,7 +181,7 @@ class distributed_graph_vertex: public graph_vertex {
     char* request = messages.vertex_adj_request(&msg_len, vid, shard_id, getin, getout);
     std::string reply = graph->query(graph->find_server(shard_id), request, msg_len);
 
-    distributed_graph_edge::vertex_adjacency_record record(graph);
+    graph_edge_remote::vertex_adjacency_record record(graph);
 
     std::string errormsg;
     if (messages.parse_reply(reply, record, errormsg)) {

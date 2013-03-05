@@ -1,5 +1,5 @@
 #include <graphlab/database/graph_vertex.hpp>
-#include <graphlab/database/distributed_graph/distributed_graph.hpp>
+#include <graphlab/database/client/distributed_graph_client.hpp>
 #include <graphlab/logger/assertions.hpp>
 #include <graphlab/serialization/iarchive.hpp>
 #include <graphlab/serialization/oarchive.hpp>
@@ -27,7 +27,7 @@ int main(int argc, char** argv) {
   server_list.push_back("shard3");
 
   void* zmq_ctx = zmq_ctx_new();
-  graphlab::distributed_graph graph(zmq_ctx, zkhosts, prefix, server_list);
+  graphlab::distributed_graph_client graph(zmq_ctx, zkhosts, prefix, server_list);
 
   vector<graphlab::graph_field> vfields = graph.get_vertex_fields();
 

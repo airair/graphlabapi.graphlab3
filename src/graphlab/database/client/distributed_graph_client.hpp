@@ -1,5 +1,5 @@
-#ifndef GRAPHLAB_DATABASE_DISTRIBUTED_GRAPH_HPP
-#define GRAPHLAB_DATABASE_DISTRIBUTED_GRAPH_HPP
+#ifndef GRAPHLAB_DATABASE_DISTRIBUTED_GRAPH_CLIENT_HPP
+#define GRAPHLAB_DATABASE_DISTRIBUTED_GRAPH_CLIENT_HPP
 #include <vector>
 #include <algorithm>
 #include <functional>
@@ -8,21 +8,23 @@
 
 #include <graphlab/serialization/iarchive.hpp>
 #include <graphlab/serialization/oarchive.hpp>
+#include <graphlab/util/fs_util.hpp>
+
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/database/graph_field.hpp>
 #include <graphlab/database/graph_vertex.hpp>
 #include <graphlab/database/graph_edge.hpp>
 #include <graphlab/database/graph_shard.hpp>
 #include <graphlab/database/graph_database.hpp>
-#include <graphlab/database/graph_database_server.hpp>
+#include <graphlab/database/server/graph_database_server.hpp>
 #include <graphlab/database/graph_sharding_constraint.hpp>
 #include <graphlab/database/query_messages.hpp>
-#include <graphlab/database/distributed_graph/idistributed_graph.hpp>
-#include <graphlab/database/distributed_graph/builtin_parsers.hpp>
-#include <graphlab/database/distributed_graph/distributed_graph_vertex.hpp>
-#include <graphlab/util/fs_util.hpp>
-#include <fault/query_object_client.hpp>
 
+#include <graphlab/database/client/graph_client.hpp>
+#include <graphlab/database/client/builtin_parsers.hpp>
+#include <graphlab/database/client/graph_vertex_remote.hpp>
+
+#include <fault/query_object_client.hpp>
 
 #include <boost/functional.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -43,7 +45,7 @@ namespace graphlab {
    * This class implements the <code>graph_database</code> interface
    * as a shared memory instance.
    */
-  class distributed_graph :public idistributed_graph{
+  class distributed_graph_client :public graph_client {
     // Schema for vertex and edge datatypes
     std::vector<graph_field> vertex_fields;
     std::vector<graph_field> edge_fields;
@@ -75,7 +77,7 @@ namespace graphlab {
     typedef QueryMessages::edge_record edge_record;
     typedef QueryMessages::mirror_record mirror_record;
 
-    typedef boost::function<bool(distributed_graph&, const std::string&,
+    typedef boost::function<bool(graph_client&, const std::string&,
                                  const std::string&)> line_parser_type;
 
     /**
@@ -151,7 +153,7 @@ namespace graphlab {
      * Creates a local simulated distributed_graph client with pointer to a shared memory
      * server.
      */
-    distributed_graph (graph_database_server*  server) : server(server), qoclient(NULL) { 
+    distributed_graph_client (graph_database_server*  server) : server(server), qoclient(NULL) { 
       server_list.push_back("local"); // in local mode, there is only one server
       get_basic_info();
     }
@@ -159,7 +161,7 @@ namespace graphlab {
     /**
      * Creates a distributed_graph client query_object_client configuration and a server name list.
      */
-    distributed_graph (void* zmq_ctx,
+    distributed_graph_client (void* zmq_ctx,
                        std::vector<std::string> zkhosts,
                        std::string& prefix,
                        std::vector<std::string> server_list) : server(NULL), server_list(server_list) {
@@ -171,7 +173,7 @@ namespace graphlab {
     /**
      * Destroy the graph, free all vertex and edge data from memory.
      */
-    virtual ~distributed_graph() {
+    virtual ~distributed_graph_client() {
       if (qoclient != NULL) {
         delete qoclient;
       }
@@ -251,7 +253,7 @@ namespace graphlab {
       int msg_len;
       char* vertex_req = messages.vertex_request(&msg_len, vid);
       std::string vertex_rep = query(find_server(get_master(vid)), vertex_req, msg_len);
-      distributed_graph_vertex* ret = new distributed_graph_vertex(this);
+      graph_vertex_remote* ret = new graph_vertex_remote(this);
       std::string errormsg; 
       if (messages.parse_reply(vertex_rep, *ret, errormsg)) {
         return ret;
@@ -269,7 +271,7 @@ namespace graphlab {
       int msg_len;
       char* request = messages.edge_request(&msg_len, eid, shardid);
       std::string reply = query(find_server(shardid), request, msg_len);
-      distributed_graph_edge* ret = new distributed_graph_edge(this);
+      graph_edge_remote* ret = new graph_edge_remote(this);
       std::string errormsg; 
       if (messages.parse_reply(reply, *ret, errormsg)) {
         return ret;
@@ -329,7 +331,7 @@ namespace graphlab {
     void free_edge_vector(std::vector<graph_edge*>& edgelist) {
       if (edgelist.size() == 0)
         return;
-      distributed_graph_edge* head = (distributed_graph_edge*)edgelist[0];
+      graph_edge_remote* head = (graph_edge_remote*)edgelist[0];
       delete[] head;
       edgelist.clear();
     }
@@ -539,13 +541,13 @@ namespace graphlab {
     void load_format(const std::string& path, const std::string& format) {
       line_parser_type line_parser;
       if (format == "snap") {
-        line_parser = builtin_parsers::snap_parser<distributed_graph>;
+        line_parser = builtin_parsers::snap_parser<graph_client>;
         load(path, line_parser);
       } else if (format == "adj") {
-        line_parser = builtin_parsers::adj_parser<distributed_graph>;
+        line_parser = builtin_parsers::adj_parser<graph_client>;
         load(path, line_parser);
       } else if (format == "tsv") {
-        line_parser = builtin_parsers::tsv_parser<distributed_graph>;
+        line_parser = builtin_parsers::tsv_parser<graph_client>;
         load(path, line_parser);
         // } else if (format == "graphjrl") {
         //   line_parser = builtin_parsers::graphjrl_parser<distributed_graph>;
@@ -790,7 +792,8 @@ namespace graphlab {
 
     boost::unordered_map<graph_vid_t, mirror_record>  ingress_mirror_table;
 
-    friend class distributed_graph_vertex;
+    friend class graph_vertex_remote;
+    friend class graph_edge_remote;
   };
 } // namespace graphlab
 #include <graphlab/macros_undef.hpp>

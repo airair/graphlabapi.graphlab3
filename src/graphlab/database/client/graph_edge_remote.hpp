@@ -136,6 +136,10 @@ class graph_edge_remote : public graph_edge {
     return edata;
   };
 
+  const graph_row* immutable_data() const {
+    return edata;
+  }
+
   // --- synchronization ---
   /**
    * Commits changes made to the data on this edge synchronously.
@@ -145,18 +149,17 @@ class graph_edge_remote : public graph_edge {
   void write_changes() {  
     if (edata == NULL)
       return;
+    std::vector<size_t> modified_fields = edata->get_modified_fields();
+
     QueryMessages messages;
     int len;
-    char* msg = messages.update_edge_request(&len, eid, master, edata);
+    char* msg = messages.update_edge_request(&len, eid, master, modified_fields, edata);
     std::string reply = graph->update(graph->find_server(master), msg, len); 
     std::string errormsg;
     ASSERT_TRUE(messages.parse_reply(reply, errormsg));
 
-    for (size_t i = 0; i < data()->num_fields(); i++) {
-      graph_value* val = data()->get_field(i);
-      if (val->get_modified()) {
-        val->post_commit_state();
-      }
+    for (size_t i = 0; i < modified_fields.size(); i++) {
+      data()->get_field(modified_fields[i])->post_commit_state();
     }
   }
 
@@ -166,16 +169,20 @@ class graph_edge_remote : public graph_edge {
   void write_changes_async() { 
     if (edata == NULL)
       return;
+
+    std::vector<size_t> modified_fields = edata->get_modified_fields();
+
     QueryMessages messages;
     int len;
-    char* msg = messages.update_edge_request(&len, eid, master, edata);
+    char* msg = messages.update_edge_request(&len, eid, master, modified_fields, edata);
     graph->update_async(graph->find_server(master), msg, len, reply_queue); 
+
     //TODO: check reply success
-    for (size_t i = 0; i < data()->num_fields(); i++) {
-      graph_value* val = data()->get_field(i);
-      if (val->get_modified()) {
-        val->post_commit_state();
-      }
+    
+    reply_queue.clear();
+
+    for (size_t i = 0; i < modified_fields.size(); i++) {
+      edata->get_field(modified_fields[i])->post_commit_state();
     }
   }
 
@@ -214,12 +221,7 @@ class graph_edge_remote : public graph_edge {
 
 
   void save(oarchive& oarc) const {
-    oarc << sourceid << targetid << eid << master;
-    if (edata == NULL) {
-      oarc << false;
-    } else {
-      oarc << true << *edata;
-    }
+    external_save(oarc, this);
   }
 
   void load(iarchive& iarc) {
@@ -230,6 +232,17 @@ class graph_edge_remote : public graph_edge {
       if (edata == NULL)
         edata = new graph_row();
       iarc >> *edata;
+    }
+  }
+
+  static void external_save(oarchive& oarc,
+                            const graph_edge* e) {
+    oarc << e->get_src() << e->get_dest() << e->get_id()
+         << e->master_shard();
+    if (e->immutable_data() == NULL) {
+      oarc << false;
+    } else {
+      oarc << true << *(e->immutable_data());
     }
   }
 

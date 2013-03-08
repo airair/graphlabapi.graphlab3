@@ -6,23 +6,15 @@
 #include <fstream>
 #include <sstream>
 
-#include <graphlab/serialization/iarchive.hpp>
-#include <graphlab/serialization/oarchive.hpp>
-#include <graphlab/util/fs_util.hpp>
-
-#include <graphlab/database/basic_types.hpp>
-#include <graphlab/database/graph_field.hpp>
-#include <graphlab/database/graph_vertex.hpp>
-#include <graphlab/database/graph_edge.hpp>
-#include <graphlab/database/graph_shard.hpp>
-#include <graphlab/database/graph_database.hpp>
-#include <graphlab/database/server/graph_database_server.hpp>
-#include <graphlab/database/graph_sharding_constraint.hpp>
-#include <graphlab/database/query_messages.hpp>
-
 #include <graphlab/database/client/graph_client.hpp>
 #include <graphlab/database/client/builtin_parsers.hpp>
 #include <graphlab/database/client/graph_vertex_remote.hpp>
+
+#include <graphlab/database/server/graph_database_server.hpp>
+
+#include <graphlab/serialization/iarchive.hpp>
+#include <graphlab/serialization/oarchive.hpp>
+#include <graphlab/util/fs_util.hpp>
 
 #include <fault/query_object_client.hpp>
 
@@ -41,23 +33,15 @@
 namespace graphlab {
   /**
    * \ingroup group_graph_database
-   * An shared memory implementation of a graph database.  
-   * This class implements the <code>graph_database</code> interface
-   * as a shared memory instance.
+   * Implementation of a distributed graph query client.
+   * This client can act in local mode, and distributed mode.
+   * In local mode, it takes in a pointer to a graph_database_server and simulates the query.
+   * In distributed mode, it uses query_object_client to communicate with servers.
    */
   class distributed_graph_client :public graph_client {
     // Schema for vertex and edge datatypes
     std::vector<graph_field> vertex_fields;
     std::vector<graph_field> edge_fields;
-
-    // Dependencies between shards
-    sharding_constraint sharding_graph;
-
-    // Hash function for vertex id.
-    boost::hash<graph_vid_t> vidhash;
-
-    // Hash function for edge id.
-    boost::hash<std::pair<graph_vid_t, graph_vid_t> > edge_hash;
 
     typedef libfault::query_object_client::query_result query_result;
 
@@ -70,8 +54,10 @@ namespace graphlab {
     // the actual query object which connects to the graph db server.
     libfault::query_object_client* qoclient;
 
-    // a list of shard server names.
-    std::vector<std::string> server_list;
+    graph_shard_manager shard_manager;
+
+    // Mapping from shard id to server name. 
+    boost::unordered_map<graph_shard_id_t, std::string> shard2server;
 
     typedef QueryMessages::vertex_record vertex_record;
     typedef QueryMessages::edge_record edge_record;
@@ -92,8 +78,9 @@ namespace graphlab {
       } else {
         query_result result = qoclient->query(server_name, msg, msg_len);
         if (result.get_status() != 0) {
-          logstream(LOG_WARNING) << "Error: query to " << server_name << " failed." << std::endl;
-          return "ERROR";
+          std::string errormsg = messages.error_server_not_reachable(server_name); 
+          logstream(LOG_WARNING) << errormsg << std::endl;
+          ASSERT_TRUE(false);
         } else {
           return result.get_reply();
         }
@@ -112,8 +99,9 @@ namespace graphlab {
       } else {
         query_result result = qoclient->update(server_name, msg, msg_len);
         if (result.get_status() != 0) {
-          logstream(LOG_WARNING) << "Error: query to " << server_name << " failed." << std::endl;
-          return "ERROR";
+          std::string errormsg = messages.error_server_not_reachable(server_name); 
+          logstream(LOG_WARNING) << errormsg << std::endl;
+          ASSERT_TRUE(false);
         } else {
           return result.get_reply();
         }
@@ -153,21 +141,28 @@ namespace graphlab {
      * Creates a local simulated distributed_graph client with pointer to a shared memory
      * server.
      */
-    distributed_graph_client (graph_database_server*  server) : server(server), qoclient(NULL) { 
-      server_list.push_back("local"); // in local mode, there is only one server
-      get_basic_info();
+    distributed_graph_client (graph_database_server*,
+                              const graph_shard_manager& shard_manager)
+        : server(server), qoclient(NULL), shard_manager(shard_manager) { 
+      vertex_buffer.resize(num_shards());
+      edge_buffer.resize(num_shards());
+      mirror_buffer.resize(num_shards());
     }
 
     /**
      * Creates a distributed_graph client query_object_client configuration and a server name list.
      */
-    distributed_graph_client (void* zmq_ctx,
-                       std::vector<std::string> zkhosts,
-                       std::string& prefix,
-                       std::vector<std::string> server_list) : server(NULL), server_list(server_list) {
+    distributed_graph_client (std::vector<std::string> zkhosts,
+                              std::string& prefix,
+                              const graph_shard_manager& shard_manager,
+                              const boost::unordered_map<graph_shard_id_t, std::string>& _shard2server)
+        : server(NULL), shard_manager(shard_manager), shard2server(_shard2server) {
+
+      void* zmq_ctx = zmq_ctx_new();
       qoclient = new libfault::query_object_client(zmq_ctx, zkhosts, prefix);
-      ASSERT_GT(server_list.size(), 0);
-      get_basic_info();
+      vertex_buffer.resize(num_shards());
+      edge_buffer.resize(num_shards());
+      mirror_buffer.resize(num_shards());
     }
 
     /**
@@ -187,10 +182,10 @@ namespace graphlab {
       size_t count, ret = 0;
       bool success;
       std::string errormsg;
-      for (size_t i = 0; i < server_list.size(); i++) {
+      for (size_t i = 0; i < num_shards(); i++) {
         int msg_len;
         char* req = messages.num_verts_request(&msg_len);
-        std::string rep = query(server_list[i], req, msg_len);
+        std::string rep = query(find_server(i), req, msg_len);
         success = messages.parse_reply(rep, count, errormsg);
         ASSERT_TRUE(success);
         ret += count;
@@ -206,10 +201,10 @@ namespace graphlab {
       size_t count, ret = 0;
       bool success;
       std::string errormsg;
-      for (size_t i = 0; i < server_list.size(); i++) {
+      for (size_t i = 0; i < num_shards(); i++) {
         int msg_len;
         char* req = messages.num_edges_request(&msg_len);
-        std::string rep = query(server_list[i], req, msg_len);
+        std::string rep = query(find_server(i), req, msg_len);
         messages.parse_reply(rep, count, errormsg);
         ASSERT_TRUE(success);
         ret += count;
@@ -234,16 +229,12 @@ namespace graphlab {
     /**
      * Returns the sharding constraint graph.
      */
-    sharding_constraint get_sharding_constraint() {
-      return sharding_graph;
+    const graph_shard_manager& get_shard_manager() {
+      return shard_manager;
     }
 
 
     // -------- Fine grained API ------------
-    graph_shard_id_t get_master(graph_vid_t vid) {
-      return vidhash(vid) % sharding_graph.num_shards(); 
-    } 
-
     /**
      * Returns a graph_vertex object for the queried vid. Returns NULL on failure
      * Returns NULL on failure.
@@ -251,8 +242,9 @@ namespace graphlab {
      */
     graph_vertex* get_vertex(graph_vid_t vid) {
       int msg_len;
-      char* vertex_req = messages.vertex_request(&msg_len, vid);
-      std::string vertex_rep = query(find_server(get_master(vid)), vertex_req, msg_len);
+      graph_shard_id_t master = shard_manager.get_master(vid);
+      char* vertex_req = messages.vertex_request(&msg_len, vid, master);
+      std::string vertex_rep = query(find_server(master), vertex_req, msg_len);
       graph_vertex_remote* ret = new graph_vertex_remote(this);
       std::string errormsg; 
       if (messages.parse_reply(vertex_rep, *ret, errormsg)) {
@@ -262,6 +254,72 @@ namespace graphlab {
         return NULL;
       }
     };
+
+    /**
+     * Returns a vector of graph_vertex list for the queried batch vids. The size of the returned vector is equal to the number of the servers. Returns NULL on failure
+     * Returns NULL on failure.
+     * The returned vertex vector must be freed using free_vertex_vector
+     */
+    std::vector< std::vector<graph_vertex*> > batch_get_vertices(const std::vector<graph_vid_t>& vids) {
+      std::vector< std::vector<graph_vid_t> > vid_per_shard(num_shards());
+      std::vector< std::pair<char*, int> > message_per_shard(num_shards());
+      std::vector< query_result > reply_queue;
+      std::vector< std::vector<graph_vertex*> > ret (num_shards());
+
+      // group vids by server
+      for (size_t i = 0; i < vids.size(); i++) {
+        vid_per_shard[shard_manager.get_master(vids[i])].push_back(vids[i]);
+      }
+
+      // group request/replies by server
+      for (size_t i = 0; i < num_shards(); i++) {
+        std::pair<char*, int>& msg_pair = message_per_shard[i];
+        msg_pair.first = messages.batch_vertex_request(&(msg_pair.second), vid_per_shard[i], i);
+
+        query_async(find_server(i), msg_pair.first, msg_pair.second, reply_queue);
+      }
+      
+      // check and parse replies 
+      for (size_t i = 0; i < reply_queue.size(); i++) {
+        query_result result = reply_queue[i];
+        if (result.get_status() != 0) {
+          logstream(LOG_ERROR) << messages.error_server_not_reachable(find_server(i)) << std::endl;
+        } else {
+          graph_vertex_remote* head;
+          size_t size;
+          std::vector<std::string> errormsgs;
+          bool success = messages.parse_batch_reply(result.get_reply(), &head, &size, errormsgs);
+
+          ret[i].resize(size);
+          for (size_t j = 0; j < size; j++) {
+            head[j].graph = this;
+            ret[i][j] = (head+j);
+          }
+        }
+      }
+      return ret;
+    };
+
+    std::vector< graph_vertex* > get_vertex_adj_to_shard(graph_shard_id_t shard_from, graph_shard_id_t shard_to) {
+      int len;
+      char* request = messages.vertex_adj_to_shard(&len, shard_from, shard_to);
+      std::string reply = query(find_server(shard_from), request, len);
+
+      graph_vertex_remote* head;
+      size_t size;
+      std::vector<std::string> errormsgs;
+      bool success = messages.parse_batch_reply(reply, &head, &size, errormsgs); 
+      std::vector<graph_vertex*> ret;
+      if (success) {
+        ret.resize(size);
+        for (size_t i = 0; i < size; i++) {
+          head[i].graph = this;
+          ret[i] = (graph_vertex*)(head + i);
+        }
+      }
+      return ret;
+    }
+
 
     /**
      * Returns a graph_edge object for quereid eid, and shardid. Returns NULL on failure.
@@ -317,6 +375,15 @@ namespace graphlab {
       delete vertex;
     };
 
+    void free_vertex_vector (std::vector<graph_vertex*>& vertexlist) {
+      if (vertexlist.size() == 0) {
+        return;
+      }
+      graph_vertex_remote* head = (graph_vertex_remote*)vertexlist[0];
+      delete[] head;
+      vertexlist.clear();
+    }
+
     /**
      * Frees a single edge object.
      * The associated data is not freed. 
@@ -342,7 +409,7 @@ namespace graphlab {
     /**
      * Returns the total number of shards in the distributed graph 
      */
-    size_t num_shards() { return sharding_graph.num_shards(); }
+    size_t num_shards() { return shard_manager.num_shards(); }
 
     /**
      * Returns a graph_shard object for the query shardid. Returns NULL on failure.
@@ -400,7 +467,7 @@ namespace graphlab {
      */
     void adjacent_shards(graph_shard_id_t shard_id, 
                          std::vector<graph_shard_id_t>* out_adj_shard_ids) { 
-      sharding_graph.get_neighbors(shard_id, *out_adj_shard_ids);
+      shard_manager.get_neighbors(shard_id, *out_adj_shard_ids);
     }
 
     /**
@@ -415,16 +482,8 @@ namespace graphlab {
      * Map from shardid to shard server name.
      */
     std::string find_server(graph_shard_id_t shardid) {
-      return "shard"+boost::lexical_cast<std::string>(find_server_id(shardid));
+      return shard2server[shardid];
     }
-
-    /*
-     * Map from shardid to shard server index.
-     */
-    size_t find_server_id(graph_shard_id_t shardid) {
-      return shardid % server_list.size();
-    }
-
 
     // ----------- Ingress API -----------------
     /**
@@ -432,7 +491,7 @@ namespace graphlab {
      * This call block until getting the reply from server.
      */
     bool add_vertex_now (graph_vid_t vid, graph_row* data=NULL) {
-      graph_shard_id_t master = sharding_graph.get_master(vid);
+      graph_shard_id_t master = shard_manager.get_master(vid);
       int msg_len;
       vertex_record vrecord(vid, data);
       char* req = messages.add_vertex_request(&msg_len, master, vrecord);
@@ -456,7 +515,7 @@ namespace graphlab {
      * This call block until getting the reply from server.
      */
     void add_edge_now(graph_vid_t source, graph_vid_t target, graph_row* data=NULL) {
-      graph_shard_id_t master = sharding_graph.get_master(source, target);
+      graph_shard_id_t master = shard_manager.get_master(source, target);
 
       int msg_len;
       edge_record erecord(source, target, data);
@@ -482,7 +541,7 @@ namespace graphlab {
      * The future reply will be pushed into ingress_reply.
      */
     void add_vertex (graph_vid_t vid, const graph_row* data=NULL) {
-      graph_shard_id_t master = sharding_graph.get_master(vid);
+      graph_shard_id_t master = shard_manager.get_master(vid);
       vertex_buffer[master].push_back(vertex_record(vid, data));
       if (vertex_buffer[master].size() > 1000000) {
         flush_vertex_buffer(master);
@@ -495,7 +554,7 @@ namespace graphlab {
      * The future reply will be pushed into ingress_reply.
      */
     void add_edge (graph_vid_t source, graph_vid_t target, const graph_row* data=NULL) {
-      graph_shard_id_t master = sharding_graph.get_master(source, target);
+      graph_shard_id_t master = shard_manager.get_master(source, target);
       edge_buffer[master].push_back(edge_record(source, target, data));
 
       typedef boost::unordered_set<graph_shard_id_t>::iterator iter_type;
@@ -504,14 +563,14 @@ namespace graphlab {
       // if the edge introduces a new mirror
       result = ingress_mirror_table[source].mirrors.insert(master);
       if (result.second) {
-        mirror_record& mrec = mirror_buffer[sharding_graph.get_master(source)][source];
+        mirror_record& mrec = mirror_buffer[shard_manager.get_master(source)][source];
         mrec.mirrors.insert(master);
       }
 
       // if the edge introduces a new mirror
       result = ingress_mirror_table[target].mirrors.insert(master);
       if (result.second) {
-        mirror_record& mrec = mirror_buffer[sharding_graph.get_master(target)][target];
+        mirror_record& mrec = mirror_buffer[shard_manager.get_master(target)][target];
         mrec.mirrors.insert(master);
       }
 
@@ -637,38 +696,10 @@ namespace graphlab {
 
    private: 
     /**
-     * Request for basic graph informations: vertex and edge field metadata and the sharding
-     * constraint graph.
-     */
-    void get_basic_info() {
-      int vfield_req_len, efield_req_len, sharding_req_len;
-      char* vfieldreq = messages.vfield_request(&vfield_req_len);
-      char* efieldreq = messages.efield_request(&efield_req_len);
-      char* shardingreq = messages.sharding_graph_request(&sharding_req_len);
-
-      std::string vfieldrep = query(server_list[0], vfieldreq, vfield_req_len);
-      std::string efieldrep = query(server_list[0], efieldreq, efield_req_len);
-      std::string shardingrep = query(server_list[0], shardingreq, sharding_req_len);
-
-      bool success = true;
-      std::string errormsg;
-      success &= messages.parse_reply(vfieldrep, vertex_fields, errormsg);
-      success &= messages.parse_reply(efieldrep, edge_fields, errormsg);
-      success &= messages.parse_reply(shardingrep, sharding_graph, errormsg);
-      ASSERT_TRUE(success);
-
-
-      vertex_buffer.resize(sharding_graph.num_shards());
-      edge_buffer.resize(sharding_graph.num_shards());
-      mirror_buffer.resize(sharding_graph.num_shards());
-    }
-
-
-    /**
      * Insert a vertex mirror info.
      */
     bool add_vertex_mirror(graph_vid_t vid, graph_shard_id_t mirror) {
-      graph_shard_id_t master = sharding_graph.get_master(vid);
+      graph_shard_id_t master = shard_manager.get_master(vid);
       int msg_len;
       mirror_record mirror_record; 
       mirror_record.vid = vid;

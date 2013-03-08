@@ -1,36 +1,28 @@
-/**  
- * Copyright (c) 2009 Carnegie Mellon University. 
- *     All rights reserved.
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing,
- *  software distributed under the License is distributed on an "AS
- *  IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- *  express or implied.  See the License for the specific language
- *  governing permissions and limitations under the License.
- *
- * For more about this software visit:
- *
- *      http://www.graphlab.ml.cmu.edu
- *
- */
-
-#ifndef GRAPHLAB_DATABASE_GRAPH_SHARDING_CONSTRAINT_HPP
-#define GRAPHLAB_DATABASE_GRAPH_SHARDING_CONSTRAINT_HPP
+#ifndef GRAPHLAB_DATABASE_GRAPH_SHARD_MANAGER_HPP
+#define GRAPHLAB_DATABASE_GRAPH_SHARD_MANAGER_HPP
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/logger/assertions.hpp>
 #include <algorithm>
 #include <vector>
 
 namespace graphlab {
-  class sharding_constraint {
+
+  /**
+   * \ingroup group_graph_database
+   * A global object (shared among servers) which provides
+   * information about shard dependencies. 
+   * This also defines a deterministic mappings 
+   * from vertex to shard, and from edge to shard
+   */
+  class graph_shard_manager {
+
+    // number of shards in the distributed environment
     size_t nshards;
+
+    // methods to create shard dependency: grid/pds 
     std::string method;
+
+    // adjacency list encoding dependency among shards
     std::vector<std::vector<graph_shard_id_t> > constraint_graph;
 
     // Hash function for vertex id.
@@ -40,44 +32,58 @@ namespace graphlab {
     boost::hash<std::pair<graph_vid_t, graph_vid_t> > edge_hash;
 
    public:
-    sharding_constraint() {}
-    sharding_constraint(size_t nshards, std::string method) :
+
+    graph_shard_manager() {}
+
+    /** Create n shards using given dependency 
+     * \note ignore the method arg for now, only construct grid graph. 
+     * \note assuming nshards is perfect square number
+     */
+    graph_shard_manager(size_t nshards, std::string method="grid") :
         nshards(nshards),  method(method) {
-      // ignore the method arg for now, only construct grid graph. 
-      // assuming nshards is perfect square
       make_grid_constraint();
       check();
     }
 
+    /**
+     * Returns the master shard of vertex(vid).
+     */
     graph_shard_id_t get_master(graph_vid_t vid) const {
       return vidhash(vid) % num_shards();
     }
 
+    /**
+     * Returns the master shard of edge(source, target).
+     */
     graph_shard_id_t get_master(graph_vid_t source,
                                 graph_vid_t target) const {
       std::vector<graph_shard_id_t> candidates;
       get_joint_neighbors(get_master(source), get_master(target), candidates);
       ASSERT_GT(candidates.size(), 0);
-
       graph_shard_id_t shardid = candidates[edge_hash(std::pair<graph_vid_t, graph_vid_t>(source, target)) % candidates.size()];
       return shardid;
     }
 
 
+    /**
+     * Get the neighboring shards of shard. Fill in neighbors. 
+     * Returns false on failure. 
+     */
     bool get_neighbors (graph_shard_id_t shard, std::vector<graph_shard_id_t>& neighbors) const {
       ASSERT_LT(shard, nshards);
       neighbors = constraint_graph[shard];
       return true;
     }
 
+    /**
+     * Get the common neighbors of shardi and shardj. Fill in neighbors.
+     * \note If shardi == shardj, the neighbors are defined as neighbors of shardi(shardj).
+     * Returns false on failure. 
+     */
     bool get_joint_neighbors (graph_shard_id_t shardi, graph_shard_id_t shardj, std::vector<graph_shard_id_t>& neighbors) const {
       ASSERT_EQ(neighbors.size(), 0);
       ASSERT_LT(shardi, nshards);
       ASSERT_LT(shardj, nshards);
-      // if (shardi == shardj) {
-      //   neighbors.push_back(shardi);
-      //   return true;
-      // }
 
       const std::vector<graph_shard_id_t>& ls1 = constraint_graph[shardi];
       const std::vector<graph_shard_id_t>& ls2 = constraint_graph[shardj];
@@ -97,6 +103,9 @@ namespace graphlab {
       return true;
     }
 
+    /**
+     * Returns the number of shards.
+     */
     size_t num_shards() const {
       return nshards;
     }
@@ -149,15 +158,14 @@ namespace graphlab {
         }
       }
     }
-
-     // debug 
-      // for (size_t i = 0; i < constraint_graph.size(); ++i) {
-      //   std::vector<graph_shard_id_t> adjlist = constraint_graph[i];
-      //   std::cout << i << ": [";
-      //   for (size_t j = 0; j < adjlist.size(); j++)
-      //     std::cout << adjlist[j] << " ";
-      //   std::cout << "]" << std::endl;
-      // }
+    // debug 
+    // for (size_t i = 0; i < constraint_graph.size(); ++i) {
+    //   std::vector<graph_shard_id_t> adjlist = constraint_graph[i];
+    //   std::cout << i << ": [";
+    //   for (size_t j = 0; j < adjlist.size(); j++)
+    //     std::cout << adjlist[j] << " ";
+    //   std::cout << "]" << std::endl;
+    // }
   }; // end of sharding_constraint
 }; // end of namespace graphlab
 #endif

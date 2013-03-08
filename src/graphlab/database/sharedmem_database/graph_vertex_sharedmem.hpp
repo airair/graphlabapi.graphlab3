@@ -3,7 +3,6 @@
 #include <vector>
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/database/graph_row.hpp>
-#include <graphlab/database/graph_edge.hpp>
 #include <graphlab/database/graph_vertex.hpp>
 #include <graphlab/database/sharedmem_database/graph_edge_sharedmem.hpp>
 #include <graphlab/database/graph_vertex_index.hpp>
@@ -25,9 +24,6 @@ class graph_vertex_sharedmem : public graph_vertex {
   // Id of the vertex.
   graph_vid_t vid;
 
-  // Pointer to the vertex data in the storage.
-  graph_row* vdata;
-
   // Master shard id of this vertex.
   graph_shard_id_t master;
 
@@ -46,7 +42,7 @@ class graph_vertex_sharedmem : public graph_vertex {
                          graph_shard_id_t master,
                          const boost::unordered_set<graph_shard_id_t>& mirrors,
                          graph_database* db) : 
-      vid(vid), vdata(data), master(master), mirrors(mirrors), database(db) {}
+      vid(vid), master(master), mirrors(mirrors), database(db) { }
 
   /**
    * Returns the ID of the vertex
@@ -61,11 +57,12 @@ class graph_vertex_sharedmem : public graph_vertex {
    * to the database through a write_* call.
    */
   graph_row* data() {
-    if (vdata == NULL) {
-      refresh();
-    }
-    return vdata;
+    return database->get_shard(master)->vertex_data_by_id(vid);
   };
+
+  const graph_row* immutable_data() const {
+    return database->get_shard(master)->vertex_data_by_id(vid);
+  }
 
   // --- synchronization ---
 
@@ -73,10 +70,9 @@ class graph_vertex_sharedmem : public graph_vertex {
    * Commits changes made to the data on this vertex synchronously.
    * This resets the modification and delta flags on all values in the 
    * graph_row.
-   *
-   * TODO: check delta commit.
    */ 
   void write_changes() {  
+    graph_row* vdata = data();
     for (size_t i = 0; i < vdata->num_fields(); i++) {
       graph_value* val = vdata->get_field(i);
       if (val->get_modified()) {
@@ -95,11 +91,7 @@ class graph_vertex_sharedmem : public graph_vertex {
   /**
    * Fetch the data pointer from the right shard. 
    */ 
-  void refresh() { 
-    if (vdata == NULL) {
-      vdata = database->get_shard(master)->vertex_data_by_id(vid);
-    }
-  }
+  void refresh() { }
 
   /**
    * Commits the change immediately.
@@ -119,6 +111,18 @@ class graph_vertex_sharedmem : public graph_vertex {
   };
 
   /**
+   * Returns the IDs of the shards with mirror of this vertex
+   */
+  std::vector<graph_shard_id_t> mirror_shards() const {
+    std::vector<graph_shard_id_t> ret(mirrors.size());
+    foreach(const graph_shard_id_t& mirror, mirrors) {
+      ret.push_back(mirror);
+    }
+    return ret;
+  };
+
+
+  /**
    * returns the number of shards this vertex spans
    */
   size_t get_num_shards() const {
@@ -129,10 +133,7 @@ class graph_vertex_sharedmem : public graph_vertex {
    * returns a vector containing the shard IDs this vertex spans
    */
   std::vector<graph_shard_id_t> get_shard_list() const {
-    std::vector<graph_shard_id_t> ret(mirrors.size());
-    foreach(const graph_shard_id_t& mirror, mirrors) {
-      ret.push_back(mirror);
-    }
+    std::vector<graph_shard_id_t> ret = mirror_shards();
     ret.push_back(master);
     return ret;
   };

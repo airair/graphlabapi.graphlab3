@@ -50,6 +50,8 @@ class graph_edge {
    */
   virtual graph_row* data() = 0;
 
+  virtual const graph_row* immutable_data() const = 0;
+
   // --- synchronization ---
 
   /**

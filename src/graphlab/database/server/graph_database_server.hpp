@@ -2,16 +2,19 @@
 #define GRAPHLAB_DATABASE_GRAPH_DATABASE_SERVER_HPP
 #include <vector>
 #include <graphlab/database/basic_types.hpp>
-#include <graphlab/logger/logger.hpp>
 #include <graphlab/database/graph_field.hpp>
 #include <graphlab/database/graph_vertex.hpp>
 #include <graphlab/database/graph_edge.hpp>
 #include <graphlab/database/graph_shard.hpp>
 #include <graphlab/database/graph_database.hpp>
 #include <graphlab/database/query_messages.hpp>
-#include <graphlab/serialization/oarchive.hpp>
 
 #include <graphlab/database/client/graph_vertex_remote.hpp>
+#include <graphlab/database/client/graph_edge_remote.hpp>
+
+
+#include <graphlab/logger/logger.hpp>
+#include <graphlab/serialization/oarchive.hpp>
 
 #include <fault/query_object_client.hpp>
 #include <boost/lexical_cast.hpp>
@@ -20,50 +23,40 @@
 namespace graphlab {
 /**
  * \ingroup group_graph_database
- * An abstract interface for a graph database implementation 
+ * A wrap around graph_database to provide query/update messaging interfaces.
  */
 class graph_database_server {
 
   // Pointer to the underlying database.
   graph_database* database;
 
-  // Defines the communication protocols. 
+  // Graph query object client which communicates to other servers.
+  graph_client* query_client;
+
+  // Defines the communication protocols between server and client. 
   QueryMessages messages;
-
-  // Query object client that can talk to other servers. 
-  libfault::query_object_client* qoclient;
-
-  // A list of names of all shard servers.
-  std::vector<std::string> server_list;
 
   typedef libfault::query_object_client::query_result query_result;
 
  public:
-
   /**
-   * Creates a shard server which is not able to talk to other servers.
+   * Creates a standalone server which does not communicate to other servers.
    */
-  graph_database_server(graph_database* db) : database(db), qoclient(NULL) { 
-    ASSERT_TRUE(db != NULL);
-    server_list.push_back("local");
-  }
+  graph_database_server(graph_database* db) : 
+      database(db) { }
 
   /**
-   * Creates a shard server with query_object_client configuration.
+   * Creates a distributed server.
    */
   graph_database_server(graph_database* db,
-                        void* zmq_ctx,
-                        std::vector<std::string> zkhosts,
-                        std::string prefix,
-                        const std::vector<std::string> server_list) : 
-      database(db), server_list(server_list) { 
+                        graph_client* client)
+      : database(db), query_client(client) { 
+
     ASSERT_TRUE(db != NULL);
-    qoclient = new libfault::query_object_client(zmq_ctx, zkhosts, prefix);
+    ASSERT_TRUE(client != NULL);
   }
 
-  virtual ~graph_database_server() {
-    if (qoclient != NULL) delete qoclient;
-  }
+  virtual ~graph_database_server() { }
 
   /**
    * Handle the SET queries.
@@ -84,21 +77,22 @@ class graph_database_server {
       set_edge_row(iarc, oarc);
     } else if (header == "add_vertex") {
       add_vertex(iarc, oarc);
-    } else if (header == "batch_add_vertex") {
-      batch_add_vertex(iarc, oarc);
-    } else if (header == "add_edge") {
+    }  else if (header == "add_edge") {
       add_edge(iarc, oarc);
-    } else if (header == "batch_add_edge") {
-      batch_add_edge(iarc, oarc);
     } else if (header == "add_vertex_mirror") {
       add_vertex_mirror(iarc, oarc);
+    } // Batch updates
+    else if (header == "batch_add_vertex") {
+      batch_add_vertex(iarc, oarc);
+    } else if (header == "batch_add_edge") {
+      batch_add_edge(iarc, oarc);
     } else if (header == "batch_add_vertex_mirror") {
       batch_add_vertex_mirror(iarc, oarc);
     } else {
-      logstream(LOG_WARNING) <<  ("Unknown query header: " + header) << std::endl;
-      oarc << false << ("Unknown query header: " + header);
+      std::string message = messages.error_unknown_query_header(header);
+       logstream(LOG_WARNING) << message << std::endl;
+       oarc << false << message;
     }
-
     std::string ret(oarc.buf, oarc.off);
     free(oarc.buf);
     return ret;
@@ -118,31 +112,38 @@ class graph_database_server {
       get_vertex_fields(iarc, oarc);
     } else if (header == "edge_fields_meta") {
       get_edge_fields(iarc, oarc);
-    } else if (header == "sharding_graph") {
-      get_sharding_constraint(iarc, oarc);
     } else if (header == "num_vertices") {
       get_num_vertices(iarc, oarc);
     } else if (header =="num_edges") {
       get_num_edges(iarc, oarc);
     } else if (header == "num_shards") {
       get_num_shards(iarc, oarc);
+    } else if (header =="shard_list") {
+      get_shard_list(iarc, oarc);
     } else if (header == "vertex") {
       get_vertex(iarc, oarc);
-    } else if (header == "edge") {
+    }  else if (header == "edge") {
       get_edge(iarc, oarc);
-    }else if (header == "vertex_data_field") {
-      get_vertex_data_field(iarc, oarc);
-    } else if (header == "vertex_data_row") {
+    } else if (header == "vertex_row") {
       get_vertex_data_row(iarc, oarc);
-    } else if (header == "vertex_adj") {
+    } else if (header == "edge_row") {
+      get_edge_data_row(iarc, oarc);
+    }else if (header == "vertex_adj") {
       get_vertex_adj(iarc, oarc);
     } else if (header == "shard") {
       get_shard(iarc, oarc);
     } else if (header == "shard_adj") {
       get_shard_contents_adj_to(iarc, oarc);
-    }else {
-      logstream(LOG_WARNING) <<  ("Unknown query header: " + header) << std::endl;
-      oarc << false << ("Unknown query header: " + header);
+    }  // Batch Queries
+    else if (header == "batch_vertex") {
+      batch_get_vertices(iarc, oarc);
+    } else if (header == "vertex_shard_adj") {
+      batch_get_vertex_adj_to_shard(iarc, oarc);
+    }
+    else {
+      std::string message = messages.error_unknown_query_header(header);
+      logstream(LOG_WARNING) << message << std::endl;;
+      oarc << false << message;
     }
     std::string ret(oarc.buf, oarc.off);
     free(oarc.buf);
@@ -212,20 +213,31 @@ class graph_database_server {
    */
   void get_num_shards(iarchive& iarc, oarchive& oarc);
 
-  /**
-   * Returns a serialized string of the sharding graph.
-   * Reply format:
-   *  success << sharding_graph
-   */
-  void get_sharding_constraint(iarchive& iarc, oarchive& oarc);
-
+  void get_shard_list(iarchive& iarc, oarchive& oarc);
 
   /**
    * Returns a serialized string of the query vertex.
    * Reply format:
-   *  success << _graph_vertex.
+   *  success << distributed_graph_vertex.
    */
   void get_vertex(iarchive& iarc, oarchive& oarc);
+
+  /**
+   * Returns a serialized string of a list of vertices that are adjacent to the given shard.
+   * Reply format:
+   *  success << size << [v0, v1, v2...].
+   */
+  void batch_get_vertex_adj_to_shard(iarchive& iarc, oarchive& oarc);
+
+  /**
+   * Returns the serialized string of the rows corresponding to the batch queried vertieces. 
+   * If some query failed (e.g. the vertex does not exist), header is set to false, return succeeded queires followed by error messages.
+   * Reply format:
+   *  success << size << [v0, v1, v2 ...]
+   *  fail << size << [v0, v1, v2 ...] << std::vector<errormsg>
+   */
+  void batch_get_vertices(iarchive& iarc, oarchive& oarc);
+
 
   /**
    * Returns a serialized string of the query edge.
@@ -242,12 +254,13 @@ class graph_database_server {
    */
   void get_vertex_data_row(iarchive& iarc, oarchive& oarc);
 
-   /**
-   * Returns the serialization of graph value corresponding to the query vertex and field index.
+
+  /**
+   * Returns the serialized string of the entire row corresponding to the query edge.
    * Reply format:
-   *  success << graph_value 
+   *  success << row
    */
-  void get_vertex_data_field(iarchive& iarc, oarchive& oarc);
+  void get_edge_data_row(iarchive& iarc, oarchive& oarc);
 
   /**
    * Returns the serialization of the adjacency structure of the 
@@ -281,18 +294,27 @@ class graph_database_server {
   // ---------------- Ingress API -----------------
   void add_vertex(iarchive& iarc, oarchive& oarc);
 
-  void batch_add_vertex(iarchive& iarc, oarchive& oarc);
-
   void add_edge(iarchive& iarc, oarchive& oarc);
-
-  void batch_add_edge(iarchive& iarc, oarchive& oarc);
 
   void add_vertex_mirror(iarchive& iarc, oarchive& oarc);
 
+  void batch_add_vertex(iarchive& iarc, oarchive& oarc);
+
+  void batch_add_edge(iarchive& iarc, oarchive& oarc);
+
   void batch_add_vertex_mirror(iarchive& iarc, oarchive& oarc);
 
+
+  // ----------------- Custome Plugin API --------------
+
+
+
+  // ---------------------------------------------------
   graph_database* get_database() {
     return database;
+  }
+  graph_client* get_query_client() {
+    return query_client;
   }
 };
 } // namespace graphlab

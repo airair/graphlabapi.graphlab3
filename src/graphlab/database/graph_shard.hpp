@@ -87,6 +87,13 @@ class graph_shard {
    }
 
   /**
+    * Return the mirror information of the vertex in the i'th position.
+    */
+   inline boost::unordered_set<graph_shard_id_t> mirrors(size_t i) {
+     return shard_impl.vertex_mirrors[i];
+   }
+
+  /**
     * Return true if the vertex with vid is owned by this shard.
     */
    inline boost::unordered_set<graph_shard_id_t> get_mirrors(const graph_vid_t& vid) {

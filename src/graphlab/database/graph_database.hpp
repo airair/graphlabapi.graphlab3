@@ -6,7 +6,6 @@
 #include <graphlab/database/graph_vertex.hpp>
 #include <graphlab/database/graph_edge.hpp>
 #include <graphlab/database/graph_shard.hpp>
-#include <graphlab/database/graph_sharding_constraint.hpp>
 namespace graphlab {
 
 
@@ -43,11 +42,6 @@ class graph_database {
   virtual const std::vector<graph_field>& get_edge_fields() = 0;
 
   /**
-   * Returns the sharding graph 
-   */
-  virtual const sharding_constraint& get_sharding_constraint() = 0;
-  
-  /**
    * Returns the index of the vertex column with the given field name. 
    *
    * \note For database implementors: A default implementation using a linear 
@@ -82,10 +76,12 @@ class graph_database {
 
   // -------- Fine grained API ------------
 
-  /** returns a vertex in ret_vertex for a queried vid. Returns NULL on failure
+  /** 
+   * returns a vertex in ret_vertex for a queried vid in the shard with shardid.
+   * Returns NULL on failure
    * The returned vertex pointer must be freed using free_vertex
    */
-  virtual graph_vertex* get_vertex(graph_vid_t vid) = 0;
+  virtual graph_vertex* get_vertex(graph_vid_t vid, graph_shard_id_t shardid) = 0;
 
   /** returns an edge in ret_edge for a queried edge id and shardid. Returns NULL on failure
    * The returned edge pointer must be freed using free_edge
@@ -143,7 +139,12 @@ class graph_database {
    * Returns the number of shards in the database
    */
   virtual size_t num_shards() = 0;
-  
+
+  /**
+   * Returns the list of shard ids in the database
+   */
+  virtual std::vector<graph_shard_id_t> get_shard_list() const = 0;
+
   /**
    * Synchronously obtains a shard from the database.
    * Returns NULL on failure
@@ -151,14 +152,14 @@ class graph_database {
   virtual graph_shard* get_shard(graph_shard_id_t shard_id) = 0;
                           
   /**
-   * Gets the contents of the shard which are adjacent to some other shard
+   * Gets the contents of the shard which are adjacent to some other shard on local.
    * Returns NULL on failure
    */
   virtual graph_shard* get_shard_contents_adj_to(graph_shard_id_t shard_id,
                                                  graph_shard_id_t adjacent_to) = 0;
 
   /**
-   * Gets the contents of the shard which are adjacent to some other shard
+   * Gets the contents of the shard which are adjacent to the list of vertex ids. 
    * Returns NULL on failure
    */
   virtual graph_shard* get_shard_contents_adj_to(const std::vector<graph_vid_t>& vids,
@@ -169,11 +170,6 @@ class graph_database {
    */  
   virtual void free_shard(graph_shard* shard) = 0;
   
-  /** 
-   * Returns a list of shards IDs which adjacent to a given shard id
-   */
-  virtual void adjacent_shards(graph_shard_id_t shard_id, 
-                               std::vector<graph_shard_id_t>* out_adj_shard_ids) = 0;
 
   /**
    * Commits all the changes made to the vertex data and edge data 
@@ -186,10 +182,10 @@ class graph_database {
   
   virtual bool add_vertex(graph_vid_t vid, graph_shard_id_t master, graph_row* data=NULL) = 0;
 
-  virtual void add_edge(graph_vid_t source, graph_vid_t target,
+  virtual bool add_edge(graph_vid_t source, graph_vid_t target,
                         graph_shard_id_t shard_id, graph_row* data=NULL) = 0;
 
-  virtual void add_vertex_mirror(graph_vid_t vid, graph_shard_id_t master,
+  virtual bool add_vertex_mirror(graph_vid_t vid, graph_shard_id_t master,
                                  graph_shard_id_t mirror) = 0;
 };
 
@@ -197,4 +193,3 @@ class graph_database {
 } // namespace graphlab
 
 #endif
-

@@ -11,31 +11,33 @@
 #include <vector>
 using namespace std;
 
+boost::unordered_map<graphlab::graph_shard_id_t, std::string> shard2server;
+size_t nshards;
+vector<graphlab::graph_field> vfields;
+vector<graphlab::graph_field> efields;
+
+typedef graphlab::graph_database_test_util test_util;
+
 int main(int argc, char** argv) {
-  if (argc != 3) {
-    cout << "Usage: graph_database_test_client [zkhost] [prefix] \n";
+  if (argc != 4) {
+    cout << "Usage: graph_database_test_client [zkhost] [prefix] [config]\n";
     return 0;
   }
 
   string zkhost = argv[1];
   string prefix = argv[2];
+  string config = argv[3];
+
+  test_util::parse_config(config, vfields, efields, nshards, shard2server);
+
   vector<string> zkhosts; zkhosts.push_back(zkhost);
-  vector<string> server_list;
-  server_list.push_back("shard0");
-  server_list.push_back("shard1");
-  server_list.push_back("shard2");
-  server_list.push_back("shard3");
+  graphlab::graph_shard_manager shard_manager(nshards);
+  graphlab::distributed_graph_client graph(zkhosts, prefix, shard_manager, shard2server);
 
-  void* zmq_ctx = zmq_ctx_new();
-  graphlab::distributed_graph_client graph(zmq_ctx, zkhosts, prefix, server_list);
-
-  vector<graphlab::graph_field> vfields = graph.get_vertex_fields();
-
-  vector<graphlab::graph_field> efields = graph.get_edge_fields();
 
   size_t nverts = graph.num_vertices();
   size_t nedges = graph.num_edges();
-  size_t nshards = graph.num_shards();
+  ASSERT_EQ(nshards, graph.num_shards());
 
   cout << "Graph summary: \n" 
             << "nverts: " << nverts <<  "\n"
@@ -158,7 +160,56 @@ int main(int argc, char** argv) {
         cout << "Unknown get target: " << target << " " << val << endl;
       }
     //------------------------ INGRESS commands ----------------------
-    } else if (cmd == "add") { 
+    } else if (cmd == "batch_get") {
+      if (target == "vertex") { // get shard shardid
+        vector<graphlab::graph_vid_t> vids;
+        vector<string> strs;
+        try {
+          boost::split(strs, val, boost::is_any_of("\t ,"));
+          if (strs.size() < 1) {
+            cout << val  << " cannot be converted into vid list" << endl;
+            continue;
+          }
+          for (size_t i = 0; i < strs.size(); ++i) {
+            vids.push_back(boost::lexical_cast<graphlab::graph_vid_t>(strs[i]));
+          }
+        } catch (boost::bad_lexical_cast &){
+          cout << val  << " cannot be converted into vid list" << endl;
+          continue;
+        }
+        vector< vector<graphlab::graph_vertex*> > vertices = 
+            graph.batch_get_vertices(vids);
+        for (size_t i = 0; i < vertices.size(); i++) {
+          for (size_t j = 0; j < vertices[i].size(); j++) {
+            cout << *vertices[i][j] << std::endl;
+          }
+          graph.free_vertex_vector(vertices[i]);
+        }
+      }  else if (target == "vertex_adj_to_shard") {
+        try {
+          vector<string> strs;
+          boost::split(strs, val, boost::is_any_of("\t ,"));
+          if (strs.size() != 2) {
+            cout << val  << " cannot be converted into shard_from, shard_to" << endl;
+            continue;
+          }
+          graphlab::graph_shard_id_t shard_from, shard_to;
+          shard_from = boost::lexical_cast<graphlab::graph_shard_id_t>(strs[0]);
+          shard_to = boost::lexical_cast<graphlab::graph_shard_id_t>(strs[1]);
+          vector<graphlab::graph_vertex*> vertices = graph.get_vertex_adj_to_shard(shard_from, shard_to);
+          for (size_t i = 0; i < vertices.size(); i++) {
+            cout << *(vertices[i]) << endl;
+          }
+          graph.free_vertex_vector(vertices);
+        } catch (boost::bad_lexical_cast &){
+          cout << val  << " cannot be converted into shard_from, shard_to" << endl;
+          continue;
+        }
+      } else {
+        cout << "Unknown get target: " << target << " " << val << endl;
+      }
+    }
+    else if (cmd == "add") { 
       if (target == "vertex") { // add vertex vid
         graphlab::graph_vid_t vid;
         try {

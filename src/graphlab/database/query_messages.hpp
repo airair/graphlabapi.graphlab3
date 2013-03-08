@@ -1,6 +1,6 @@
 #ifndef GRAPHLAB_DATABASE_QUERY_MESSAGES_HPP
 #define GRAPHLAB_DATABASE_QUERY_MESSAGES_HPP
-
+#include<graphlab/database/basic_types.hpp>
 #include<fault/query_object_client.hpp>
 #include<graphlab/macros_def.hpp>
 
@@ -72,29 +72,47 @@ namespace graphlab {
      }
 
      ///  returns a message for querying the entire vertex data of vid 
-     char* vertex_row_request(int* msg_len, graph_vid_t vid) {
+     char* vertex_row_request(int* msg_len, graph_vid_t vid, graph_shard_id_t shardid) {
        oarchive oarc;
-       oarc << std::string("vertex_data_row") << vid;
+       oarc << std::string("vertex_row") << vid << shardid;
        *msg_len=oarc.off;
        return oarc.buf;
      }
 
      ///  returns a message for querying a vertex 
-     char* vertex_request(int* msg_len, graph_vid_t vid) {
+     char* vertex_request(int* msg_len, graph_vid_t vid, graph_shard_id_t shardid) {
        oarchive oarc;
-       oarc << std::string("vertex") << vid; 
+       oarc << std::string("vertex") << vid << shardid; 
        *msg_len=oarc.off;
        return oarc.buf;
      }
+
+     ///  returns a message for querying the a batch of vertex data of vid 
+     char* batch_vertex_request(int* msg_len, const std::vector<graph_vid_t>& vids, graph_shard_id_t shardid) {
+       oarchive oarc;
+       oarc << std::string("batch_vertex") << vids << shardid;
+       *msg_len=oarc.off;
+       return oarc.buf;
+     }
+
+     ///  returns a message for querying the vertices adjacent to a shard
+     char* vertex_adj_to_shard(int* msg_len,
+                               graph_shard_id_t shard_from,
+                               graph_shard_id_t shard_to) {
+       oarchive oarc;
+       oarc << std::string("vertex_shard_adj") << shard_from << shard_to;
+       *msg_len=oarc.off;
+       return oarc.buf;
+     }
+
 
      ///  returns a message for querying the entire vertex data of vid 
      char* edge_row_request(int* msg_len, graph_eid_t eid, graph_shard_id_t shardid) {
        oarchive oarc;
-       oarc << std::string("edge_data_row") << eid << shardid;
+       oarc << std::string("edge_row") << eid << shardid;
        *msg_len=oarc.off;
        return oarc.buf;
      }
-
 
      ///  returns a message for querying an edge 
      char* edge_request(int* msg_len, graph_vid_t eid,
@@ -165,25 +183,29 @@ namespace graphlab {
       * Returns a message for updateing the vertex data.
       * The message includes the modified fields of the vertex data. 
       * Currently the message sends the new data (not delta).
-      * TODO: check delta commit
       */
      char* update_vertex_request(int* msg_len, 
                                  graph_vid_t vid,
+                                 graph_shard_id_t shardid,
+                                 const std::vector<size_t>& modified_fields,
                                  graph_row* data) {
        oarchive oarc;
-       oarc << std::string("vertex_row") << vid;
-       std::vector<size_t> modified_fields;
-       for (size_t i = 0; i < data->num_fields(); i++) {
-         graph_value* val = data->get_field(i);
-         if (!val->is_null() && val->get_modified()) {
-           modified_fields.push_back(i);
-         }
-       }
+       oarc << std::string("vertex_row") << vid << shardid;
        oarc << modified_fields.size(); 
        for (size_t i = 0; i < modified_fields.size(); i++) {
          graph_value* val = data->get_field(modified_fields[i]);
          oarc << modified_fields[i] << val->data_length();
-         oarc.write((char*)val->get_raw_pointer(), val->data_length());
+         if (val->get_use_delta_commit()) {
+           oarc << true;
+           switch (val->type())  {
+            case INT_TYPE: oarc << (val->_data.int_value-val->_old.int_value); break;
+            case DOUBLE_TYPE: oarc << (val->_data.double_value-val->_old.double_value); break;
+            default: ASSERT_TRUE(false);
+           }
+         } else {
+           oarc << false;
+           oarc.write((char*)val->get_raw_pointer(), val->data_length());
+         }
        }
        *msg_len=oarc.off;
        return oarc.buf;
@@ -198,16 +220,10 @@ namespace graphlab {
      char* update_edge_request(int* msg_len, 
                                  graph_eid_t eid,
                                  graph_shard_id_t shardid,
+                                 const std::vector<size_t>& modified_fields,
                                  graph_row* data) {
        oarchive oarc;
        oarc << std::string("edge_row") << eid << shardid;
-       std::vector<size_t> modified_fields;
-       for (size_t i = 0; i < data->num_fields(); i++) {
-         graph_value* val = data->get_field(i);
-         if (!val->is_null() && val->get_modified()) {
-           modified_fields.push_back(i);
-         }
-       }
        oarc << modified_fields.size(); 
        for (size_t i = 0; i < modified_fields.size(); i++) {
          graph_value* val = data->get_field(modified_fields[i]);
@@ -323,11 +339,68 @@ namespace graphlab {
        return oarc.buf;
      }
 
+     // --------------------------- Failure replies -------------------------
+     // "Server is not reachable..."
+     std::string error_server_not_reachable(const std::string& server_name) {
+       return std::string("Server: " + server_name + " is not reachable.");
+     }
+     // "Could not find vertex ..."
+     std::string error_vertex_not_found(graph_vid_t vid, graph_shard_id_t shardid) {
+       return std::string("Could not find vertex id = ")
+           + boost::lexical_cast<std::string>(vid)
+           + (" on shard : ")
+           + boost::lexical_cast<std::string>(shardid);
+     }
+
+     // "Could not find shard..."
+     std::string error_shard_not_found(graph_shard_id_t shardid) {
+       return std::string("Could not find shard id = ")
+           + boost::lexical_cast<std::string>(shardid);
+     }
+
+     // "Could not find shard..."
+     std::string error_edge_not_found(graph_eid_t eid, graph_shard_id_t shardid) {
+       return std::string("Could not find edge id = ") 
+              + boost::lexical_cast<std::string>(eid)
+              + " on shard id = " + boost::lexical_cast<std::string>(shardid);
+     }
+
+     // "Fail setting value..."
+     std::string error_setting_value(size_t fieldpos) {
+       return std::string("Fail setting field ")
+            + boost::lexical_cast<std::string>(fieldpos);
+     }
+
+     // "Fail adding vertex..." 
+     std::string error_adding_vertex(graph_vid_t vid) {
+       return std::string("Fail adding vertex ") 
+            + boost::lexical_cast<std::string>(vid);
+     }
+
+     // "Fail adding edge..."
+     std::string error_adding_edge(graph_vid_t src, graph_vid_t dest) {
+       return std::string("Fail adding vertex (") 
+            + boost::lexical_cast<std::string>(src) + ", " + boost::lexical_cast<std::string>(dest) + ")";
+     }
+
+     // "Fail adding vertex mirror..." 
+     std::string error_adding_mirror(graph_vid_t vid, graph_shard_id_t master,
+                                          graph_shard_id_t mirror) {
+       return std::string("Fail adding mirror ") + boost::lexical_cast<std::string>(mirror)
+            + "for vertex " + boost::lexical_cast<std::string>(vid);
+            + " on master shard " + boost::lexical_cast<std::string>(master);
+     }
+
+     // "Unknown query header ... "
+     std::string error_unknown_query_header(std::string& header) {
+       return std::string("Unknown query header: ") + header; 
+     }
+
 
      // --------------------------- Reply parsers ---------------------------
      template<typename T>
      /**
-      * Parse a reply that has return content into the out variable.
+      * Parse a reply with single return content serialized into the out variable.
       */
      bool parse_reply(std::string reply, T& out, std::string& errormsg) {
        iarchive iarc(reply.c_str(), reply.length());
@@ -338,6 +411,34 @@ namespace graphlab {
          logstream(LOG_ERROR) <<  errormsg << std::endl;
        } else {
          iarc >> out;
+       }
+       return success;
+     }
+
+     template<typename T>
+     /**
+      * Parse a reply with batch return content into the out variable.
+      */
+     bool parse_batch_reply(std::string reply,
+                            T** out, size_t* size, std::vector<std::string>& errormsgs) {
+       *out = NULL;
+       *size = 0;
+
+       iarchive iarc(reply.c_str(), reply.length());
+       bool success;
+       size_t count;
+       iarc >> success >> count;
+       if (count > 0) {
+         *out = new T[count];
+         for (size_t i = 0; i < count; i++) 
+         iarc >> (*out)[i];
+       }
+       *size = count;
+       if (!success) {
+         iarc >> errormsgs;
+         for (size_t i = 0; i < errormsgs.size(); i++) {
+           logstream(LOG_ERROR) << errormsgs[i] << std::endl;
+         }
        }
        return success;
      }

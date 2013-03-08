@@ -2,7 +2,12 @@
 #include <graphlab/logger/assertions.hpp>
 #include <boost/lexical_cast.hpp>
 #include <vector>
+
+#include "graph_database_test_util.hpp"
+
 using namespace std;
+
+typedef graphlab::graph_database_test_util testutil;
 
 /**
  * Test adding vertices, change value and commit
@@ -15,30 +20,30 @@ void testAddVertex() {
 
   int nshards = 4;
   graphlab::graph_database_sharedmem db(vertexfields, edgefields, nshards);
-  const graphlab::sharding_constraint& constraint_graph = db.get_sharding_constraint();
 
   // Add 100 vertices
   size_t nverts_expected = 100000;
 
   std::cout << "Test adding vertices. Num vertices = " << nverts_expected << std::endl;
-
   for (size_t i = 0; i < nverts_expected; i++) {
-    graphlab::graph_shard_id_t master = constraint_graph.get_master(i);
+    graphlab::graph_shard_id_t master = testutil::get_master(i, nshards);
     db.add_vertex(i, master);
   }
   ASSERT_EQ(db.num_vertices(), nverts_expected);
 
   // Assign the id field of each vertex
   for (size_t i = 0; i < nverts_expected; i++) {
-    graphlab::graph_vertex* v = db.get_vertex(i); 
+    size_t master = testutil::get_master(i, nshards);
+    graphlab::graph_vertex* v = db.get_vertex(i, master); 
     graphlab::graph_row* data = v->data();
+
     // Assert all feilds are null values
     for (size_t j = 0; j < data->num_fields(); j++) {
         ASSERT_TRUE(data->get_field(j)->is_null());
     }
+
     // Set pagerank field to 1.0 and url field to "http://$vid"
     ASSERT_TRUE(data->get_field(0) != NULL);
-
     ASSERT_TRUE(data->get_field(1) != NULL);
     data->get_field(0)->set_double(1.0);
     ASSERT_TRUE(data->get_field(0)->get_modified());
@@ -54,7 +59,8 @@ void testAddVertex() {
   }
 
   for (size_t i = 0; i < nverts_expected; i++) {
-    graphlab::graph_vertex* v = db.get_vertex(i); 
+    size_t master = testutil::get_master(i, nshards);
+    graphlab::graph_vertex* v = db.get_vertex(i, master); 
     graphlab::graph_row* data = v->data();
     // Assert all feilds are NOT null values
     for (size_t j = 0; j < data->num_fields(); j++) {
@@ -84,7 +90,6 @@ void testAddEdge() {
 
   size_t nshards = 4;
   graphlab::graph_database_sharedmem db(vertexfields, edgefields, nshards);
-  const graphlab::sharding_constraint& constraint_graph = db.get_sharding_constraint();
 
   size_t nverts = 10000; // 10k vertices
   size_t nedges = 500000; // 500k edges
@@ -92,21 +97,19 @@ void testAddEdge() {
   std::cout << "Test add edges. Num edges =  " << nedges << std::endl;
 
   for (size_t i = 0; i < nverts; i++) {
-    graphlab::graph_shard_id_t master = constraint_graph.get_master(i);
+    graphlab::graph_shard_id_t master = testutil::get_master(i, nshards);
     db.add_vertex(i, master);
   }
-
   boost::hash<size_t> hash; 
-
   // Creates a random graph
   for (size_t i = 0; i < nedges; i++) {
     size_t source = hash(i) % nverts;
     size_t target = hash(-i) % nverts;
 
-    graphlab::graph_shard_id_t master = constraint_graph.get_master(source, target);
+    graphlab::graph_shard_id_t master = testutil::get_master(source, target, nshards);
     db.add_edge(source, target, master);
-    db.add_vertex_mirror(source, constraint_graph.get_master(source), master);
-    db.add_vertex_mirror(target, constraint_graph.get_master(target), master);
+    db.add_vertex_mirror(source, testutil::get_master(source, nshards), master);
+    db.add_vertex_mirror(target, testutil::get_master(target, nshards), master);
   }
 
   ASSERT_EQ(db.num_edges(), nedges);
@@ -117,7 +120,8 @@ void testAddEdge() {
   // Set the weight on (i->j) to be 1/i.num_out_edges
   std::vector<double> weights;
   for (size_t i = 0 ; i < nverts; ++i) {
-    graphlab::graph_vertex* v = db.get_vertex(i); 
+    size_t master = testutil::get_master(i, nshards);
+    graphlab::graph_vertex* v = db.get_vertex(i, master); 
     if (v == NULL) 
       continue;
 
@@ -160,11 +164,9 @@ void testShardAPI() {
   size_t nedges = 128000;
   boost::hash<size_t> hash; 
 
-  const graphlab::sharding_constraint& constraint_graph = db.get_sharding_constraint();
-
 
   for (size_t i = 0; i < nverts; i++) {
-    db.add_vertex(i, constraint_graph.get_master(i));
+    db.add_vertex(i, testutil::get_master(i, nshards));
   }
 
   std::cout << "Test shard api" << std::endl;
@@ -175,10 +177,10 @@ void testShardAPI() {
   for (size_t i = 0; i < nedges; i++) {
     size_t source = hash(i) % nverts;
     size_t target = hash(-i) % nverts;
-    graphlab::graph_shard_id_t master = constraint_graph.get_master(source, target);
+    graphlab::graph_shard_id_t master = testutil::get_master(source, target, nshards);
     db.add_edge(source, target, master);
-    db.add_vertex_mirror(source, constraint_graph.get_master(source), master);
-    db.add_vertex_mirror(target, constraint_graph.get_master(target), master);
+    db.add_vertex_mirror(source, testutil::get_master(source, nshards), master);
+    db.add_vertex_mirror(target, testutil::get_master(target, nshards), master);
   }
 
   // Count the number of vertices/edges in the shards
@@ -260,13 +262,16 @@ void testShardAPI() {
     }
   }
 
-  // Check "dummy" in every edge is set to 2 now. 
+  // Check "dummy" in every edge is set to 2 if two vertices are on different shards, or 1 if on the same shard. 
   for (size_t i = 0; i < db.num_shards(); i++) {
     graphlab::graph_shard* shard = db.get_shard(i);
     for (size_t j = 0; j < shard->num_edges(); j++) {
       graphlab::graph_int_t dummyval;
       ASSERT_TRUE(shard->edge_data(j)->get_field(1)->get_integer(&dummyval));
-      if (constraint_graph.get_master(shard->edge(j).first) == constraint_graph.get_master(shard->edge(j).second)) {
+
+      size_t src_master = testutil::get_master(shard->edge(j).first, nshards);
+      size_t dest_master = testutil::get_master(shard->edge(j).second, nshards);
+      if (src_master == dest_master) {
         ASSERT_EQ(dummyval, 1);
       } else {
         ASSERT_EQ(dummyval, 2);

@@ -54,6 +54,8 @@ class graph_vertex {
    * the same graph_row pointer.
    */
   virtual graph_row* data() = 0;
+  
+  virtual const graph_row* immutable_data() const = 0;
 
   // --- synchronization ---
 
@@ -114,12 +116,18 @@ class graph_vertex {
   virtual graph_shard_id_t master_shard() const = 0;
 
   /**
+   * Returns the IDs of the shards with mirror of this vertex
+   */
+  virtual std::vector<graph_shard_id_t> mirror_shards() const = 0;
+
+
+  /**
    * returns the number of shards this vertex spans
    */
   virtual size_t get_num_shards() const = 0;
 
   /**
-   * returns a vector containing the shard IDs this vertex spans
+   * returns a vector containing the shard IDs this vertex spans (master + mirrors)
    */
   virtual std::vector<graph_shard_id_t> get_shard_list() const = 0;
 

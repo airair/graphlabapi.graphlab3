@@ -6,42 +6,22 @@
 #include <fstream>
 #include <sstream>
 
-#include <graphlab/serialization/iarchive.hpp>
-#include <graphlab/serialization/oarchive.hpp>
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/database/graph_field.hpp>
 #include <graphlab/database/graph_vertex.hpp>
 #include <graphlab/database/graph_edge.hpp>
 #include <graphlab/database/graph_shard.hpp>
 #include <graphlab/database/graph_database.hpp>
-#include <graphlab/database/server/graph_database_server.hpp>
-#include <graphlab/database/graph_sharding_constraint.hpp>
 #include <graphlab/database/query_messages.hpp>
-#include <graphlab/database/client/builtin_parsers.hpp>
-#include <graphlab/database/client/graph_vertex_remote.hpp>
-#include <graphlab/util/fs_util.hpp>
-#include <fault/query_object_client.hpp>
-
-
-#include <boost/functional.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/iostreams/stream.hpp>
-#include <boost/iostreams/filtering_streambuf.hpp>
-#include <boost/iostreams/filtering_stream.hpp>
-#include <boost/iostreams/copy.hpp>
-#include <boost/iostreams/filter/gzip.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/concept/requires.hpp>
-
+#include <graphlab/database/graph_shard_manager.hpp>
 #include <graphlab/macros_def.hpp>
 
 namespace graphlab {
   /**
    * \ingroup group_graph_database
-   * An shared memory implementation of a graph database.  
-   * This class implements the <code>graph_database</code> interface
-   * as a shared memory instance.
-   */
+   * Interface of a graph query_client. Provides functionality
+   * for issue query/update request to graph_database_server.
+   **/
   class graph_client {
 
    public:
@@ -61,13 +41,17 @@ namespace graphlab {
     virtual size_t num_edges() = 0;
     virtual std::vector<graph_field> get_vertex_fields() = 0;
     virtual std::vector<graph_field> get_edge_fields() = 0;
-    virtual sharding_constraint get_sharding_constraint() = 0;
+    virtual const graph_shard_manager& get_shard_manager() = 0;
 
     // ------------ Fine grained API --------------------
-    virtual graph_shard_id_t get_master(graph_vid_t vid) = 0;
     virtual graph_vertex* get_vertex(graph_vid_t vid)  = 0;
+    virtual std::vector<graph_vertex*> get_vertex_adj_to_shard(
+        graph_shard_id_t shard_from, graph_shard_id_t shard_to)  = 0;
+    virtual std::vector< std::vector<graph_vertex*> > batch_get_vertices(
+        const std::vector<graph_vid_t>& vids)  = 0;
     virtual graph_edge* get_edge(graph_eid_t eid, graph_shard_id_t shardid) = 0 ;
     virtual void free_vertex(graph_vertex* vertex) = 0;
+    virtual void free_vertex_vector(std::vector<graph_vertex*>& vertexlist) = 0;
     virtual void free_edge(graph_edge* edge) = 0;
     virtual void free_edge_vector(std::vector<graph_edge*>& edgelist)  = 0;
 

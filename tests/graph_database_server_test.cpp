@@ -1,4 +1,3 @@
-#include <graphlab/database/sharedmem_database/graph_database_sharedmem.hpp>
 #include <graphlab/database/server/graph_database_server.hpp>
 #include <graphlab/database/query_messages.hpp>
 #include <graphlab/logger/assertions.hpp>
@@ -16,28 +15,31 @@ void testVertexAdjacency(const string adjrep,
                          const std::vector<graphlab::graph_edge*>* outadj); 
 
 
-void testReadVertexData(graphlab::graph_database_server* server) {
+void testVertexQuery(graphlab::graph_database_server* server) {
   bool success;
+
   graphlab::graph_database* db = server->get_database();
 
   for (size_t i = 0; i < db->num_vertices(); i++) {
     graphlab::graph_row row;
-
+    std::string errormsg;
+    // request each vertex row
+    graphlab::graph_shard_id_t master = graphlab::graph_database_test_util::get_master(i, db->num_shards());
     int len;
-    char* vdatareq =  query_messages.vertex_row_request(&len, i);
+    char* vdatareq =  query_messages.vertex_row_request(&len, i, master);
     std::string vdatarep = server->query(vdatareq, len);
+    success = query_messages.parse_reply(vdatarep, row, errormsg);
 
-    graphlab::iarchive iarc_vdata(vdatarep.c_str(), vdatarep.length());
-    iarc_vdata >> success  >> row;
-
-    graphlab::graph_vertex* v = db->get_vertex(i);
+    // compare to the vertex stored in the database
+    graphlab::graph_vertex* v = db->get_vertex(i, master);
     ASSERT_EQ(success, (v!=NULL));
+
     if (success) {
       ASSERT_TRUE(row._own_data);
       graphlab::graph_row* expected = v->data();
-      ASSERT_EQ(row.num_fields(), expected->num_fields());
       graphlab::graph_database_test_util::compare_row(row, *expected);
 
+      // compare adjacency structure
       bool prefetch_data = true;
       bool get_in = true;
       bool get_out = true;
@@ -45,13 +47,10 @@ void testReadVertexData(graphlab::graph_database_server* server) {
           int msg_len;
           char* adjreq = query_messages.vertex_adj_request(&msg_len, i, j, get_in, get_out);
           std::string adjrep = server->query(adjreq, len);
-
           std::vector<graphlab::graph_edge*> _inadj;
           std::vector<graphlab::graph_edge*> _outadj;
           v->get_adj_list(j, prefetch_data, &_inadj, &_outadj);
-
           testVertexAdjacency(adjrep, &_inadj, &_outadj);
-
           db->free_edge_vector(_inadj);
           db->free_edge_vector(_outadj);
       }
@@ -62,9 +61,9 @@ void testReadVertexData(graphlab::graph_database_server* server) {
 
 void testVertexAdjacency(const string adjrep,
                          const std::vector<graphlab::graph_edge*>* inadj,
-                         const std::vector<graphlab::graph_edge*>* outadj
-                         ) {
+                         const std::vector<graphlab::graph_edge*>* outadj) {
     graphlab::iarchive iarc_adj(adjrep.c_str(), adjrep.length());
+    std::string errormsg;
     size_t numin, numout;
     graphlab::graph_shard_id_t shardid;
     graphlab::graph_vid_t vid;
@@ -99,14 +98,13 @@ void testVertexAdjacency(const string adjrep,
 
 void testReadField(graphlab::graph_database_server* server) {
   bool success = false;
+  std::string errormsg;
   vector<graphlab::graph_field> vfield;
   int len;
   char* vfieldreq = query_messages.vfield_request(&len);
   std::string vfieldrep = server->query(vfieldreq, len);
-  graphlab::iarchive iarc_vfield(vfieldrep.c_str(), vfieldrep.length());
-  iarc_vfield >> success;
+  success = query_messages.parse_reply(vfieldrep, vfield, errormsg);
   ASSERT_TRUE(success);
-  iarc_vfield >> vfield;
   ASSERT_EQ(vfield.size(), server->get_database()->get_vertex_fields().size());
   for (size_t i = 0; i < vfield.size(); i++) {
     ASSERT_TRUE(graphlab::graph_database_test_util::compare_graph_field(
@@ -116,8 +114,7 @@ void testReadField(graphlab::graph_database_server* server) {
   vector<graphlab::graph_field> efield;
   char* efieldreq = query_messages.efield_request(&len);
   std::string efieldrep = server->query(efieldreq, len);
-  graphlab::iarchive iarc_efield(efieldrep.c_str(), efieldrep.length());
-  iarc_efield >> success  >> efield;
+  success = query_messages.parse_reply(efieldrep, efield, errormsg);
   ASSERT_TRUE(success);
   ASSERT_EQ(efield.size(), server->get_database()->get_edge_fields().size());
   for (size_t i = 0; i < efield.size(); i++) {
@@ -143,7 +140,7 @@ int main(int argc, char** argv)
                                                          vertexfields, edgefields);
   graphlab::graph_database_server server(db);
   testReadField(&server);
-  testReadVertexData(&server);
+  testVertexQuery(&server);
   delete db;
   return 0;
 }

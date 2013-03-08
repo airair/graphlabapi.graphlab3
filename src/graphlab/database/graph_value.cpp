@@ -55,7 +55,6 @@ void* graph_value::get_mutable_raw_pointer() {
 }
 
 
-
 bool graph_value::get_vid(graph_vid_t* out_ret) {
   if (type() == VID_TYPE && !is_null()) {
     (*out_ret) = _data.int_value;

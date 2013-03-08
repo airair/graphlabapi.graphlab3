@@ -1,12 +1,12 @@
 #include <graphlab/database/sharedmem_database/graph_database_sharedmem.hpp>
-#include <graphlab/database/graph_sharding_constraint.hpp>
 #include <graphlab/database/graph_field.hpp>
 #include <graphlab/logger/assertions.hpp>
 #include <vector>
+#include <iostream>
+#include <fstream>
 namespace graphlab {
 
   class graph_database_test_util {
-
    public:
      /**
       * Creates a database hosting a random graph with provided arguments.
@@ -19,23 +19,20 @@ namespace graphlab {
        graph_database_sharedmem* db = 
            new graph_database_sharedmem (vertexfields, edgefields, nshards);
 
-      const sharding_constraint& constraint_graph = db->get_sharding_constraint();
-
       for (size_t i = 0; i < nverts; i++) {
-        db->add_vertex(i, constraint_graph.get_master(i));
+        db->add_vertex(i, get_master(i, nshards));
       }
 
-      boost::hash<size_t> hash; 
-
+      boost::hash<size_t> vertexhash;
       // Creates a random graph
       for (size_t i = 0; i < nedges; i++) {
-        size_t source = hash(i) % nverts;
-        size_t target = hash(-i) % nverts;
+        size_t source = vertexhash(i) % nverts;
+        size_t target = vertexhash(-i) % nverts;
 
-        graphlab::graph_shard_id_t master = constraint_graph.get_master(source, target);
+        size_t master = get_master(source, target, nshards);
         db->add_edge(source, target, master);
-        db->add_vertex_mirror(source, constraint_graph.get_master(source), master);
-        db->add_vertex_mirror(target, constraint_graph.get_master(target), master);
+        db->add_vertex_mirror(source, get_master(source, nshards), master);
+        db->add_vertex_mirror(target, get_master(target, nshards), master);
       }
        return db;
      }
@@ -54,6 +51,75 @@ namespace graphlab {
        return db;
      }
 
+     static size_t get_master(graph_vid_t vid, size_t nshards) {
+       return  vid % nshards;
+     }
+
+     static size_t get_master(graph_vid_t src, graph_vid_t dest, size_t nshards) {
+       boost::hash<std::pair<size_t, size_t> >  edgehash;
+       std::pair<size_t, size_t> pair(src, dest);
+       return edgehash(pair) % nshards;
+     }
+
+
+     static void parse_config(std::string fname,
+                              std::vector<graph_field>& vfields,
+                              std::vector<graph_field>& efields,
+                              size_t& nshards,
+                              boost::unordered_map<graph_shard_id_t, std::string>& shard2server)  {
+       std::ifstream f(fname.c_str());
+       std::string line;
+       f >> nshards;
+
+       logstream(LOG_EMPH) << "Parse config file: " << fname << "\n"
+                           << "nshards: " << nshards << "\n"
+                           << "shard to server mapping: " << "\n";
+       for (size_t i = 0; i < nshards; i++) {
+         graph_shard_id_t shard;
+         std::string server_name;
+         f >> shard >> server_name;
+         shard2server[shard] = server_name;
+         logstream(LOG_EMPH) << "shard" << shard << "-> server " << server_name << "\n"; 
+       }
+
+       // parse vfield
+       bool success;
+       while (getline(f, line)) {
+         if (line != "")
+           break;
+       }
+       success = parse_field_config(line, vfields);
+       ASSERT_TRUE(success);
+       success = parse_field_config(line, efields);
+       ASSERT_TRUE(success);
+       f.close();
+
+       logstream(LOG_EMPH) << "vertex fields: " << "\n";
+       for (size_t i = 0; i < vfields.size(); i++) {
+         logstream(LOG_EMPH) << vfields[i] << "\t";
+       }
+       logstream(LOG_EMPH) << "\nedge fields: " << "\n";
+       for (size_t i = 0; i < efields.size(); i++) {
+         logstream(LOG_EMPH) << efields[i] << "\t";
+       }
+       logstream(LOG_EMPH) << "\n====== Done parsing config =========" << std::endl;
+     }
+
+     static bool parse_field_config(std::string line, std::vector<graph_field>& fields) {
+       std::vector<std::string> strs;
+       boost::split(strs, line, boost::is_any_of(","));
+       for (size_t i = 0; i < strs.size(); i++) {
+         std::vector<std::string> pair;
+         boost::split(pair, strs[i], boost::is_any_of(":"));
+         graph_field field;
+         field.name = pair[0];
+         field.type = string_to_type(pair[1]);
+         if (field.type == UNKNOWN_TYPE)
+           return false;
+         fields.push_back(field);
+       }
+       return true;
+     }
 
      /**
       * Return whether two graph values have the same content
@@ -125,5 +191,6 @@ namespace graphlab {
         return false;
        }
      }
+
   };
 }

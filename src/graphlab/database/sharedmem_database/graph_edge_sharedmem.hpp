@@ -56,6 +56,10 @@ class graph_edge_sharedmem : public graph_edge {
     return database->get_shard(master)->edge_data(eid);
   };
 
+  const graph_row* immutable_data() const {
+    return database->get_shard(master)->edge_data(eid);
+  }
+
   // --- synchronization ---
 
 

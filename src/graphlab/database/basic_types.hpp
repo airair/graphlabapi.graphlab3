@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <stdint.h>
+#include <boost/algorithm/string.hpp>
 
 namespace graphlab {
 
@@ -48,7 +49,8 @@ enum graph_datatypes_enum {
 	DOUBLE_TYPE,
 	STRING_TYPE,
 	BLOB_TYPE,
-  DOUBLE_VEC_TYPE
+  DOUBLE_VEC_TYPE,
+  UNKNOWN_TYPE
 };
 
 /// \ingroup group_graph_database
@@ -71,6 +73,25 @@ static const char* graph_datatypes_string[] = {
   "BLOB",
   "DOUBLE_VEC"
 };
+
+inline graph_datatypes_enum string_to_type(std::string typestr) {
+  boost::algorithm::to_lower(typestr); 
+  if (typestr == "int") {
+    return INT_TYPE;
+  } else if (typestr == "double") {
+    return DOUBLE_TYPE;
+  } else if (typestr == "string") {
+    return STRING_TYPE;
+  } else if (typestr == "blob") {
+    return BLOB_TYPE;
+  } else if (typestr == "double_vec") {
+    return DOUBLE_VEC_TYPE;
+  } else if (typestr == "vid") {
+    return VID_TYPE;
+  } else {
+    return UNKNOWN_TYPE;
+  } 
+}
 
 
 /// \ingroup group_graph_database

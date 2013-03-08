@@ -116,6 +116,20 @@ class graph_row {
 
 
   /**
+   * Return an vector of index where the value is modified.
+   */
+  std::vector<size_t> get_modified_fields() {
+    std::vector<size_t> ret;
+    for (size_t i = 0; i < num_fields(); i++) {
+      if (_data[i].get_modified()) {
+        ret.push_back(i);
+      }
+    }
+    return ret;
+  }
+
+
+  /**
    * Serialization interface. Save the values and associated state into oarchive.
    */
   void save (oarchive& oarc) const {

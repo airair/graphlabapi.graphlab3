@@ -13,7 +13,6 @@
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
 
-class distributed_graph_client;
 /**
  * \ingroup group_graph_database
  *  An implementation of <code>graph_vertex</code> for the distributed_graph client.
@@ -38,7 +37,6 @@ class graph_vertex_remote: public graph_vertex {
   // Pointer to the distributed graph.
   graph_client* graph;
 
-
   typedef libfault::query_object_client::query_result query_result;
 
   std::vector<query_result> reply_queue;
@@ -47,9 +45,12 @@ class graph_vertex_remote: public graph_vertex {
   /**
    * Creates a graph vertex object 
    */
+  graph_vertex_remote() : 
+      vid(-1), vdata(NULL), master(-1), graph(NULL) {}
+
   graph_vertex_remote(graph_client* graph) : 
       vid(-1), vdata(NULL), master(-1), graph(graph) {}
-  
+
   ~graph_vertex_remote() { 
     if (vdata != NULL) {
       delete vdata;
@@ -74,6 +75,11 @@ class graph_vertex_remote: public graph_vertex {
     return vdata;
   };
 
+  const graph_row* immutable_data() const {
+    return vdata;
+  }
+
+
   // --- synchronization ---
 
   /**
@@ -85,11 +91,16 @@ class graph_vertex_remote: public graph_vertex {
     if (vdata == NULL)
       return;
     QueryMessages messages;
+    std::vector<size_t> modified_fields = vdata->get_modified_fields();
     int len;
-    char* msg = messages.update_vertex_request(&len, vid, vdata);
+    char* msg = messages.update_vertex_request(&len, vid, master, modified_fields, vdata);
     std::string reply = graph->update(graph->find_server(master), msg, len); 
     std::string errormsg;
     ASSERT_TRUE(messages.parse_reply(reply, errormsg));
+
+    for (size_t i = 0; i < modified_fields.size(); i++) {
+      data()->get_field(modified_fields[i])->post_commit_state();
+    }
   }
 
   /**
@@ -99,9 +110,20 @@ class graph_vertex_remote: public graph_vertex {
     if (vdata == NULL)
       return;
     QueryMessages messages;
+
+    std::vector<size_t> modified_fields = vdata->get_modified_fields();
     int len;
-    char* msg = messages.update_vertex_request(&len, vid, vdata);
+    char* msg = messages.update_vertex_request(&len, vid, master, modified_fields, vdata);
+
     graph->update_async(graph->find_server(master), msg, len, reply_queue); 
+
+    //TODO: check reply success
+    
+    reply_queue.clear();
+
+    for (size_t i = 0; i < modified_fields.size(); i++) {
+      vdata->get_field(modified_fields[i])->post_commit_state();
+    }
   }
 
   /**
@@ -110,7 +132,7 @@ class graph_vertex_remote: public graph_vertex {
   void refresh() { 
     QueryMessages messages;
     int len;
-    char* request = messages.vertex_row_request(&len, vid);
+    char* request = messages.vertex_row_request(&len, vid, master);
     std::string reply = graph->query(graph->find_server(master), request, len);
 
     if (vdata ==  NULL)
@@ -136,6 +158,13 @@ class graph_vertex_remote: public graph_vertex {
    */
   graph_shard_id_t master_shard() const {
     return master;
+  };
+  
+  /**
+   * Returns the ID of the shard that owns this vertex
+   */
+  std::vector<graph_shard_id_t> mirror_shards() const {
+    return mirrors;
   };
 
   /**
@@ -195,12 +224,7 @@ class graph_vertex_remote: public graph_vertex {
   }
 
   void save(oarchive& oarc) const {
-    oarc << vid << master << mirrors;
-    if (vdata == NULL) {
-      oarc << false;
-    } else {
-      oarc << true << *vdata;
-    }
+    external_save(oarc, this);
   }
 
   void load(iarchive& iarc) {
@@ -214,7 +238,19 @@ class graph_vertex_remote: public graph_vertex {
     }
   }
 
+  static void external_save(oarchive& oarc,
+                            const graph_vertex* v) {
+    oarc << v->get_id() << v->master_shard() << v->mirror_shards() ;
+    if (v->immutable_data() == NULL) {
+      oarc << false;
+    } else {
+      oarc << true << *(v->immutable_data());
+    }
+  }
+
+
   friend class graph_database_server;
+  friend class distributed_graph_client;
 }; // end of class
 } // namespace graphlab
 #include <graphlab/macros_undef.hpp>

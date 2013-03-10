@@ -1,9 +1,56 @@
 #include <graphlab/database/graph_row.hpp>
-#include <graphlab/database/graph_database.hpp>
-#include <graphlab/logger/assertions.hpp>
-
 namespace graphlab {
 
+  graph_row::graph_row(std::vector<graph_field>& fields, bool is_vertex) :
+      _own_data(true), _nfields(fields.size()), _is_vertex(is_vertex) {
+
+        _data =  new graph_value[fields.size()];
+        for (size_t i = 0; i < fields.size(); i++) {
+          graph_value& val = _data[i];
+          val._type = fields[i].type;
+          if (val._type == STRING_TYPE || val._type == BLOB_TYPE) {
+            val._len=0;
+          } else if (val._type == DOUBLE_TYPE) {
+            val._len=sizeof(graph_double_t);
+          } else {
+            val._len=sizeof(graph_int_t);
+          }
+        }
+      }
+
+  std::vector<size_t> graph_row::get_modified_fields() {
+    std::vector<size_t> ret;
+    for (size_t i = 0; i < num_fields(); i++) {
+      if (_data[i].get_modified()) 
+        ret.push_back(i);
+    }
+    return ret;
+  }
+
+  void graph_row::shallowcopy(graph_row& out_row) {
+    memcpy(&out_row, this, sizeof(graph_row));
+    out_row._own_data = false;
+  }
+
+  void graph_row::deepcopy(graph_row& out_row) {
+    out_row._is_vertex = _is_vertex;
+    out_row._nfields = _nfields;
+    out_row._own_data = true;
+    out_row._data = new graph_value[num_fields()];
+    for (size_t i = 0; i < num_fields(); i++) {
+      _data[i].deepcopy(out_row._data[i]);
+    }
+  }
+
+  void graph_row::copy_transfer_owner(graph_row& out_row) {
+    ASSERT_TRUE(_own_data);
+    memcpy(&out_row, this, sizeof(graph_row));
+    _own_data = false;
+  }
+
+} // namespace graphlab
+
+// out_row._database = _database;
 // int graph_row::get_field_pos(const char* fieldname) {
 //   int fieldpos = -1;
 //   if (is_vertex()) {
@@ -13,11 +60,6 @@ namespace graphlab {
 //   }
 //   return fieldpos;
 // } 
-
-graph_value* graph_row::get_field(size_t fieldpos) {
-  if (fieldpos < num_fields()) return _data + fieldpos;
-  else return NULL; 
-}
 
 // graph_value* graph_row::get_field(const char* fieldname) {
 //   int fieldpos = get_field_pos(fieldname);
@@ -51,26 +93,4 @@ graph_value* graph_row::get_field(size_t fieldpos) {
 //   }
 // }
 
-void graph_row::shallowcopy(graph_row& out_row) {
-  memcpy(&out_row, this, sizeof(graph_row));
-  out_row._own_data = false;
-}
 
-void graph_row::deepcopy(graph_row& out_row) {
-  // out_row._database = _database;
-  out_row._is_vertex = _is_vertex;
-  out_row._nfields = _nfields;
-  out_row._own_data = true;
-  out_row._data = new graph_value[num_fields()];
-  for (size_t i = 0; i < num_fields(); i++) {
-    _data[i].deepcopy(out_row._data[i]);
-  }
-}
-
-void graph_row::copy_transfer_owner(graph_row& out_row) {
-  ASSERT_TRUE(_own_data);
-  memcpy(&out_row, this, sizeof(graph_row));
-  _own_data = false;
-}
-
-} // namespace graphlab

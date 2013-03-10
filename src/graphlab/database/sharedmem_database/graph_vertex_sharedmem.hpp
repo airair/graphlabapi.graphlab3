@@ -5,7 +5,6 @@
 #include <graphlab/database/graph_row.hpp>
 #include <graphlab/database/graph_vertex.hpp>
 #include <graphlab/database/sharedmem_database/graph_edge_sharedmem.hpp>
-#include <graphlab/database/graph_vertex_index.hpp>
 #include <boost/unordered_set.hpp>
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
@@ -37,17 +36,17 @@ class graph_vertex_sharedmem : public graph_vertex {
   /**
    * Creates a graph vertex object 
    */
-  graph_vertex_sharedmem(graph_vid_t vid,
+  inline graph_vertex_sharedmem(graph_vid_t vid,
                          graph_row* data,
                          graph_shard_id_t master,
                          const boost::unordered_set<graph_shard_id_t>& mirrors,
-                         graph_database* db) : 
-      vid(vid), master(master), mirrors(mirrors), database(db) { }
+                         graph_database* db)
+      : vid(vid), master(master), mirrors(mirrors), database(db) { }
 
   /**
    * Returns the ID of the vertex
    */
-  graph_vid_t get_id() const {
+  inline graph_vid_t get_id() const {
     return vid;
   }
 
@@ -56,22 +55,21 @@ class graph_vertex_sharedmem : public graph_vertex {
    * stored on this vertex. Modifications made to the data, are only committed 
    * to the database through a write_* call.
    */
-  graph_row* data() {
+  inline graph_row* data() {
     return database->get_shard(master)->vertex_data_by_id(vid);
   };
 
-  const graph_row* immutable_data() const {
+  inline const graph_row* immutable_data() const {
     return database->get_shard(master)->vertex_data_by_id(vid);
   }
 
   // --- synchronization ---
-
   /**
    * Commits changes made to the data on this vertex synchronously.
    * This resets the modification and delta flags on all values in the 
    * graph_row.
    */ 
-  void write_changes() {  
+  inline void write_changes() {
     graph_row* vdata = data();
     for (size_t i = 0; i < vdata->num_fields(); i++) {
       graph_value* val = vdata->get_field(i);
@@ -84,20 +82,20 @@ class graph_vertex_sharedmem : public graph_vertex {
   /**
    * Same as synchronous commit in shared memory.
    */ 
-  void write_changes_async() { 
+  inline void write_changes_async() { 
     write_changes();
   }
 
   /**
    * Fetch the data pointer from the right shard. 
    */ 
-  void refresh() { }
+  inline void refresh() { }
 
   /**
    * Commits the change immediately.
    * Refresh has no effects in shared memory.
    */ 
-  void write_and_refresh() { 
+  inline void write_and_refresh() { 
     write_changes();
   }
 
@@ -106,14 +104,12 @@ class graph_vertex_sharedmem : public graph_vertex {
   /**
    * Returns the ID of the shard that owns this vertex
    */
-  graph_shard_id_t master_shard() const {
-    return master;
-  };
+  inline graph_shard_id_t master_shard() const { return master; }
 
   /**
    * Returns the IDs of the shards with mirror of this vertex
    */
-  std::vector<graph_shard_id_t> mirror_shards() const {
+  inline std::vector<graph_shard_id_t> mirror_shards() const {
     std::vector<graph_shard_id_t> ret(mirrors.size());
     foreach(const graph_shard_id_t& mirror, mirrors) {
       ret.push_back(mirror);
@@ -121,18 +117,17 @@ class graph_vertex_sharedmem : public graph_vertex {
     return ret;
   };
 
-
   /**
    * returns the number of shards this vertex spans
    */
-  size_t get_num_shards() const {
+  inline size_t get_num_shards() const {
     return mirrors.size() + 1;
   };
 
   /**
    * returns a vector containing the shard IDs this vertex spans
    */
-  std::vector<graph_shard_id_t> get_shard_list() const {
+  inline std::vector<graph_shard_id_t> get_shard_list() const {
     std::vector<graph_shard_id_t> ret = mirror_shards();
     ret.push_back(master);
     return ret;

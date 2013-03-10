@@ -3,9 +3,6 @@
 #include <vector>
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/database/graph_field.hpp>
-#include <graphlab/database/graph_vertex.hpp>
-#include <graphlab/database/graph_edge.hpp>
-#include <graphlab/database/graph_shard.hpp>
 #include <graphlab/serialization/iarchive.hpp>
 #include <graphlab/serialization/oarchive.hpp>
 #include <graphlab/logger/assertions.hpp>
@@ -24,18 +21,18 @@ namespace graphlab {
    public:
 
      // Return the existence of a vertex with given id.
-     bool has_vertex(graph_vid_t vid) {
+     inline bool has_vertex(graph_vid_t vid) {
        return !(index_map.find(vid) == index_map.end());
      };
 
      // Return the index of a vertex in a shard.
-     size_t get_index (graph_vid_t vid) {
+     inline size_t get_index (graph_vid_t vid) {
        ASSERT_TRUE(has_vertex(vid));
        return index_map[vid];
      } 
 
      // Update the index by adding a vertex
-     bool add_vertex(graph_vid_t vid, graph_row* value, size_t pos) {
+     inline bool add_vertex(graph_vid_t vid, graph_row* value, size_t pos) {
        if (has_vertex(vid)) {
          return false;
        }
@@ -56,10 +53,10 @@ namespace graphlab {
        return true;
      }
 
-     void save (oarchive& oarc) const {
+     inline void save (oarchive& oarc) const {
        oarc << index_map;
      }
-     void load (iarchive& iarc) {
+     inline void load (iarchive& iarc) {
        iarc >> index_map;
      }
 

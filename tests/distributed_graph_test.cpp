@@ -1,10 +1,8 @@
-#include <graphlab/database/graph_client/distributed_graph_client.hpp>
-#include <graphlab/database/sharedmem_database/graph_database_sharedmem.hpp>
+#include <graphlab/database/client/distributed_graph_client.hpp>
+#include <graphlab/database/server/graph_database_server.hpp>
 #include <graphlab/database/graph_database.hpp>
-#include <graphlab/database/graph_server/graph_database_server.hpp>
 #include <graphlab/logger/assertions.hpp>
 #include "graph_database_test_util.hpp"
-
 #include <vector>
 using namespace std;
 
@@ -23,7 +21,7 @@ void test_shard_retrieval() {
       test_util::createDatabase(nverts, nedges, nshards, vertexfields, edgefields);
 
   graphlab::graph_database_server server(db);
-  graphlab::distributed_graph graph(&server);
+  graphlab::distributed_graph_client graph(&server);
 
   /* Test intialize graph */
   ASSERT_EQ(graph.num_shards(), db->num_shards());
@@ -59,7 +57,7 @@ void test_ingress(size_t nverts, size_t nedges, bool batch) {
       test_util::createDatabase(0, 0, nshards, vertexfields, edgefields);
 
   graphlab::graph_database_server server(db);
-  graphlab::distributed_graph graph(&server);
+  graphlab::distributed_graph_client graph(&server);
 
   std::cout << "Test adding vertices ... " << std::endl;
   for (size_t i = 0; i < nverts; i++) {

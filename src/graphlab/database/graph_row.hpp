@@ -1,7 +1,6 @@
 #ifndef GRAPHLAB_DATABASE_GRAPH_ROW_HPP
 #define GRAPHLAB_DATABASE_GRAPH_ROW_HPP
 #include <vector>
-#include <cassert>
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/database/graph_field.hpp>
 #include <graphlab/database/graph_value.hpp>
@@ -46,27 +45,14 @@ class graph_row {
   bool _is_vertex;
 
   /// Empty constructor 
-  graph_row() : _data(NULL), _own_data(false), _nfields(0), _is_vertex(false) { }
+  inline graph_row() : _data(NULL), _own_data(false), _nfields(0), _is_vertex(false) { }
 
   /// Given fields metadata, creates a row with NULL values in the given fields.
-  graph_row(std::vector<graph_field>& fields, bool is_vertex) :
-    _own_data(true), _nfields(fields.size()), _is_vertex(is_vertex) {
-    _data =  new graph_value[fields.size()];
-    for (size_t i = 0; i < fields.size(); i++) {
-      graph_value& val = _data[i];
-      val._type = fields[i].type;
-      if (val._type == STRING_TYPE || val._type == BLOB_TYPE) {
-        val._len=0;
-      } else if (val._type == DOUBLE_TYPE) {
-        val._len=sizeof(graph_double_t);
-      } else {
-        val._len=sizeof(graph_int_t);
-      }
-    }
-  }
+  graph_row(std::vector<graph_field>& fields, bool is_vertex); 
+  
 
   /// Destructor. Frees the values if <code>_own_data</code> is true.
-  ~graph_row() {
+  inline ~graph_row() {
     if (_own_data) {
       delete[] _data;
     }
@@ -102,32 +88,19 @@ class graph_row {
     return true;
   }
 
-  // /**
-  //  * Returns the position of a particular field name.
-  //  * Returns a value >= 0 on success, and -1 on failure.
-  //  */
-  // int get_field_pos(const char* fieldname);
-
   /** 
    * Returns a pointer to the value of a particular position in the row.
    * Returns a pointer to the value. Returns NULL if the position is invalid.
    */
-  graph_value* get_field(size_t fieldpos);
-
+  inline graph_value* get_field(size_t fieldpos) {
+    if (fieldpos < num_fields()) return _data + fieldpos;
+    else return NULL; 
+  }
 
   /**
    * Return an vector of index where the value is modified.
    */
-  std::vector<size_t> get_modified_fields() {
-    std::vector<size_t> ret;
-    for (size_t i = 0; i < num_fields(); i++) {
-      if (_data[i].get_modified()) {
-        ret.push_back(i);
-      }
-    }
-    return ret;
-  }
-
+  std::vector<size_t> get_modified_fields();
 
   /**
    * Serialization interface. Save the values and associated state into oarchive.
@@ -200,3 +173,11 @@ class graph_row {
 };
 } // namespace graphlab 
 #endif
+
+  // /**
+  //  * Returns the position of a particular field name.
+  //  * Returns a value >= 0 on success, and -1 on failure.
+  //  */
+  // int get_field_pos(const char* fieldname);
+
+

@@ -34,6 +34,7 @@ namespace graphlab {
     virtual void update_async (const std::string& server_name, char* msg, size_t msg_len,
                                std::vector<query_result>& queue) = 0;
     virtual void query_async (const std::string& server_name, char* msg, size_t msg_len, std::vector<query_result>& queue) = 0;
+    virtual void update_all (char* msg, size_t msg_len) = 0;
     virtual std::string find_server(graph_shard_id_t shardid)  = 0;
 
     // ------------ Basic info query API --------------------
@@ -69,8 +70,8 @@ namespace graphlab {
     // ----------------- Ingress API --------------------
     virtual bool add_vertex_now (graph_vid_t vid, graph_row* data=NULL) = 0; 
     virtual void add_edge_now(graph_vid_t source, graph_vid_t target, graph_row* data=NULL) = 0;
-    virtual void add_vertex (graph_vid_t vid, const graph_row* data=NULL) = 0;
-    virtual void add_edge (graph_vid_t source, graph_vid_t target, const graph_row* data=NULL) = 0;
+    virtual void add_vertex (graph_vid_t vid, graph_row* data=NULL) = 0;
+    virtual void add_edge (graph_vid_t source, graph_vid_t target, graph_row* data=NULL) = 0;
     virtual void flush() = 0;
     virtual void load_format(const std::string& path, const std::string& format) = 0;
   };

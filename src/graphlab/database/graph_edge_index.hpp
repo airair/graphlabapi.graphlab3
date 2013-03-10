@@ -2,10 +2,8 @@
 #define GRAPHLAB_DATABASE_GRAPH_EDGE_INDEX
 #include <vector>
 #include <graphlab/database/basic_types.hpp>
-#include <graphlab/database/graph_field.hpp>
 #include <graphlab/database/graph_vertex.hpp>
 #include <graphlab/database/graph_edge.hpp>
-#include <graphlab/database/graph_shard.hpp>
 #include <graphlab/serialization/iarchive.hpp>
 #include <graphlab/serialization/oarchive.hpp>
 #include <boost/unordered_map.hpp>
@@ -13,7 +11,7 @@
 namespace graphlab {
   /** 
    * \ingroup group_graph_database_sharedmem
-   * An index on vertex id. 
+   * An index on edge id. 
    *
    * This class provides adjacency look up in one shard.
    */
@@ -26,8 +24,7 @@ namespace graphlab {
       */
      void get_edge_index (std::vector<size_t>& in,
                           std::vector<size_t>& out,
-                          bool getIn,
-                          bool getOut,
+                          bool getIn, bool getOut,
                           graph_vid_t vid) {
        if (getIn && inEdges.find(vid) != inEdges.end()) {
            in = inEdges[vid];
@@ -40,18 +37,17 @@ namespace graphlab {
      /**
       * Update the index by adding an edge with (source, target, pos) in this shard. 
       */
-    void add_edge(graph_vid_t source, graph_vid_t target, size_t pos) {
+    inline void add_edge(graph_vid_t source, graph_vid_t target, size_t pos) {
       outEdges[source].push_back(pos);
       inEdges[target].push_back(pos);
     }
 
-    void save (oarchive& oarc) const {
+    inline void save (oarchive& oarc) const {
        oarc << inEdges << outEdges;
      }
-     void load (iarchive& iarc) {
+    inline void load (iarchive& iarc) {
        iarc >> inEdges >> outEdges;
      }
-
 
    private:
     // A vector where each element is a map from vid to a list of in edge ids on a shard.

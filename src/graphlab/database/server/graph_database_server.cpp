@@ -1,4 +1,10 @@
 #include<graphlab/database/server/graph_database_server.hpp>
+#include <graphlab/database/basic_types.hpp>
+#include <graphlab/database/graph_field.hpp>
+#include <graphlab/database/graph_shard.hpp>
+#include <graphlab/database/graph_database.hpp>
+#include <graphlab/database/client/graph_vertex_remote.hpp>
+#include <graphlab/database/client/graph_edge_remote.hpp>
 
 namespace graphlab {
 
@@ -14,11 +20,25 @@ namespace graphlab {
   }
 
   void graph_database_server::get_num_vertices(iarchive& iarc, oarchive& oarc) {
-    oarc << true << database->num_vertices();
+    graph_shard_id_t shardid;
+    iarc >> shardid;
+    graph_shard* shard = database->get_shard(shardid);
+    if (shard == NULL) {
+      oarc << false << messages.error_shard_not_found(shardid);
+    } else {
+      oarc << true << shard->num_vertices();
+    }
   }
 
   void graph_database_server::get_num_edges(iarchive& iarc, oarchive& oarc) {
-    oarc << true << database->num_edges();
+    graph_shard_id_t shardid;
+    iarc >> shardid;
+    graph_shard* shard = database->get_shard(shardid);
+    if (shard == NULL) {
+      oarc << false << messages.error_shard_not_found(shardid);
+    } else {
+      oarc << true << shard->num_edges();
+    }
   }
 
   void graph_database_server::get_num_shards(iarchive& iarc, oarchive& oarc) {

@@ -100,9 +100,7 @@ class shard_server : public libfault::query_object {
 int main(int argc, char** argv)
 {
   string fname = argv[argc-1];  // the config file
-
   test_util::parse_config(fname, vfields, efields, nshards, shard2server);
-
   libfault::query_main(argc-1, argv, shard_server::factory);
   return 0;
 }

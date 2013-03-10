@@ -1,26 +1,14 @@
 #ifndef GRAPHLAB_DATABASE_GRAPH_DATABASE_SERVER_HPP
 #define GRAPHLAB_DATABASE_GRAPH_DATABASE_SERVER_HPP
-#include <vector>
-#include <graphlab/database/basic_types.hpp>
-#include <graphlab/database/graph_field.hpp>
-#include <graphlab/database/graph_vertex.hpp>
-#include <graphlab/database/graph_edge.hpp>
-#include <graphlab/database/graph_shard.hpp>
-#include <graphlab/database/graph_database.hpp>
-#include <graphlab/database/query_messages.hpp>
-
-#include <graphlab/database/client/graph_vertex_remote.hpp>
-#include <graphlab/database/client/graph_edge_remote.hpp>
-
-
-#include <graphlab/logger/logger.hpp>
+#include <graphlab/serialization/iarchive.hpp>
 #include <graphlab/serialization/oarchive.hpp>
-
+#include <graphlab/database/query_messages.hpp>
 #include <fault/query_object_client.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/algorithm/string/join.hpp>
 
 namespace graphlab {
+  class graph_database;
+  class graph_client;
+
 /**
  * \ingroup group_graph_database
  * A wrap around graph_database to provide query/update messaging interfaces.
@@ -305,14 +293,14 @@ class graph_database_server {
   void batch_add_vertex_mirror(iarchive& iarc, oarchive& oarc);
 
 
-  // ----------------- Custome Plugin API --------------
-
+  // -------------- Custome Plugin API --------------
 
 
   // ---------------------------------------------------
   graph_database* get_database() {
     return database;
   }
+
   graph_client* get_query_client() {
     return query_client;
   }

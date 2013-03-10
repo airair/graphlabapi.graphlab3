@@ -23,23 +23,23 @@ class graph_database {
    * Returns the number of vertices in the graph.
    * This may be slow.
    */
-  virtual uint64_t num_vertices() = 0;
+  virtual uint64_t num_vertices() const = 0;
   
   /**
    * Returns the number of edges in the graph.
    * This may be slow.
    */
-  virtual uint64_t num_edges() = 0;
+  virtual uint64_t num_edges() const = 0;
 
   /**
    * Returns the field metadata for the vertices in the graph
    */
-  virtual const std::vector<graph_field>& get_vertex_fields() = 0;
+  virtual const std::vector<graph_field> get_vertex_fields() const = 0;
 
   /**
    * Returns the field metadata for the edges in the graph
    */
-  virtual const std::vector<graph_field>& get_edge_fields() = 0;
+  virtual const std::vector<graph_field> get_edge_fields() const = 0;
 
   /**
    * Returns the index of the vertex column with the given field name. 
@@ -138,7 +138,7 @@ class graph_database {
   /**
    * Returns the number of shards in the database
    */
-  virtual size_t num_shards() = 0;
+  virtual size_t num_shards() const = 0;
 
   /**
    * Returns the list of shard ids in the database
@@ -175,7 +175,7 @@ class graph_database {
    * Commits all the changes made to the vertex data and edge data 
    * in the shard, resetting all modification flags.
    */
-  void commit_shard(graph_shard* shard);
+  virtual void commit_shard(graph_shard* shard) = 0;
 
 
   // --------------------- Structure Modification API ----------------------

@@ -1,6 +1,8 @@
 #ifndef GRAPHLAB_DATABASE_QUERY_MESSAGES_HPP
 #define GRAPHLAB_DATABASE_QUERY_MESSAGES_HPP
+
 #include<graphlab/database/basic_types.hpp>
+#include<graphlab/database/graph_row.hpp>
 #include<fault/query_object_client.hpp>
 #include<graphlab/macros_def.hpp>
 
@@ -44,11 +46,20 @@ namespace graphlab {
        mirror_record() {};
      };
 
+     inline static char* make_message(int* msg_len, std::vector<std::string> msg) {
+       oarchive oarc;
+       for (size_t i = 0; i < msg.size(); i++) {
+         oarc << msg[i];
+       }
+       *msg_len=oarc.off;
+       return oarc.buf;
+     }
+
    public:
 
      // ------------- Query requests  ----------------
      ///  returns a message for querying the vertex field meta data
-     char* vfield_request(int* msg_len) {
+     inline char* vfield_request(int* msg_len) {
        oarchive oarc;
        oarc << std::string("vertex_fields_meta");
        *msg_len=oarc.off;
@@ -56,7 +67,7 @@ namespace graphlab {
      }
 
      ///  returns a message for querying the edge field meta data
-     char* efield_request(int* msg_len) {
+     inline char* efield_request(int* msg_len) {
        oarchive oarc;
        oarc << std::string("edge_fields_meta");
        *msg_len=oarc.off;
@@ -64,7 +75,7 @@ namespace graphlab {
      }
 
      ///  returns a message for querying the sharding constraint graph 
-     char* sharding_graph_request(int* msg_len) {
+     inline char* sharding_graph_request(int* msg_len) {
        oarchive oarc;
        oarc << std::string("sharding_graph");
        *msg_len=oarc.off;
@@ -72,7 +83,7 @@ namespace graphlab {
      }
 
      ///  returns a message for querying the entire vertex data of vid 
-     char* vertex_row_request(int* msg_len, graph_vid_t vid, graph_shard_id_t shardid) {
+     inline char* vertex_row_request(int* msg_len, graph_vid_t vid, graph_shard_id_t shardid) {
        oarchive oarc;
        oarc << std::string("vertex_row") << vid << shardid;
        *msg_len=oarc.off;
@@ -80,7 +91,7 @@ namespace graphlab {
      }
 
      ///  returns a message for querying a vertex 
-     char* vertex_request(int* msg_len, graph_vid_t vid, graph_shard_id_t shardid) {
+     inline char* vertex_request(int* msg_len, graph_vid_t vid, graph_shard_id_t shardid) {
        oarchive oarc;
        oarc << std::string("vertex") << vid << shardid; 
        *msg_len=oarc.off;
@@ -88,7 +99,7 @@ namespace graphlab {
      }
 
      ///  returns a message for querying the a batch of vertex data of vid 
-     char* batch_vertex_request(int* msg_len, const std::vector<graph_vid_t>& vids, graph_shard_id_t shardid) {
+     inline char* batch_vertex_request(int* msg_len, const std::vector<graph_vid_t>& vids, graph_shard_id_t shardid) {
        oarchive oarc;
        oarc << std::string("batch_vertex") << vids << shardid;
        *msg_len=oarc.off;
@@ -96,7 +107,7 @@ namespace graphlab {
      }
 
      ///  returns a message for querying the vertices adjacent to a shard
-     char* vertex_adj_to_shard(int* msg_len,
+     inline char* vertex_adj_to_shard(int* msg_len,
                                graph_shard_id_t shard_from,
                                graph_shard_id_t shard_to) {
        oarchive oarc;
@@ -107,7 +118,7 @@ namespace graphlab {
 
 
      ///  returns a message for querying the entire vertex data of vid 
-     char* edge_row_request(int* msg_len, graph_eid_t eid, graph_shard_id_t shardid) {
+     inline char* edge_row_request(int* msg_len, graph_eid_t eid, graph_shard_id_t shardid) {
        oarchive oarc;
        oarc << std::string("edge_row") << eid << shardid;
        *msg_len=oarc.off;
@@ -115,7 +126,7 @@ namespace graphlab {
      }
 
      ///  returns a message for querying an edge 
-     char* edge_request(int* msg_len, graph_vid_t eid,
+     inline char* edge_request(int* msg_len, graph_vid_t eid,
                           graph_shard_id_t shardid) {
        oarchive oarc;
        oarc << std::string("edge") << eid << shardid; 
@@ -125,7 +136,7 @@ namespace graphlab {
 
 
      ///  returns a message for querying a shard 
-     char* shard_request(int* msg_len, graph_shard_id_t shardid) {
+     inline char* shard_request(int* msg_len, graph_shard_id_t shardid) {
        oarchive oarc;
        oarc << std::string("shard") << shardid;
        *msg_len=oarc.off;
@@ -133,7 +144,7 @@ namespace graphlab {
      }
 
      ///  returns a message for querying a shard content adjacent to list of vertices
-     char* shard_content_adj_request (int* msg_len,
+     inline char* shard_content_adj_request (int* msg_len,
                                       const std::vector<graph_vid_t>& vids,
                                       graph_shard_id_t to) {
        oarchive oarc;
@@ -143,7 +154,7 @@ namespace graphlab {
      }
 
      ///  returns a message for querying the adjacent edges of a vertex
-     char* vertex_adj_request(int* msg_len,
+     inline char* vertex_adj_request(int* msg_len,
                               graph_vid_t vid,
                               graph_shard_id_t shardid,
                               bool getin,
@@ -155,7 +166,7 @@ namespace graphlab {
      }
 
      ///  returns a message for querying the number of shards (on the target server) 
-     char* num_shards_request (int* msg_len) {
+     inline char* num_shards_request (int* msg_len) {
        oarchive oarc;
        oarc << std::string("num_shards"); 
        *msg_len=oarc.off;
@@ -163,17 +174,17 @@ namespace graphlab {
      }
 
      ///  returns a message for querying the number of vertices (on the target server) 
-     char* num_verts_request (int* msg_len) {
+     inline char* num_verts_request (int* msg_len, graph_shard_id_t shardid) {
        oarchive oarc;
-       oarc << std::string("num_vertices"); 
+       oarc << std::string("num_vertices") << shardid; 
        *msg_len=oarc.off;
        return oarc.buf;
      }
 
      ///  returns a message for querying the number of edges (on the target server) 
-     char* num_edges_request (int* msg_len) {
+     inline char* num_edges_request (int* msg_len, graph_shard_id_t shardid) {
        oarchive oarc;
-       oarc << std::string("num_edges"); 
+       oarc << std::string("num_edges") << shardid; 
        *msg_len=oarc.off;
        return oarc.buf;
      }
@@ -184,7 +195,7 @@ namespace graphlab {
       * The message includes the modified fields of the vertex data. 
       * Currently the message sends the new data (not delta).
       */
-     char* update_vertex_request(int* msg_len, 
+     inline char* update_vertex_request(int* msg_len, 
                                  graph_vid_t vid,
                                  graph_shard_id_t shardid,
                                  const std::vector<size_t>& modified_fields,
@@ -217,7 +228,7 @@ namespace graphlab {
       * Currently the message sends the new data (not delta).
       * TODO: check delta commit
       */
-     char* update_edge_request(int* msg_len, 
+     inline char* update_edge_request(int* msg_len, 
                                  graph_eid_t eid,
                                  graph_shard_id_t shardid,
                                  const std::vector<size_t>& modified_fields,
@@ -237,7 +248,7 @@ namespace graphlab {
 
      // ------------- Ingress requests  ----------------
      ///  returns a message for adding the a vertex
-     char* add_vertex_request(int* msg_len,
+     inline char* add_vertex_request(int* msg_len,
                               graph_shard_id_t shardid,
                               vertex_record& vrecord) {
        oarchive oarc;
@@ -252,7 +263,7 @@ namespace graphlab {
      }
 
      ///  returns a message for adding the a list of vertices 
-     char* batch_add_vertex_request(int* msg_len,
+     inline char* batch_add_vertex_request(int* msg_len,
                                     graph_shard_id_t shardid,
                                     std::vector<vertex_record>& vrecords) {
        ASSERT_TRUE(vrecords.size() > 0);
@@ -271,7 +282,7 @@ namespace graphlab {
      }
 
      ///  returns a message for adding the an edge 
-     char* add_edge_request(int* msg_len,
+     inline char* add_edge_request(int* msg_len,
                             graph_shard_id_t shardid,
                             edge_record& erecord) {
        oarchive oarc;
@@ -286,7 +297,7 @@ namespace graphlab {
      }
 
      ///  returns a message for adding the a list of edges 
-     char* batch_add_edge_request(int* msg_len,
+     inline char* batch_add_edge_request(int* msg_len,
                                   graph_shard_id_t shardid,
                                   std::vector<edge_record>& erecords) {
        ASSERT_TRUE(erecords.size() > 0);
@@ -305,7 +316,7 @@ namespace graphlab {
      }
 
      ///  returns a message for adding a vertex mirror 
-     char* add_vertex_mirror_request(int* msg_len,
+     inline char* add_vertex_mirror_request(int* msg_len,
                                      graph_shard_id_t shardid,
                                      mirror_record& mrecord){
        oarchive oarc;
@@ -319,7 +330,7 @@ namespace graphlab {
      }
 
      ///  returns a message for adding a list of vertex mirror 
-     char* batch_add_vertex_mirror_request(int* msg_len,
+     inline char* batch_add_vertex_mirror_request(int* msg_len,
                                            graph_shard_id_t shardid,
                                            boost::unordered_map<graph_vid_t, mirror_record>& mrecords) {
        ASSERT_TRUE(mrecords.size() > 0);
@@ -341,11 +352,11 @@ namespace graphlab {
 
      // --------------------------- Failure replies -------------------------
      // "Server is not reachable..."
-     std::string error_server_not_reachable(const std::string& server_name) {
+     inline std::string error_server_not_reachable(const std::string& server_name) {
        return std::string("Server: " + server_name + " is not reachable.");
      }
      // "Could not find vertex ..."
-     std::string error_vertex_not_found(graph_vid_t vid, graph_shard_id_t shardid) {
+     inline std::string error_vertex_not_found(graph_vid_t vid, graph_shard_id_t shardid) {
        return std::string("Could not find vertex id = ")
            + boost::lexical_cast<std::string>(vid)
            + (" on shard : ")
@@ -353,38 +364,38 @@ namespace graphlab {
      }
 
      // "Could not find shard..."
-     std::string error_shard_not_found(graph_shard_id_t shardid) {
+     inline std::string error_shard_not_found(graph_shard_id_t shardid) {
        return std::string("Could not find shard id = ")
            + boost::lexical_cast<std::string>(shardid);
      }
 
      // "Could not find shard..."
-     std::string error_edge_not_found(graph_eid_t eid, graph_shard_id_t shardid) {
+     inline std::string error_edge_not_found(graph_eid_t eid, graph_shard_id_t shardid) {
        return std::string("Could not find edge id = ") 
               + boost::lexical_cast<std::string>(eid)
               + " on shard id = " + boost::lexical_cast<std::string>(shardid);
      }
 
      // "Fail setting value..."
-     std::string error_setting_value(size_t fieldpos) {
+     inline std::string error_setting_value(size_t fieldpos) {
        return std::string("Fail setting field ")
             + boost::lexical_cast<std::string>(fieldpos);
      }
 
      // "Fail adding vertex..." 
-     std::string error_adding_vertex(graph_vid_t vid) {
+     inline std::string error_adding_vertex(graph_vid_t vid) {
        return std::string("Fail adding vertex ") 
             + boost::lexical_cast<std::string>(vid);
      }
 
      // "Fail adding edge..."
-     std::string error_adding_edge(graph_vid_t src, graph_vid_t dest) {
+     inline std::string error_adding_edge(graph_vid_t src, graph_vid_t dest) {
        return std::string("Fail adding vertex (") 
             + boost::lexical_cast<std::string>(src) + ", " + boost::lexical_cast<std::string>(dest) + ")";
      }
 
      // "Fail adding vertex mirror..." 
-     std::string error_adding_mirror(graph_vid_t vid, graph_shard_id_t master,
+     inline std::string error_adding_mirror(graph_vid_t vid, graph_shard_id_t master,
                                           graph_shard_id_t mirror) {
        return std::string("Fail adding mirror ") + boost::lexical_cast<std::string>(mirror)
             + "for vertex " + boost::lexical_cast<std::string>(vid);
@@ -392,7 +403,7 @@ namespace graphlab {
      }
 
      // "Unknown query header ... "
-     std::string error_unknown_query_header(std::string& header) {
+     inline std::string error_unknown_query_header(std::string& header) {
        return std::string("Unknown query header: ") + header; 
      }
 
@@ -446,7 +457,7 @@ namespace graphlab {
      /**
       * Parse a reply that has no content. 
       */
-     bool parse_reply(std::string reply, std::string& errormsg) {
+     inline bool parse_reply(std::string reply, std::string& errormsg) {
        iarchive iarc(reply.c_str(), reply.length());
        bool success;
        iarc >> success;

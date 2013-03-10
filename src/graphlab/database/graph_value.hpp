@@ -215,63 +215,14 @@ class graph_value {
    * Returns true on success. Returns false if the data
    * cannot be cast to the matching type, or the data is NULL.
    */
-  bool set_val(const char* val, size_t length, bool delta=false) {
-    switch(_type) {
-     case INT_TYPE:
-       {
-        graph_int_t intval = *((graph_int_t*)val);
-        return delta ? set_integer(intval + _old.int_value) 
-            : set_integer(intval);
-        }
-     case DOUBLE_TYPE:
-       {
-       graph_double_t doubleval = *((graph_double_t*)val);
-       return delta ? set_double(doubleval + _old.double_value) 
-           : set_double(doubleval);
-       }
-     case VID_TYPE:
-       return set_vid(*((graph_vid_t*)val));
-     case STRING_TYPE:
-       return set_string(std::string(val, length));
-     case BLOB_TYPE:
-       return set_blob(val, length);
-     default:
-       return false;
-    }
-    return false;
-  }
-
+  bool set_val(const char* val, size_t length, bool delta=false);
 
   /* 
    * Sets the value field to the argument (ascii representation) based on the type and delta commit flag.
    * Returns true on success. Returns false if the data
    * cannot be cast to the matching type, or the data is NULL.
    */
-  bool set_val(const std::string& val_str, bool delta = false) {
-    switch(_type) {
-     case INT_TYPE:
-       {
-        graph_int_t intval = boost::lexical_cast<graph_int_t>(val_str); 
-        return delta ? set_integer(intval + _old.int_value) 
-            : set_integer(intval);
-        }
-     case DOUBLE_TYPE:
-       {
-       graph_double_t doubleval = boost::lexical_cast<graph_double_t>(val_str);
-       return delta ? set_double(doubleval + _old.double_value) 
-           : set_double(doubleval);
-       }
-     case VID_TYPE:
-       return set_vid(boost::lexical_cast<graph_vid_t>(val_str));
-     case STRING_TYPE:
-       return set_string(val_str);
-     case BLOB_TYPE:
-       return set_blob(val_str.c_str(), val_str.size());
-     default:
-       return false;
-    }
-    return false;
-  }
+  bool set_val(const std::string& val_str, bool delta = false);
 
 
   /** Returns true if the data was modified. The data could be flagged as 
@@ -321,7 +272,7 @@ class graph_value {
    * Set the value to post commit state: setting oldvalue to be new value,
    * remove modification flags.
    */
-  void post_commit_state() {
+  inline void post_commit_state() {
     if (is_scalar_graph_datatype(_type)) {
       _old = _data;
     } 
@@ -332,7 +283,7 @@ class graph_value {
    * Serialization interface. Save the current value. 
    * \note old value and modification flag are ignored.
    */
-  void save(oarchive& oarc) const {
+  inline void save(oarchive& oarc) const {
     oarc << _type << _null_value << _use_delta_commit << _len;
     if (!_null_value) {
       if (is_scalar_graph_datatype(_type)) {
@@ -347,7 +298,7 @@ class graph_value {
    * Serialization interface. Load the current value. 
    * \note old value and modification flag are ignored.
    */
-  void load(iarchive& iarc) {
+  inline void load(iarchive& iarc) {
     iarc >> _type >> _null_value >> _use_delta_commit >> _len;
      if (!_null_value) {
        if (is_scalar_graph_datatype(_type)) {

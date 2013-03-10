@@ -1,14 +1,18 @@
-#include <graphlab/database/graph_vertex.hpp>
 #include <graphlab/database/client/distributed_graph_client.hpp>
+#include <graphlab/database/graph_vertex.hpp>
+#include <graphlab/database/query_messages.hpp>
 #include <graphlab/logger/assertions.hpp>
 #include <graphlab/serialization/iarchive.hpp>
 #include <graphlab/serialization/oarchive.hpp>
+
 #include <boost/lexical_cast.hpp>
 #include <fault/query_object_server.hpp>
+
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
-#include "graph_database_test_util.hpp"
 #include <vector>
+
+#include "graph_database_test_util.hpp"
 using namespace std;
 
 boost::unordered_map<graphlab::graph_shard_id_t, std::string> shard2server;
@@ -269,11 +273,33 @@ int main(int argc, char** argv) {
         graphlab::graph_vertex* v = graph.get_vertex(vid);
         v->data()->get_field(fieldpos)->set_val(data_str);
         v->write_changes();
-        cout << "Done";
+        cout << "done";
       } else {
         cout << "Unknown set target: " << target << " " << val << endl;
       }
-    } else {
+    } 
+    // else if (cmd == "pagerank") {
+    //   if (target == "init") {
+    //     int len;
+    //     std::vector<std::string> request;
+    //     request.push_back("pagerank");
+    //     request.push_back("init");
+    //     char* msg = graphlab::QueryMessages::make_message(&len, request); 
+    //     graph.query_all(msg, len);
+    //     cout << "done" << endl;
+    //   } else if (target == "finalize") {
+    //     int len;
+    //     std::vector<std::string> request;
+    //     request.push_back("pagerank");
+    //     request.push_back("finalize");
+    //     char* msg = graphlab::QueryMessages::make_message(&len, request);
+    //     graph.query_all(msg, len);
+    //     cout << "done" << endl;
+    //   } else {
+    //     cout << "Unknown pagerank target: " << target << endl;
+    //   }
+    // } 
+    else {
       cout << "Unknown command: " << cmd << " " << target << " " << val << endl;
     }
     cout << endl;

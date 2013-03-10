@@ -1,8 +1,6 @@
 #ifndef GRAPHLAB_DATABASE_GRAPH_SHARD_HPP
 #define GRAPHLAB_DATABASE_GRAPH_SHARD_HPP 
-#include <utility>
 #include <graphlab/database/basic_types.hpp>
-#include <graphlab/database/graph_row.hpp>
 #include <graphlab/database/graph_shard_impl.hpp>
 #include <boost/functional/hash.hpp>
 
@@ -43,10 +41,10 @@ class graph_shard {
    graph_shard_impl shard_impl;
 
  public:
-   graph_shard() { }
+   inline graph_shard() { }
 
    
-   ~graph_shard() {}
+   inline ~graph_shard() {}
 
    /**
     * Returns the id of this shard.
@@ -149,21 +147,12 @@ class graph_shard {
   inline graph_row* edge_data(size_t i) { return shard_impl.edge_data + i; }
 
 
-// ----------- Modification API -----------------
-  /**
-   * Clear the content of this shard. Remove all vertex and edge data.
-   */
-  inline void clear() {
-    shard_impl.clear();
-  }
-
-
   // ----------- Serialization API ----------
-  void save(oarchive& oarc) const {
+  inline void save(oarchive& oarc) const {
     oarc << shard_impl;
   }
 
-  void load(iarchive& iarc) {
+  inline void load(iarchive& iarc) {
     iarc >> shard_impl;
   }
 

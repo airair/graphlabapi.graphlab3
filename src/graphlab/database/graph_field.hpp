@@ -20,13 +20,15 @@ struct graph_field {
   // not used yet... TODO: check max_data_length for graph_value.
   size_t max_data_length; 
 
-  graph_field(std::string name, graph_datatypes_enum type) :
+  inline graph_field() {}
+
+  inline graph_field(std::string name, graph_datatypes_enum type) :
      name(name), is_indexed(false), type(type), max_data_length(0) {} 
 
-  void save(oarchive &oarc) const {
+  inline void save(oarchive &oarc) const {
     oarc << name << is_indexed << type << max_data_length;
   }
-  void load(iarchive &iarc) {
+  inline void load(iarchive &iarc) {
     iarc >> name >> is_indexed >> type >> max_data_length;
   }
 
@@ -35,9 +37,6 @@ struct graph_field {
     return strm << field.name << ": "
                 << graph_datatypes_string[field.type];
   }
-
-  graph_field() {}
 };
-
 } // namespace graphlab
 #endif 

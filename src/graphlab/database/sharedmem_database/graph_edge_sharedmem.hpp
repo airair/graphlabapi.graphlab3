@@ -19,9 +19,9 @@ class graph_edge_sharedmem : public graph_edge {
  graph_shard_id_t master;
  graph_database* database;
  public:
-  graph_edge_sharedmem() { }
+  inline graph_edge_sharedmem() : eid(-1), master(-1), database(NULL) {}
 
-  graph_edge_sharedmem(graph_eid_t edgeid,
+  inline graph_edge_sharedmem(graph_eid_t edgeid,
                        graph_shard_id_t master,
                        graph_database* database) :
     eid(edgeid), master(master), database(database) {}
@@ -29,18 +29,18 @@ class graph_edge_sharedmem : public graph_edge {
   /**
    * Returns the source ID of this edge
    */
-  graph_vid_t get_src() const { return database->get_shard(master)->edge(eid).first;} 
+  inline graph_vid_t get_src() const { return database->get_shard(master)->edge(eid).first;} 
 
   /**
    * Returns the destination ID of this edge
    */
-  graph_vid_t get_dest() const { return database->get_shard(master)->edge(eid).second;}
+  inline graph_vid_t get_dest() const { return database->get_shard(master)->edge(eid).second;}
 
   /**
    * Returns the internal id of this edge
    * The id is unique with repect to a shard.
    */
-  graph_eid_t get_id() const { return eid;};
+  inline graph_eid_t get_id() const { return eid;};
 
   /** 
    * Returns a pointer to the graph_row representing the data
@@ -52,11 +52,11 @@ class graph_edge_sharedmem : public graph_edge {
    * (using \ref graph_database::free_edge ),  all pointers to the data 
    * returned by this function are invalidated.
    */
-  graph_row* data()  {
+  inline graph_row* data()  {
     return database->get_shard(master)->edge_data(eid);
   };
 
-  const graph_row* immutable_data() const {
+  inline const graph_row* immutable_data() const {
     return database->get_shard(master)->edge_data(eid);
   }
 
@@ -67,10 +67,8 @@ class graph_edge_sharedmem : public graph_edge {
    * Commits changes made to the data on this vertex synchronously.
    * This resets the modification and delta flags on all values in the 
    * graph_row.
-   *
-   * TODO: check delta commit.
    */ 
-  void write_changes() {  
+  inline void write_changes() {  
     for (size_t i = 0; i < data()->num_fields(); i++) {
       graph_value* val = data()->get_field(i);
       if (val->get_modified()) {
@@ -82,28 +80,27 @@ class graph_edge_sharedmem : public graph_edge {
   /**
    * Same as synchronous commit in shared memory.
    */ 
-  void write_changes_async() { 
+  inline void write_changes_async() { 
     write_changes();
   }
 
   /**
    * Fetch the edge pointer from the right shard. 
    */ 
-  void refresh() {
-  }
+  inline void refresh() { }
 
   /**
    * Commits the change immediately.
    * Refresh has no effects in shared memory.
    */ 
-  void write_and_refresh() { 
+  inline void write_and_refresh() { 
     write_changes();
   }
 
  /**
    * Returns the ID of the shard owning this edge
    */
-  graph_shard_id_t master_shard() const {
+  inline graph_shard_id_t master_shard() const {
     return master;
   };
 

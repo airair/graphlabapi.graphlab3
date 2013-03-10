@@ -18,7 +18,11 @@ add_library(graphlab3 STATIC
             logger/logger.cpp
             database/graph_row.cpp
             database/graph_value.cpp
+            database/graph_shard_impl.cpp
+            database/graph_shard_manager.cpp
+            database/sharedmem_database/graph_database_sharedmem.cpp
             database/server/graph_database_server.cpp
+            database/client/distributed_graph_client.cpp
             comm/comm_base.cpp
             comm/mpi_comm.cpp
             comm/mpi_comm2.cpp

@@ -16,7 +16,7 @@ namespace graphlab {
  */
 class graph_edge {
  public:
-  graph_edge() {};
+  inline graph_edge() {};
   /**
    * Returns the source ID of this edge
    */

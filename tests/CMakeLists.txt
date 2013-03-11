@@ -18,7 +18,7 @@ add_graphlab_executable(graph_database_server_test graph_database_server_test.cp
 
 add_graphlab_executable(graph_database_test_server graph_database_test_server.cpp)
 
-#add_graphlab_executable(pagerank_test_server pagerank_test_server.cpp)
+add_graphlab_executable(pagerank_test_server pagerank_test_server.cpp)
 
 add_graphlab_executable(graph_database_test_client graph_database_test_client.cpp)
 

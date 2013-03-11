@@ -95,6 +95,54 @@ namespace graphlab {
       return edge_fields;
     };
 
+    /**
+     * Add new field to the vertex in the graph
+     */
+    bool add_vertex_field(graph_field& field);
+
+    /**
+     * Remove the ith field from the vertex fields
+     */
+    bool remove_vertex_field(size_t);
+
+    /**
+     * Add new field to the edge in the graph
+     */
+    bool add_edge_field(graph_field& field);
+
+    /**
+     * Remove the ith field from the edge fields
+     */
+    bool remove_edge_field(size_t i);
+
+    template<typename T>
+    void donothing(T x) { } 
+
+    template<typename TransformType>
+    void transform_vertices(TransformType transform_functor) {
+      std::vector<graph_shard_id_t> shard_list = get_shard_list();
+      for (size_t i = 0; i < shard_list.size(); i++) {
+        graph_shard* shard = get_shard(shard_list[i]);
+        graph_shard_impl& shard_impl = shard->shard_impl;
+        for (size_t j = 0; j < shard->num_vertices(); j++) {
+          graph_row& row = shard_impl.vertex_data[j];
+          transform_functor(row);
+        }
+      }
+    }
+
+    template<typename TransformType>
+    void transform_edges(TransformType transform_functor) {
+      std::vector<graph_shard_id_t> shard_list = get_shard_list();
+      for (size_t i = 0; i < shard_list.size(); i++) {
+        graph_shard* shard = get_shard(shard_list[i]);
+        graph_shard_impl& shard_impl = shard->shard_impl;
+        for (size_t j = 0; j < shard->num_edges(); j++) {
+          graph_row& row = shard_impl.edge_data[j];
+          transform_functor(row);
+        }
+      }
+    }
 
     // -------- Fine grained API ------------
     /**
@@ -265,6 +313,13 @@ namespace graphlab {
 
     bool add_vertex_mirror (graph_vid_t vid, graph_shard_id_t master, graph_shard_id_t mirror_shard);
 
+    inline void add_field_helper(graph_row& row, graph_field& field) {
+      row.add_field(field);
+    }
+
+    inline void remove_field_helper(graph_row& row, size_t fieldpos) {
+      row.remove_field(fieldpos);
+    }
   };
 } // namespace graphlab
 #include <graphlab/macros_undef.hpp>

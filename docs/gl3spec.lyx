@@ -1,5 +1,5 @@
-#LyX 1.6.7 created this file. For more info see http://www.lyx.org/
-\lyxformat 345
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
 \begin_document
 \begin_header
 \textclass article
@@ -9,18 +9,26 @@
 \lstset{basicstyle={\footnotesize\ttfamily},commentstyle={\color[rgb]{0.133,0.545,0.133}},keywordstyle={\color[rgb]{0,0,1}},language={[GNU]C++},stringstyle={\color[rgb]{0.627,0.126,0.941}}}
 \end_preamble
 \use_default_options true
+\maintain_unincluded_children false
 \language english
+\language_package default
 \inputencoding auto
+\fontencoding global
 \font_roman default
 \font_sans default
 \font_typewriter default
 \font_default_family default
+\use_non_tex_fonts false
 \font_sc false
 \font_osf false
 \font_sf_scale 100
 \font_tt_scale 100
 
 \graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
 \paperfontsize default
 \spacing single
 \use_hyperref false
@@ -28,9 +36,18 @@
 \use_geometry true
 \use_amsmath 1
 \use_esint 1
+\use_mhchem 1
+\use_mathdots 1
 \cite_engine basic
 \use_bibtopic false
+\use_indices false
 \paperorientation portrait
+\suppress_date false
+\use_refstyle 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
 \leftmargin 1in
 \topmargin 1in
 \rightmargin 1in
@@ -38,15 +55,16 @@
 \secnumdepth 3
 \tocdepth 3
 \paragraph_separation indent
-\defskip medskip
+\paragraph_indentation default
 \quotes_language english
 \papercolumns 1
 \papersides 1
 \paperpagestyle default
 \tracking_changes false
 \output_changes false
-\author "" 
-\author "" 
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
 \end_header
 
 \begin_body
@@ -1529,15 +1547,7 @@ bfs_queue.push_back(root_vertex);
 
 \begin_layout LyX-Code
 
-// assume every vertex has a integer 
-\begin_inset Quotes eld
-\end_inset
-
-visited
-\begin_inset Quotes erd
-\end_inset
-
- field which is set to 0
+// assume every vertex has a integer visited field which is set to 0
 \end_layout
 
 \begin_layout LyX-Code
@@ -1576,15 +1586,7 @@ while(!bfs_queue.empty()) {
 
 \begin_layout LyX-Code
 
-                           ->get_field(
-\begin_inset Quotes eld
-\end_inset
-
-visited
-\begin_inset Quotes erd
-\end_inset
-
-)
+                           ->get_field(visited)
 \end_layout
 
 \begin_layout LyX-Code
@@ -1614,15 +1616,7 @@ visited
 
 \begin_layout LyX-Code
 
-    cur_vertex->data()->get_field(
-\begin_inset Quotes eld
-\end_inset
-
-visited
-\begin_inset Quotes erd
-\end_inset
-
-)->set_integer(1);
+    cur_vertex->data()->get_field(visited)->set_integer(1);
 \end_layout
 
 \begin_layout LyX-Code
@@ -1819,6 +1813,120 @@ so I will not describe it in detail here ...
 \end_layout
 
 \begin_layout Section
+GraphDatabase Server Side Computation
+\end_layout
+
+\begin_layout Standard
+Simple queries should not change the state fo the database as update queries
+ do.
+ However, interesting graph queries may trigger server side computation
+ and server-2-server communication.
+ Furthermore, the computation could be iterative, thus requiring temporary
+ modifications of the data.
+ We call such queries 
+\series bold
+Fuzzy Queries
+\series default
+ because it requires a mix of normal query and update opearations.
+ Modification maded during the Fuzzy Queries is transient and will not be
+ recorded and forwarded.
+\end_layout
+
+\begin_layout Standard
+The processing of the Fuzzy Queries can be decomposed into the following
+ phases.
+ For example, 
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+typedef fuzzy_query
+\end_layout
+
+\begin_layout LyX-Code
+
+typedef fuzzy_query_result
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// Initialize data for computation
+\end_layout
+
+\begin_layout LyX-Code
+
+graphdb::init(fuzzy_query& query);
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// Compute the query in the temporary space and returns a handler to the
+ query result
+\end_layout
+
+\begin_layout LyX-Code
+
+fuzzy_query_result graphdb::compute(fuzzy_query& query, long timeout);
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// Commit the result
+\end_layout
+
+\begin_layout LyX-Code
+
+graphdb::commit(fuzzy_query_result& result);
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// Finalize the query, free all temporarily allocated resources.
+\end_layout
+
+\begin_layout LyX-Code
+
+graphdb::finalize(fuzzy_query query);
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage clearpage
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
 GraphLabCompute
 \end_layout
 
@@ -1858,15 +1966,7 @@ double PR = 0.15 + context.mapred_in_vertices(
 
 \begin_layout LyX-Code
 
-                             other.get_field(
-\begin_inset Quotes eld
-\end_inset
-
-pr
-\begin_inset Quotes erd
-\end_inset
-
-).get_double() * scale;
+                             other.get_field(pr).get_double() * scale;
 \end_layout
 
 \begin_layout LyX-Code
@@ -1997,15 +2097,7 @@ class pagerank_map_reduce: public map_reduce {
 
 \begin_layout LyX-Code
 
-      return other.get_field(
-\begin_inset Quotes eld
-\end_inset
-
-pr
-\begin_inset Quotes erd
-\end_inset
-
-).get_double() * scale;
+      return other.get_field(pr).get_double() * scale;
 \end_layout
 
 \begin_layout LyX-Code
@@ -3125,7 +3217,7 @@ status open
 
 \begin_inset Tabular
 <lyxtabular version="3" rows="5" columns="5">
-<features>
+<features tabularvalignment="middle">
 <column alignment="center" valignment="top" width="0">
 <column alignment="center" valignment="top" width="0">
 <column alignment="center" valignment="top" width="0">
@@ -3377,7 +3469,7 @@ status open
 
 \begin_inset Tabular
 <lyxtabular version="3" rows="5" columns="5">
-<features>
+<features tabularvalignment="middle">
 <column alignment="center" valignment="top" width="0">
 <column alignment="center" valignment="top" width="0">
 <column alignment="center" valignment="top" width="0">
@@ -3629,7 +3721,7 @@ status open
 
 \begin_inset Tabular
 <lyxtabular version="3" rows="5" columns="5">
-<features>
+<features tabularvalignment="middle">
 <column alignment="center" valignment="top" width="0">
 <column alignment="center" valignment="top" width="0">
 <column alignment="center" valignment="top" width="0">
@@ -4152,8 +4244,10 @@ feasibility constraint
 \end_layout
 
 \begin_layout Standard
-\begin_inset Formula \begin{eqnarray*}
-\forall0\le i<j\le k-1 &  & A_{i}\cap A_{j}\ne\emptyset\end{eqnarray*}
+\begin_inset Formula 
+\begin{eqnarray*}
+\forall0\le i<j\le k-1 &  & A_{i}\cap A_{j}\ne\emptyset
+\end{eqnarray*}
 
 \end_inset
 
@@ -4484,7 +4578,7 @@ Consider placing the shards in a 2 dimensional grid.
 \begin_layout Standard
 \begin_inset Tabular
 <lyxtabular version="3" rows="5" columns="5">
-<features>
+<features tabularvalignment="middle">
 <column alignment="center" valignment="top" width="0">
 <column alignment="center" valignment="top" width="0">
 <column alignment="center" valignment="top" width="0">

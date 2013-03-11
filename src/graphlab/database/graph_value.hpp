@@ -74,12 +74,18 @@ class graph_value {
   
   /// Default construction creates a null integer
   graph_value();
+
+  /// Default construction creates a null with given type 
+  graph_value(graph_datatypes_enum);
       
   /// Destructor. Frees the data if it is a string / blob
   ~graph_value();
 
   /// Frees the data pointer resetting it to NULL if it is a string / blob.
   void free_data();
+
+  /// Initialize the data with given type and NULL value.
+  void init(graph_datatypes_enum type);
 
   /** The number of bytes needed to represent the data. If a scalar type,
    *  this is the number of bytes needed to represent the scalar type. Otherwise,

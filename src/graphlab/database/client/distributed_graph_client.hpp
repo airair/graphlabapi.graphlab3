@@ -1,13 +1,19 @@
 #ifndef GRAPHLAB_DATABASE_DISTRIBUTED_GRAPH_CLIENT_HPP
 #define GRAPHLAB_DATABASE_DISTRIBUTED_GRAPH_CLIENT_HPP
 #include <graphlab/database/client/graph_client.hpp>
-#include <graphlab/database/client/graph_vertex_remote.hpp>
-#include <graphlab/database/client/graph_edge_remote.hpp>
-#include <fault/query_object_client.hpp>
+#include <graphlab/database/graph_vertex.hpp>
+#include <graphlab/database/graph_edge.hpp>
+#include <graphlab/database/graph_shard.hpp>
+#include <graphlab/database/graph_row.hpp>
+#include <graphlab/database/graph_field.hpp>
+#include <graphlab/database/graph_shard_manager.hpp>
+#include <graphlab/database/query_messages.hpp>
+#include <graphlab/database/error_messages.hpp>
 
 namespace graphlab {
   class graph_database_server;
-
+  class graph_vertex_remote;
+  class graph_edge_remote;
   /**
    * \ingroup group_graph_database
    * Implementation of a distributed graph query client.
@@ -23,8 +29,11 @@ namespace graphlab {
 
     typedef libfault::query_object_client::query_result query_result;
 
-    // Graph Database Server object, will be replace to comm object in the future
+    // Defines the protocal messages between server and client.
     QueryMessages messages;
+
+    // Defines the error message when query failed.
+    ErrorMessages error_messages;
 
     // local server holding all shards. Used for testing only.
     graph_database_server* server; 
@@ -73,12 +82,12 @@ namespace graphlab {
     void query_async(const std::string& server_name, char* msg, size_t msg_len, std::vector<query_result>& queue);
 
     /**
-     * Send update message to all servers synchronously.
+     * Send update message to all servers asynchronously.
      */
     void update_all(char* msg, size_t msg_len, std::vector<query_result>& reply_queue);
 
     /**
-     * Send query message to all servers synchronously.
+     * Send query message to all servers asynchronously.
      */
     void query_all(char* msg, size_t msg_len, std::vector<query_result>& reply_queue);
 
@@ -192,39 +201,23 @@ namespace graphlab {
 
     /**
      * Frees a vertex object.
-     * The associated data is not freed. 
      */
-    inline void free_vertex(graph_vertex* vertex) {
-      delete vertex;
-    };
+    void free_vertex(graph_vertex* vertex);
 
-    inline void free_vertex_vector (std::vector<graph_vertex*>& vertexlist) {
-      if (vertexlist.size() == 0) {
-        return;
-      }
-      graph_vertex_remote* head = (graph_vertex_remote*)vertexlist[0];
-      delete[] head;
-      vertexlist.clear();
-    }
+    /**
+     * Frees a collection of vertices. The vector will be cleared on return. 
+     */
+    void free_vertex_vector (std::vector<graph_vertex*>& vertexlist);
 
     /**
      * Frees a single edge object.
-     * The associated data is not freed. 
      */
-    inline void free_edge(graph_edge* edge) {
-      delete edge;
-    }
+    inline void free_edge(graph_edge* edge); 
 
     /**
      * Frees a collection of edges. The vector will be cleared on return.
      */
-    inline void free_edge_vector(std::vector<graph_edge*>& edgelist) {
-      if (edgelist.size() == 0)
-        return;
-      graph_edge_remote* head = (graph_edge_remote*)edgelist[0];
-      delete[] head;
-      edgelist.clear();
-    }
+    void free_edge_vector(std::vector<graph_edge*>& edgelist);
 
 
     //  ------ Coarse Grained API ---------
@@ -276,6 +269,15 @@ namespace graphlab {
     inline std::string find_server(graph_shard_id_t shardid) {
       return shard2server[shardid];
     }
+
+  // ----------------- Dynamic Field API -------------
+    void add_vertex_field(graph_field& field);
+
+    void add_edge_field(graph_field& field);
+
+    void remove_vertex_field(size_t fieldpos);
+
+    void remove_edge_field(size_t fieldpos);
 
     // ----------- Ingress API -----------------
     /**
@@ -349,6 +351,16 @@ namespace graphlab {
      * Clear all ingress bufferes.
      */
     void clear_buffers();
+
+    /**
+     * Request to a vertex or edge field.
+     */
+    void add_field(graph_field& field, bool is_vertex);
+
+    /**
+     * Request to remove a vertex or edge field.
+     */
+    void remove_field(size_t fieldpos, bool is_vertex);
 
     /**
       \internal

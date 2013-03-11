@@ -101,6 +101,7 @@ void testAddEdge() {
     db.add_vertex(i, master);
   }
   boost::hash<size_t> hash; 
+
   // Creates a random graph
   for (size_t i = 0; i < nedges; i++) {
     size_t source = hash(i) % nverts;
@@ -280,9 +281,105 @@ void testShardAPI() {
   }
 }
 
+
+/**
+ * Test add/remove fields
+ */
+void testFieldAPI() {
+  std::cout << "Test vertex/edge fields...." << std::endl;
+  size_t nverts = 10;
+  size_t nedges = 20;
+  size_t nshards = 4;
+  std::vector<graphlab::graph_field> vertexfields;
+  std::vector<graphlab::graph_field> edgefields;
+  vertexfields.push_back(graphlab::graph_field("pagerank", graphlab::DOUBLE_TYPE));
+  vertexfields.push_back(graphlab::graph_field("url", graphlab::STRING_TYPE));
+  edgefields.push_back(graphlab::graph_field("dummy", graphlab::STRING_TYPE));
+
+  graphlab::graph_database* database 
+      = testutil::createDatabase(nverts, nedges, nshards, 
+                                std::vector<graphlab::graph_field>(),
+                                std::vector<graphlab::graph_field>());
+
+  // adding fields
+  for (size_t i = 0; i < vertexfields.size(); i++) {
+    database->add_vertex_field(vertexfields[i]);
+  }
+  for (size_t i = 0; i < edgefields.size(); i++) {
+    database->add_edge_field(edgefields[i]);
+  }
+
+  for (size_t i = 0; i < vertexfields.size(); i++) {
+    ASSERT_TRUE(!(database->add_vertex_field(vertexfields[i])));
+  }
+  for (size_t i = 0; i < edgefields.size(); i++) {
+    ASSERT_TRUE(!(database->add_edge_field(edgefields[i])));
+  }
+
+  // test compare fields
+  const std::vector<graphlab::graph_field>& actual_vertexfields = database->get_vertex_fields();
+  const std::vector<graphlab::graph_field>& actual_edgefields = database->get_edge_fields();
+
+  for (size_t i = 0; i < vertexfields.size(); i++) {
+    ASSERT_TRUE(testutil::compare_graph_field(vertexfields[i], actual_vertexfields[i]));
+  }
+  for (size_t i = 0; i < edgefields.size(); i++) {
+    ASSERT_TRUE(testutil::compare_graph_field(edgefields[i], actual_edgefields[i]));
+  }
+
+  for (size_t i = 0; i < nshards; i++) {
+    graphlab::graph_shard* shard = database->get_shard(i);
+    for (size_t j = 0; j < shard->num_vertices(); j++) {
+      graphlab::graph_row* row = shard->vertex_data(j);
+      ASSERT_TRUE(row->is_null());
+      ASSERT_TRUE(row->is_vertex());
+      ASSERT_EQ(row->num_fields(), vertexfields.size());
+      for (size_t k = 0; k < row->num_fields(); k++) {
+        ASSERT_EQ(row->get_field(k)->type(), vertexfields[k].type);
+      }
+    }
+    for (size_t j = 0; j < shard->num_edges(); j++) {
+      graphlab::graph_row* row = shard->edge_data(j);
+      ASSERT_TRUE(row->is_null());
+      ASSERT_TRUE(!row->is_vertex());
+      ASSERT_EQ(row->num_fields(), edgefields.size());
+      for (size_t k = 0; k < row->num_fields(); k++) {
+        ASSERT_EQ(row->get_field(k)->type(), edgefields[k].type);
+      }
+    }
+  } 
+
+  // remove fields
+  for (size_t i = 0; i < vertexfields.size(); i++) {
+    database->remove_vertex_field(0);
+  }
+  for (size_t i = 0; i < edgefields.size(); i++) {
+    database->remove_edge_field(0);
+  }
+  ASSERT_EQ(database->get_vertex_fields().size(), 0);
+  ASSERT_EQ(database->get_edge_fields().size(), 0);
+
+  for (size_t i = 0; i < nshards; i++) {
+    graphlab::graph_shard* shard = database->get_shard(i);
+    for (size_t j = 0; j < shard->num_vertices(); j++) {
+      graphlab::graph_row* row = shard->vertex_data(j);
+      ASSERT_TRUE(row->is_null());
+      ASSERT_TRUE(row->is_vertex());
+      ASSERT_EQ(row->num_fields(), 0);
+    }
+    for (size_t j = 0; j < shard->num_edges(); j++) {
+      graphlab::graph_row* row = shard->edge_data(j);
+      ASSERT_TRUE(row->is_null());
+      ASSERT_TRUE(!row->is_vertex());
+      ASSERT_EQ(row->num_fields(), 0);
+    }
+  } 
+}
+
 int main(int argc, char** argv) {
   testAddVertex();
   testAddEdge();
+  testFieldAPI();
   testShardAPI();
   return 0;
 }

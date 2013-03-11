@@ -149,8 +149,7 @@ class graph_vertex {
    *  if prefetch_data is set, the data on the retrieved edges will already
    *  be eagerly filled.
    */ 
-  virtual void get_adj_list(graph_shard_id_t shard_id, 
-                            bool prefetch_data,
+  virtual void get_adj_list(graph_shard_id_t shard_id, bool prefetch_data,
                             std::vector<graph_edge*>* out_inadj,
                             std::vector<graph_edge*>* out_outadj) = 0;
 

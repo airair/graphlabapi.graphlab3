@@ -3,6 +3,7 @@
 #include <graphlab/serialization/iarchive.hpp>
 #include <graphlab/serialization/oarchive.hpp>
 #include <graphlab/database/query_messages.hpp>
+#include <graphlab/database/error_messages.hpp>
 #include <fault/query_object_client.hpp>
 
 namespace graphlab {
@@ -23,6 +24,9 @@ class graph_database_server {
 
   // Defines the communication protocols between server and client. 
   QueryMessages messages;
+
+  // Defines the error messages when query fails. 
+  ErrorMessages error_messages;
 
   typedef libfault::query_object_client::query_result query_result;
 
@@ -47,7 +51,7 @@ class graph_database_server {
   virtual ~graph_database_server() { }
 
   /**
-   * Handle the SET queries.
+   * Handle updates. 
    * This function does not free the request message.
    */
   std::string update(char* request, size_t len) {
@@ -55,29 +59,33 @@ class graph_database_server {
     iarchive iarc(request, len);
     iarc >> header;
     oarchive oarc;
-    if (header == "vertex_field") {
+    if (header == "s_vertex_field") {
       set_vertex_field(iarc, oarc);
-    } else if (header == "edge_field") {
+    } else if (header == "s_edge_field") {
       set_edge_field(iarc, oarc);
-    } else if (header == "vertex_row") {
+    } else if (header == "s_vertex_row") {
       set_vertex_row(iarc, oarc);
-    } else if (header == "edge_row") {
+    } else if (header == "s_edge_row") {
       set_edge_row(iarc, oarc);
-    } else if (header == "add_vertex") {
+    } else if (header == "gc_add_vertex") {
       add_vertex(iarc, oarc);
-    }  else if (header == "add_edge") {
+    }  else if (header == "gc_add_edge") {
       add_edge(iarc, oarc);
-    } else if (header == "add_vertex_mirror") {
+    } else if (header == "gc_add_vertex_mirror") {
       add_vertex_mirror(iarc, oarc);
-    } // Batch updates
-    else if (header == "batch_add_vertex") {
+    } else if (header == "gc_add_field") {
+      add_field(iarc, oarc);
+    } else if (header == "gc_remove_field") {
+      remove_field(iarc, oarc);
+    }// Batch updates
+    else if (header == "gc_batch_add_vertex") {
       batch_add_vertex(iarc, oarc);
-    } else if (header == "batch_add_edge") {
+    } else if (header == "gc_batch_add_edge") {
       batch_add_edge(iarc, oarc);
-    } else if (header == "batch_add_vertex_mirror") {
+    } else if (header == "gc_batch_add_vertex_mirror") {
       batch_add_vertex_mirror(iarc, oarc);
     } else {
-      std::string message = messages.error_unknown_query_header(header);
+      std::string message = error_messages.unknown_query_header(header);
        logstream(LOG_WARNING) << message << std::endl;
        oarc << false << message;
     }
@@ -96,40 +104,40 @@ class graph_database_server {
     iarc >> header;
 
     oarchive oarc;
-    if (header == "vertex_fields_meta") {
+    if (header == "g_vertex_fields_meta") {
       get_vertex_fields(iarc, oarc);
-    } else if (header == "edge_fields_meta") {
+    } else if (header == "g_edge_fields_meta") {
       get_edge_fields(iarc, oarc);
-    } else if (header == "num_vertices") {
+    } else if (header == "g_num_vertices") {
       get_num_vertices(iarc, oarc);
-    } else if (header =="num_edges") {
+    } else if (header =="g_num_edges") {
       get_num_edges(iarc, oarc);
-    } else if (header == "num_shards") {
+    } else if (header == "g_num_shards") {
       get_num_shards(iarc, oarc);
-    } else if (header =="shard_list") {
+    } else if (header =="g_shard_list") {
       get_shard_list(iarc, oarc);
-    } else if (header == "vertex") {
+    } else if (header == "g_vertex") {
       get_vertex(iarc, oarc);
-    }  else if (header == "edge") {
+    }  else if (header == "g_edge") {
       get_edge(iarc, oarc);
-    } else if (header == "vertex_row") {
+    } else if (header == "g_vertex_row") {
       get_vertex_data_row(iarc, oarc);
-    } else if (header == "edge_row") {
+    } else if (header == "g_edge_row") {
       get_edge_data_row(iarc, oarc);
-    }else if (header == "vertex_adj") {
+    }else if (header == "g_vertex_adj") {
       get_vertex_adj(iarc, oarc);
-    } else if (header == "shard") {
+    } else if (header == "g_shard") {
       get_shard(iarc, oarc);
-    } else if (header == "shard_adj") {
+    } else if (header == "g_shard_adj") {
       get_shard_contents_adj_to(iarc, oarc);
     }  // Batch Queries
-    else if (header == "batch_vertex") {
+    else if (header == "g_batch_vertex") {
       batch_get_vertices(iarc, oarc);
-    } else if (header == "vertex_shard_adj") {
+    } else if (header == "g_vertex_shard_adj") {
       batch_get_vertex_adj_to_shard(iarc, oarc);
-    }
+    } // Fuzzy updates
     else {
-      std::string message = messages.error_unknown_query_header(header);
+      std::string message = error_messages.unknown_query_header(header);
       logstream(LOG_WARNING) << message << std::endl;;
       oarc << false << message;
     }
@@ -139,6 +147,16 @@ class graph_database_server {
   }
 
   // ------------- Modification Handlers ---------------
+  /**
+   * Add field to vertex or edge data.
+   */
+  void add_field(iarchive& iarc, oarchive& oarc);
+
+  /**
+   * Remove field from vertex or edge data. 
+   */
+  void remove_field(iarchive& iarc, oarchive& oarc);
+
   /**
    * Set the value of vertex (id=vid) at field fieldpos to the provided argument.
    * Reply is header only.

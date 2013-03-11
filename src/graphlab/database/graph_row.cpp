@@ -6,17 +6,31 @@ namespace graphlab {
 
         _data =  new graph_value[fields.size()];
         for (size_t i = 0; i < fields.size(); i++) {
-          graph_value& val = _data[i];
-          val._type = fields[i].type;
-          if (val._type == STRING_TYPE || val._type == BLOB_TYPE) {
-            val._len=0;
-          } else if (val._type == DOUBLE_TYPE) {
-            val._len=sizeof(graph_double_t);
-          } else {
-            val._len=sizeof(graph_int_t);
-          }
+          _data[i].init(fields[i].type);
         }
       }
+
+  void graph_row::add_field(graph_field& field) {
+    graph_value* new_data = new graph_value[_nfields+1];
+    memcpy(new_data, _data, _nfields*sizeof(graph_value));
+    new_data[_nfields].init(field.type);
+    delete[] _data;
+    _data = new_data;
+    ++_nfields;
+  }
+
+  void graph_row::remove_field(size_t fieldpos) {
+    graph_value* new_data = new graph_value[_nfields-1];
+    // copy field 0 to fieldpos-1
+    if (fieldpos > 0)
+      memcpy(new_data, _data, fieldpos*sizeof(graph_value)); 
+    // copy field fieldpos+1 to _nfields
+    if (fieldpos < _nfields-1)
+      memcpy(new_data+fieldpos, _data+fieldpos+1, (_nfields-1-fieldpos)*sizeof(graph_value));
+    delete[] _data;
+    _data = new_data;
+    --_nfields;
+  }
 
   std::vector<size_t> graph_row::get_modified_fields() {
     std::vector<size_t> ret;

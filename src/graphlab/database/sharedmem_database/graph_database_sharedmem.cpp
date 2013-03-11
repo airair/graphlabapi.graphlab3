@@ -1,10 +1,12 @@
 #include <graphlab/database/sharedmem_database/graph_database_sharedmem.hpp>
+#include <boost/function.hpp>
+#include <boost/bind.hpp>
 namespace graphlab {
 
-  graph_database_sharedmem::graph_database_sharedmem(const std::vector<graph_field>& vertex_fields,
-                                                     const std::vector<graph_field>& edge_fields,
-                                                     size_t numshards) : 
-      vertex_fields(vertex_fields), edge_fields(edge_fields) { 
+  graph_database_sharedmem::graph_database_sharedmem(
+      const std::vector<graph_field>& vertex_fields,
+      const std::vector<graph_field>& edge_fields, 
+      size_t numshards) : vertex_fields(vertex_fields), edge_fields(edge_fields) { 
         shardarr = new graph_shard[numshards];
         for (size_t i = 0; i < numshards; i++) {
           shardarr[i].shard_impl.shard_id = i;
@@ -13,10 +15,10 @@ namespace graphlab {
         }
       }
 
-  graph_database_sharedmem::graph_database_sharedmem(const std::vector<graph_field>& vertex_fields,
-                                                     const std::vector<graph_field>& edge_fields,
-                                                     const std::vector<graph_shard_id_t>& shard_list,
-                                                     size_t numshards)
+  graph_database_sharedmem::graph_database_sharedmem(
+      const std::vector<graph_field>& vertex_fields,
+      const std::vector<graph_field>& edge_fields, 
+      const std::vector<graph_shard_id_t>& shard_list, size_t numshards)
       : vertex_fields(vertex_fields), edge_fields(edge_fields), shard_list(shard_list) { 
 
     shardarr = new graph_shard[shard_list.size()];
@@ -25,6 +27,52 @@ namespace graphlab {
       shards[shard_list[i]] = &shardarr[i];
     }
   }
+
+  bool graph_database_sharedmem::add_vertex_field (graph_field& field) {
+    if (find_vertex_field(field.name.c_str()) >= 0) {
+      return false;
+    } else {
+      boost::function<void (graph_row& row)> fun(boost::bind(&graph_database_sharedmem::add_field_helper, this, _1, field));
+      transform_vertices(fun);
+      vertex_fields.push_back(field);
+      return true;
+    }
+  }
+
+
+  bool graph_database_sharedmem::add_edge_field (graph_field& field) {
+    if (find_edge_field(field.name.c_str()) >= 0) {
+      return false;
+    } else {
+      boost::function<void (graph_row& row)> fun(boost::bind(&graph_database_sharedmem::add_field_helper, this, _1, field));
+      transform_edges(fun);
+      edge_fields.push_back(field);
+      return true;
+    }
+  }
+
+  bool graph_database_sharedmem::remove_vertex_field (size_t fieldpos) {
+    if (fieldpos >= vertex_fields.size()) {
+      return false;
+    } else {
+      boost::function<void (graph_row& row)> fun(boost::bind(&graph_database_sharedmem::remove_field_helper, this, _1, fieldpos));
+      transform_vertices(fun);
+      vertex_fields.erase(vertex_fields.begin() + fieldpos);
+      return true;
+    }
+  }
+
+  bool graph_database_sharedmem::remove_edge_field (size_t fieldpos) {
+    if (fieldpos >= edge_fields.size()) {
+      return false;
+    } else {
+      boost::function<void (graph_row& row)> fun(boost::bind(&graph_database_sharedmem::remove_field_helper, this, _1, fieldpos));
+      transform_edges(fun);
+      edge_fields.erase(edge_fields.begin() + fieldpos);
+      return true;
+    }
+  }
+
 
   graph_vertex* graph_database_sharedmem::get_vertex(graph_vid_t vid, graph_shard_id_t shardid) {
     if (shards[shardid] == NULL || !shards[shardid]->has_vertex(vid)) {
@@ -165,7 +213,6 @@ namespace graphlab {
     // if the shard to commit is a derived shard, we need to overwrite 
     // the corresponding edges in the original shard
     bool derivedshard = shard->shard_impl.edgeid.size() > 0;
-
     for (size_t i = 0; i < shard->num_edges(); i++) {
       graph_row* local = shard->edge_data(i);
       graph_row* origin = derivedshard ? shards[id]->edge_data(shard->shard_impl.edgeid[i]) 

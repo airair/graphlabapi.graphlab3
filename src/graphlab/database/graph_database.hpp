@@ -42,6 +42,27 @@ class graph_database {
   virtual const std::vector<graph_field> get_edge_fields() const = 0;
 
   /**
+   * Add a field to the vertex data schema
+   */
+  virtual bool add_vertex_field(graph_field& field) = 0;
+
+  /**
+   * Add a field to the vertex data schema
+   */
+  virtual bool add_edge_field(graph_field& field) = 0;
+
+  /**
+   * Add a field to the vertex data schema
+   */
+  virtual bool remove_vertex_field(size_t fieldpos) = 0;
+
+  /**
+   * Add a field to the vertex data schema
+   */
+  virtual bool remove_edge_field(size_t fieldpos) = 0;
+
+
+  /**
    * Returns the index of the vertex column with the given field name. 
    *
    * \note For database implementors: A default implementation using a linear 

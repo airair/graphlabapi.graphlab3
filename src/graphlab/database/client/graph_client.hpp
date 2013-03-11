@@ -1,22 +1,15 @@
 #ifndef GRAPHLAB_DATABASE_GRAPH_CLIENT_HPP
 #define GRAPHLAB_DATABASE_GRAPH_CLIENT_HPP
-#include <vector>
-#include <algorithm>
-#include <functional>
-#include <fstream>
-#include <sstream>
-
 #include <graphlab/database/basic_types.hpp>
-#include <graphlab/database/graph_field.hpp>
-#include <graphlab/database/graph_vertex.hpp>
-#include <graphlab/database/graph_edge.hpp>
-#include <graphlab/database/graph_shard.hpp>
-#include <graphlab/database/graph_database.hpp>
-#include <graphlab/database/query_messages.hpp>
-#include <graphlab/database/graph_shard_manager.hpp>
-#include <graphlab/macros_def.hpp>
+#include <fault/query_object_client.hpp>
 
 namespace graphlab {
+  class graph_row;
+  class graph_edge;
+  class graph_vertex;
+  class graph_shard;
+  class graph_field;
+  class graph_shard_manager;
   /**
    * \ingroup group_graph_database
    * Interface of a graph query_client. Provides functionality
@@ -34,7 +27,10 @@ namespace graphlab {
     virtual void update_async (const std::string& server_name, char* msg, size_t msg_len,
                                std::vector<query_result>& queue) = 0;
     virtual void query_async (const std::string& server_name, char* msg, size_t msg_len, std::vector<query_result>& queue) = 0;
-    virtual void update_all (char* msg, size_t msg_len) = 0;
+    virtual void update_all (char* msg, size_t msg_len,
+                             std::vector<query_result>& reply_queue) = 0;
+    virtual void query_all(char* msg, size_t msg_len,
+                             std::vector<query_result>& reply_queue) = 0;
     virtual std::string find_server(graph_shard_id_t shardid)  = 0;
 
     // ------------ Basic info query API --------------------
@@ -66,6 +62,11 @@ namespace graphlab {
                                  std::vector<graph_shard_id_t>* out_adj_shard_ids) = 0;
     virtual void commit_shard(graph_shard* shard) = 0;
 
+    // ----------------- Dynamic Field API -------------
+    virtual void add_vertex_field(graph_field& field) = 0;
+    virtual void add_edge_field(graph_field& field) = 0;
+    virtual void remove_vertex_field(size_t fieldpos) = 0;
+    virtual void remove_edge_field(size_t fieldpos) = 0;
 
     // ----------------- Ingress API --------------------
     virtual bool add_vertex_now (graph_vid_t vid, graph_row* data=NULL) = 0; 
@@ -76,5 +77,4 @@ namespace graphlab {
     virtual void load_format(const std::string& path, const std::string& format) = 0;
   };
 }
-#include<graphlab/macros_undef.hpp>
 #endif

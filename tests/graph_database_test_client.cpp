@@ -21,6 +21,7 @@ vector<graphlab::graph_field> vfields;
 vector<graphlab::graph_field> efields;
 
 typedef graphlab::graph_database_test_util test_util;
+typedef libfault::query_object_client::query_result query_result;
 
 int main(int argc, char** argv) {
   if (argc != 4) {
@@ -243,6 +244,36 @@ int main(int argc, char** argv) {
         }
         graph.add_edge_now(src, dest);
         cout << "Done" << endl;
+      } else if (target =="vertex_field") {
+          vector<string> strs;
+          boost::split(strs, val, boost::is_any_of(":"));
+          if (strs.size() != 2) {
+            cout << val << " cannot be converted to fieldname:type" << endl;
+            continue;
+          }
+          graphlab::graph_datatypes_enum type = graphlab::string_to_type(strs[1]);
+          if (type == graphlab::UNKNOWN_TYPE) {
+            cout << strs[1] << " is not a valid type" << endl;
+            continue;
+          }
+          graphlab::graph_field field(strs[0], type);
+          graph.add_vertex_field(field);
+          cout << "Done" << endl;
+      } else if (target == "edge_field") {
+          vector<string> strs;
+          boost::split(strs, val, boost::is_any_of(":"));
+          if (strs.size() != 2) {
+            cout << val << " cannot be converted to fieldname:type" << endl;
+            continue;
+          }
+          graphlab::graph_datatypes_enum type = graphlab::string_to_type(strs[1]);
+          if (type == graphlab::UNKNOWN_TYPE) {
+            cout << strs[1] << " is not a valid type" << endl;
+            continue;
+          }
+          graphlab::graph_field field(strs[0], type);
+          graph.add_edge_field(field);
+          cout << "Done" << endl;
       } else {
         cout << "Unknown add target: " << target << " " << val << endl;
       }
@@ -277,28 +308,37 @@ int main(int argc, char** argv) {
       } else {
         cout << "Unknown set target: " << target << " " << val << endl;
       }
+    } else if (cmd == "pagerank") {
+      if (target == "init") {
+        int len;
+        std::vector<std::string> request;
+        request.push_back("pagerank");
+        request.push_back("init");
+        char* msg = graphlab::QueryMessages::make_message(&len, request); 
+        vector<query_result> results;
+        graph.query_all(msg, len, results);
+        cout << "done" << endl;
+      } else if (target == "run") {
+        int len;
+        std::vector<std::string> request;
+        request.push_back("pagerank");
+        request.push_back("run");
+        char* msg = graphlab::QueryMessages::make_message(&len, request); 
+        vector<query_result> results;
+        graph.query_all(msg, len, results);
+      } else if (target == "finalize") {
+        int len;
+        std::vector<std::string> request;
+        request.push_back("pagerank");
+        request.push_back("finalize");
+        char* msg = graphlab::QueryMessages::make_message(&len, request);
+        vector<query_result> results;
+        graph.query_all(msg, len, results);
+        cout << "done" << endl;
+      } else {
+        cout << "Unknown pagerank target: " << target << endl;
+      }
     } 
-    // else if (cmd == "pagerank") {
-    //   if (target == "init") {
-    //     int len;
-    //     std::vector<std::string> request;
-    //     request.push_back("pagerank");
-    //     request.push_back("init");
-    //     char* msg = graphlab::QueryMessages::make_message(&len, request); 
-    //     graph.query_all(msg, len);
-    //     cout << "done" << endl;
-    //   } else if (target == "finalize") {
-    //     int len;
-    //     std::vector<std::string> request;
-    //     request.push_back("pagerank");
-    //     request.push_back("finalize");
-    //     char* msg = graphlab::QueryMessages::make_message(&len, request);
-    //     graph.query_all(msg, len);
-    //     cout << "done" << endl;
-    //   } else {
-    //     cout << "Unknown pagerank target: " << target << endl;
-    //   }
-    // } 
     else {
       cout << "Unknown command: " << cmd << " " << target << " " << val << endl;
     }

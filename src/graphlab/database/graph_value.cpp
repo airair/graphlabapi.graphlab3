@@ -13,6 +13,23 @@ namespace graphlab {
         memset(&_old, 0, sizeof(_old));
       }
 
+  void graph_value::init(graph_datatypes_enum type) {
+    _type = type; 
+    _null_value = true;
+    _modified = false;
+    _use_delta_commit = false;
+    memset(&_data, 0, sizeof(_data));
+    memset(&_old, 0, sizeof(_old));
+    switch(type) {
+     case STRING_TYPE:
+     case BLOB_TYPE: _len = 0;  break;
+     case DOUBLE_TYPE: _len = sizeof(graph_double_t); break;
+     case INT_TYPE: _len =sizeof(graph_int_t); break;
+     default: ASSERT_TRUE(false); // this should never happen;
+    }
+  }
+
+
   graph_value::~graph_value() {
     free_data();
   }

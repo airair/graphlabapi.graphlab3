@@ -1,6 +1,9 @@
 #include <graphlab/database/client/distributed_graph_client.hpp>
-#include <graphlab/database/server/graph_database_server.hpp>
 #include <graphlab/database/client/builtin_parsers.hpp>
+#include <graphlab/database/client/graph_vertex_remote.hpp>
+#include <graphlab/database/client/graph_edge_remote.hpp>
+#include <graphlab/database/server/graph_database_server.hpp>
+#include <graphlab/database/graph_database.hpp>
 
 #include <graphlab/serialization/iarchive.hpp>
 #include <graphlab/serialization/oarchive.hpp>
@@ -133,7 +136,7 @@ namespace graphlab {
     for (size_t i = 0; i < reply_queue.size(); i++) {
       query_result result = reply_queue[i];
       if (result.get_status() != 0) {
-        logstream(LOG_ERROR) << messages.error_server_not_reachable(find_server(i)) << std::endl;
+        logstream(LOG_ERROR) << error_messages.server_not_reachable(find_server(i)) << std::endl;
       } else {
         graph_vertex_remote* head;
         size_t size;
@@ -184,6 +187,30 @@ namespace graphlab {
     }
   }
 
+  void distributed_graph_client::free_vertex(graph_vertex* vertex) { delete (graph_vertex_remote*)vertex; }
+
+  void distributed_graph_client::free_vertex_vector (std::vector<graph_vertex*>& vertexlist) {
+    if (vertexlist.size() == 0) {
+      return;
+    }
+    graph_vertex_remote* head = (graph_vertex_remote*)vertexlist[0];
+    delete[] head;
+    vertexlist.clear();
+  }
+
+  void distributed_graph_client::free_edge(graph_edge* edge) { delete (graph_edge_remote*)edge; }
+
+  void distributed_graph_client::free_edge_vector(std::vector<graph_edge*>& edgelist) {
+    if (edgelist.size() == 0)
+      return;
+    graph_edge_remote* head = (graph_edge_remote*)edgelist[0];
+    delete[] head;
+    edgelist.clear();
+  }
+
+
+
+
   // ---------------------- Coarse Grained API ----------------------------
   graph_shard* distributed_graph_client::get_shard(graph_shard_id_t shardid) {
     int msg_len;
@@ -221,6 +248,53 @@ namespace graphlab {
 
   void distributed_graph_client::commit_shard(graph_shard* shard) {
     ASSERT_TRUE(false);
+  }
+
+  // ----------------- Dynamic Field API -------------
+  void distributed_graph_client::add_field(graph_field& field, bool is_vertex) {
+    int msg_len;
+    char* request = messages.add_field(&msg_len, is_vertex, field);
+    std::vector<query_result> reply_queue;
+    update_all(request, msg_len, reply_queue);
+    std::string errormsg;
+    for (size_t i = 0; i < reply_queue.size(); i++) {
+      if (reply_queue[i].get_status() != 0) {
+        logstream(LOG_ERROR) << error_messages.server_not_reachable(server_list[i]);
+      } else {
+        messages.parse_reply(reply_queue[i].get_reply(), errormsg);
+      }
+    }
+  }
+
+  void distributed_graph_client::remove_field(size_t fieldpos, bool is_vertex) {
+    int msg_len;
+    char* request = messages.remove_field(&msg_len, is_vertex, fieldpos);
+    std::vector<query_result> reply_queue;
+    update_all(request, msg_len, reply_queue);
+    std::string errormsg;
+    for (size_t i = 0; i < reply_queue.size(); i++) {
+      if (reply_queue[i].get_status() != 0) {
+        logstream(LOG_ERROR) << error_messages.server_not_reachable(server_list[i]);
+      } else {
+        messages.parse_reply(reply_queue[i].get_reply(), errormsg);
+      }
+    }
+  }
+
+  void distributed_graph_client::add_vertex_field(graph_field& field) {
+    add_field(field, true);
+  }
+
+  void distributed_graph_client::add_edge_field(graph_field& field) {
+    add_field(field, false);
+  }
+
+  void distributed_graph_client::remove_vertex_field(size_t fieldpos) {
+    remove_field(fieldpos, true);
+  }
+
+  void distributed_graph_client::remove_edge_field(size_t fieldpos) {
+    remove_field(fieldpos, false);
   }
 
   // ----------- Ingress API -----------------
@@ -499,7 +573,7 @@ namespace graphlab {
     } else {
       query_result result = qoclient->query(server_name, msg, msg_len);
       if (result.get_status() != 0) {
-        std::string errormsg = messages.error_server_not_reachable(server_name); 
+        std::string errormsg = error_messages.server_not_reachable(server_name); 
         logstream(LOG_WARNING) << errormsg << std::endl;
         ASSERT_TRUE(false);
       } else {
@@ -520,7 +594,7 @@ namespace graphlab {
     } else {
       query_result result = qoclient->update(server_name, msg, msg_len);
       if (result.get_status() != 0) {
-        std::string errormsg = messages.error_server_not_reachable(server_name); 
+        std::string errormsg = error_messages.server_not_reachable(server_name); 
         logstream(LOG_WARNING) << errormsg << std::endl;
         ASSERT_TRUE(false);
       } else {
@@ -560,8 +634,8 @@ namespace graphlab {
 
   void distributed_graph_client::update_all(char* msg, size_t msg_len,
                                             std::vector<query_result>& reply_queue) {
-    char* msg_copy = (char*)malloc(msg_len);
     for (size_t i = 0; i < server_list.size(); ++i) {
+      char* msg_copy = (char*)malloc(msg_len);
       memcpy(msg_copy, msg, msg_len);
       update_async(server_list[i], msg_copy, msg_len, reply_queue);
     }
@@ -570,8 +644,8 @@ namespace graphlab {
 
   void distributed_graph_client::query_all(char* msg, size_t msg_len,
                                            std::vector<query_result>& reply_queue) {
-    char* msg_copy = (char*)malloc(msg_len);
     for (size_t i = 0; i < server_list.size(); ++i) {
+      char* msg_copy = (char*)malloc(msg_len);
       memcpy(msg_copy, msg, msg_len);
       query_async(server_list[i], msg_copy, msg_len, reply_queue);
     }

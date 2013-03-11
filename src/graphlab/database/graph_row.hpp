@@ -20,8 +20,8 @@ class graph_database;
  * as well as various meta-data.
  *
  * \note 
- * This object may or may not be responsible of the data. If <code>_own_data</code>
- * is set, then it obtains the ownership of the data, and will free the data in its deconstructor.
+ * This object may or may not be responsible of the underlying data. If <code>_own_data</code>
+ * is set, it is responsible for the resource, and will free the data in its deconstructor.
  * graph_row stored in the <code>graph_shard</code> has the ownership of the data.
  *
  * This object is not thread-safe, and may not copied.
@@ -50,13 +50,16 @@ class graph_row {
   /// Given fields metadata, creates a row with NULL values in the given fields.
   graph_row(std::vector<graph_field>& fields, bool is_vertex); 
   
-
   /// Destructor. Frees the values if <code>_own_data</code> is true.
   inline ~graph_row() {
     if (_own_data) {
       delete[] _data;
     }
   }
+
+  void add_field(graph_field& field);
+
+  void remove_field(size_t fieldpos);
   
   /// Returns the number of fields on this row
   inline size_t num_fields() const {

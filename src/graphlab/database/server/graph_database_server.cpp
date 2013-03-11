@@ -2,9 +2,9 @@
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/database/graph_field.hpp>
 #include <graphlab/database/graph_shard.hpp>
-#include <graphlab/database/graph_database.hpp>
 #include <graphlab/database/client/graph_vertex_remote.hpp>
 #include <graphlab/database/client/graph_edge_remote.hpp>
+#include <graphlab/database/graph_database.hpp>
 
 namespace graphlab {
 
@@ -24,7 +24,7 @@ namespace graphlab {
     iarc >> shardid;
     graph_shard* shard = database->get_shard(shardid);
     if (shard == NULL) {
-      oarc << false << messages.error_shard_not_found(shardid);
+      oarc << false << error_messages.shard_not_found(shardid);
     } else {
       oarc << true << shard->num_vertices();
     }
@@ -35,7 +35,7 @@ namespace graphlab {
     iarc >> shardid;
     graph_shard* shard = database->get_shard(shardid);
     if (shard == NULL) {
-      oarc << false << messages.error_shard_not_found(shardid);
+      oarc << false << error_messages.shard_not_found(shardid);
     } else {
       oarc << true << shard->num_edges();
     }
@@ -57,7 +57,7 @@ namespace graphlab {
     iarc >> vid >> shardid;
     graph_vertex* v = database->get_vertex(vid, shardid);
     if (v == NULL) {
-     oarc << false << messages.error_vertex_not_found(vid, shardid);
+     oarc << false << error_messages.vertex_not_found(vid, shardid);
     } else {
       oarc << true;
       graph_vertex_remote::external_save(oarc, v);
@@ -71,7 +71,7 @@ namespace graphlab {
     iarc >> vid >> shardid;
     graph_vertex* v = database->get_vertex(vid, shardid);
     if (v == NULL) {
-      oarc << false << messages.error_vertex_not_found(vid, shardid);
+      oarc << false << error_messages.vertex_not_found(vid, shardid);
     } else {
       graph_row* row= v->data();
       oarc << true << *row;
@@ -115,7 +115,7 @@ namespace graphlab {
     iarc >> eid >> shardid;
     graph_edge* e = database->get_edge(eid, shardid);
     if (e == NULL) {
-      oarc << false << messages.error_edge_not_found(eid, shardid);
+      oarc << false << error_messages.edge_not_found(eid, shardid);
     } else {
       oarc << true;
       graph_edge_remote::external_save(oarc, e);
@@ -129,7 +129,7 @@ namespace graphlab {
     iarc >> eid >> shardid;
     graph_edge* e = database->get_edge(eid, shardid);
     if (e == NULL) {
-      oarc << false << messages.error_edge_not_found(eid, shardid);
+      oarc << false << error_messages.edge_not_found(eid, shardid);
     } else {
       graph_row* row= e->data();
       oarc << true << *row;
@@ -143,7 +143,7 @@ namespace graphlab {
     iarc >> shardid;
     graph_shard* shard = database->get_shard(shardid);
     if (shard == NULL) {
-      oarc << false <<  messages.error_shard_not_found(shardid);
+      oarc << false <<  error_messages.shard_not_found(shardid);
     } else {
       oarc << true << *shard;
     }
@@ -155,7 +155,7 @@ namespace graphlab {
     iarc >> vids >> shard_to;
     graph_shard* shard = database->get_shard_contents_adj_to(vids, shard_to);
     if (shard == NULL) {
-      oarc << false <<  messages.error_shard_not_found(shard_to);
+      oarc << false <<  error_messages.shard_not_found(shard_to);
     } else {
       oarc << true << *shard;
     }
@@ -163,6 +163,40 @@ namespace graphlab {
 
 
   // ----------- Modification Handlers ----------------
+  void graph_database_server::add_field(iarchive& iarc,
+                                        oarchive& oarc) {
+    bool is_vertex, success;
+    graph_field field_to_add;
+    iarc >> is_vertex >> field_to_add;
+    if (is_vertex) {
+      success = get_database()->add_vertex_field(field_to_add);
+    } else {
+      success = get_database()->add_edge_field(field_to_add);
+    }
+    if (!success) {
+      oarc << false << error_messages.field_duplicate(field_to_add.name);
+    } else {
+      oarc << true;
+    }
+  }
+
+  void graph_database_server::remove_field(iarchive& iarc,
+                                           oarchive& oarc) {
+    bool is_vertex, success;
+    size_t field_to_remove;
+    iarc >> is_vertex >> field_to_remove;
+    if (is_vertex) {
+      success = get_database()->remove_vertex_field(field_to_remove);
+    } else {
+      success = get_database()->remove_edge_field(field_to_remove);
+    }
+    if (!success) {
+      oarc << false << error_messages.field_not_found(field_to_remove);
+    } else {
+      oarc << true;
+    }
+  }
+
   void graph_database_server::set_vertex_field (iarchive& iarc,
                                                 oarchive& oarc) {
     graph_vid_t vid;
@@ -175,7 +209,7 @@ namespace graphlab {
 
     graph_vertex* v = database->get_vertex(vid, shardid);
     if (v == NULL) {
-      oarc << false << messages.error_vertex_not_found(vid, shardid);
+      oarc << false << error_messages.vertex_not_found(vid, shardid);
       return;
     }
 
@@ -183,7 +217,7 @@ namespace graphlab {
     v->write_changes();
     database->free_vertex(v);
     if (!success) {
-      oarc << false << messages.error_setting_value(fieldpos); 
+      oarc << false << error_messages.fail_setting_value(fieldpos); 
     } else {
       oarc << true;
     }
@@ -200,7 +234,7 @@ namespace graphlab {
     iarc.read(val, len);
     graph_edge* e = database->get_edge(eid, shardid);
     if (e == NULL) {
-      oarc << false << messages.error_edge_not_found(eid, shardid);
+      oarc << false << error_messages.edge_not_found(eid, shardid);
       return;
     } 
 
@@ -208,7 +242,7 @@ namespace graphlab {
     e->write_changes();
     database->free_edge(e);
     if (!success) {
-      oarc << false << messages.error_setting_value(fieldpos);
+      oarc << false << error_messages.fail_setting_value(fieldpos);
     } else {
       oarc << true;
     }
@@ -222,7 +256,7 @@ namespace graphlab {
     iarc >> vid >> shardid >> num_changes;
     graph_vertex* v = database->get_vertex(vid, shardid);
     if (v == NULL) {
-      oarc << false << messages.error_vertex_not_found(vid, shardid);
+      oarc << false << error_messages.vertex_not_found(vid, shardid);
       return;
     }
 
@@ -234,7 +268,7 @@ namespace graphlab {
       iarc.read(val, len);
       bool success = v->data()->get_field(fieldpos)->set_val(val, len, delta);
       if (!success)
-        errors.push_back(messages.error_setting_value(fieldpos));
+        errors.push_back(error_messages.fail_setting_value(fieldpos));
     }
 
     v->write_changes();
@@ -254,7 +288,7 @@ namespace graphlab {
     iarc >> eid >> shardid >> num_changes;
     graph_edge* e = database->get_edge(eid, shardid);
     if (e == NULL) {
-      oarc << false << messages.error_edge_not_found(eid, shardid);
+      oarc << false << error_messages.edge_not_found(eid, shardid);
       return;
     }
 
@@ -266,7 +300,7 @@ namespace graphlab {
       iarc.read(val, len);
       bool success = e->data()->get_field(fieldpos)->set_val(val, len, delta);
       if (!success)
-        errors.push_back(messages.error_setting_value(fieldpos));
+        errors.push_back(error_messages.fail_setting_value(fieldpos));
     }
 
     e->write_changes();
@@ -294,7 +328,7 @@ namespace graphlab {
       success = database->add_vertex(vid, master);
     }
     if (!success) {
-      oarc << false << messages.error_adding_vertex(vid);
+      oarc << false << error_messages.fail_adding_vertex(vid);
     } else {
       oarc << true;
     }
@@ -314,7 +348,7 @@ namespace graphlab {
       success = database->add_edge(source, target, master);
     }
     if (!success) {
-      oarc << false << messages.error_adding_edge(source, target);
+      oarc << false << error_messages.fail_adding_edge(source, target);
     } else {
       oarc << true;
     }
@@ -333,7 +367,7 @@ namespace graphlab {
     }
 
     if (!success) {
-      oarc << false << messages.error_adding_mirror(vid, master, mirror);
+      oarc << false << error_messages.fail_adding_mirror(vid, master, mirror);
     } else {
       oarc << true;
     }
@@ -347,7 +381,7 @@ namespace graphlab {
     graph_shard_id_t master;
     size_t num_records;
     iarc >> master >> num_records;
-    std::vector<std::string> error_messages;
+    std::vector<std::string> errmsgs;
 
     for (size_t i = 0; i < num_records; i++) {
       bool success;
@@ -361,14 +395,13 @@ namespace graphlab {
       } else {
         success = database->add_vertex(vid, master);
       }
-
       if (!success) {
-        error_messages.push_back(messages.error_adding_vertex(vid));
+        errmsgs.push_back(error_messages.fail_adding_vertex(vid));
       }
     }
 
-    if (error_messages.size() > 0) {
-      oarc << false << error_messages;
+    if (errmsgs.size() > 0) {
+      oarc << false << errmsgs;
     } else {
       oarc << true;
     }
@@ -376,7 +409,7 @@ namespace graphlab {
 
   void graph_database_server::batch_add_edge (iarchive& iarc,
                                               oarchive& oarc) {
-    std::vector<std::string> error_messages;
+    std::vector<std::string> errmsgs;
     graph_shard_id_t master;
     size_t num_records;
     iarc >> master >> num_records;
@@ -394,11 +427,11 @@ namespace graphlab {
         success = database->add_edge(source, target, master);
       }
       if (!success) {
-        error_messages.push_back(messages.error_adding_edge(source, target));
+        errmsgs.push_back(error_messages.fail_adding_edge(source, target));
       }
     }
-    if (error_messages.size() > 0) {
-      oarc << false << error_messages;
+    if (errmsgs.size() > 0) {
+      oarc << false << errmsgs;
     } else {
       oarc << true;
     }
@@ -408,7 +441,7 @@ namespace graphlab {
                                                        oarchive& oarc) {
     graph_shard_id_t master;
     size_t num_records;
-    std::vector<std::string> error_messages;
+    std::vector<std::string> errmsgs;
     iarc >> master >> num_records;
     for (size_t i = 0; i < num_records; i++) {
       bool success;
@@ -420,9 +453,12 @@ namespace graphlab {
         iarc >> mirror;
         success = database->add_vertex_mirror(vid, master, mirror);
       } 
+      if (!success) {
+        errmsgs.push_back(error_messages.fail_adding_mirror(vid, master, mirror));
+      }
     }
-    if (error_messages.size() > 0) {
-      oarc << false << error_messages;
+    if (errmsgs.size() > 0) {
+      oarc << false << errmsgs;
     } else {
       oarc << true;
     }
@@ -440,7 +476,7 @@ namespace graphlab {
       graph_vid_t vid = vids[i];
       graph_vertex* v = database->get_vertex(vid, shardid);
       if (v == NULL) {
-        errormsgs.push_back(messages.error_vertex_not_found(vid, shardid));
+        errormsgs.push_back(error_messages.vertex_not_found(vid, shardid));
       } else {
         vertices.push_back(v);
       }
@@ -466,7 +502,7 @@ namespace graphlab {
 
     if (shard == NULL) {
        size_t count = 0;
-       errormsgs.push_back(messages.error_shard_not_found(shard_from));
+       errormsgs.push_back(error_messages.shard_not_found(shard_from));
        oarc << false << count << errormsgs;
        return;
     } 
@@ -479,7 +515,7 @@ namespace graphlab {
           graph_vid_t vid = shard->vertex(i); 
           graph_vertex* v = database->get_vertex(vid, shard_from);
           if (v == NULL) {
-            errormsgs.push_back(messages.error_vertex_not_found(vid, shard_from));
+            errormsgs.push_back(error_messages.vertex_not_found(vid, shard_from));
           } else {
             vertices.push_back(v);
           }

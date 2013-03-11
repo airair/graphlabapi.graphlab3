@@ -106,6 +106,9 @@ namespace graphlab {
      }
 
      static bool parse_field_config(std::string line, std::vector<graph_field>& fields) {
+       if (line == "") {
+         return true;
+       }
        std::vector<std::string> strs;
        boost::split(strs, line, boost::is_any_of(","));
        for (size_t i = 0; i < strs.size(); i++) {

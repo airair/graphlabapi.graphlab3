@@ -72,14 +72,6 @@ namespace graphlab {
        return oarc.buf;
      }
 
-     ///  returns a message for querying the sharding constraint graph 
-     inline char* sharding_graph_request(int* msg_len) {
-       oarchive oarc;
-       oarc << std::string("g_sharding_graph");
-       *msg_len=oarc.off;
-       return oarc.buf;
-     }
-
      ///  returns a message for querying the entire vertex data of vid 
      inline char* vertex_row_request(int* msg_len, graph_vid_t vid, graph_shard_id_t shardid) {
        oarchive oarc;

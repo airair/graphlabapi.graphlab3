@@ -77,10 +77,6 @@ namespace graphlab {
     return ret;
   };
 
-  /**
-   * Returns the number of edges in the graph.
-   * This may be slow.
-   */
   size_t distributed_graph_client::num_edges() {
     size_t count, ret = 0;
     bool success;
@@ -94,6 +90,26 @@ namespace graphlab {
       ret += count;
     }
     return ret;
+  }
+
+  std::vector<graph_field> distributed_graph_client::get_vertex_fields() {
+    int msg_len;
+    char* request = messages.vfield_request(&msg_len);
+    std::string reply = query(server_list[0], request, msg_len);
+    std::vector<graph_field> fields;
+    std::string errormsg;
+    messages.parse_reply(reply, fields,  errormsg);
+    return fields;
+  }
+
+  std::vector<graph_field> distributed_graph_client::get_edge_fields() {
+    int msg_len;
+    char* request = messages.efield_request(&msg_len);
+    std::string reply = query(server_list[0], request, msg_len);
+    std::vector<graph_field> fields;
+    std::string errormsg;
+    messages.parse_reply(reply, fields,  errormsg);
+    return fields;
   }
 
   // ------------------ Fine Grained API ---------------------------

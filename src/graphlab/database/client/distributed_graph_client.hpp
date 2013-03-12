@@ -23,10 +23,6 @@ namespace graphlab {
    */
   class distributed_graph_client :public graph_client {
 
-    // Schema for vertex and edge datatypes
-    std::vector<graph_field> vertex_fields;
-    std::vector<graph_field> edge_fields;
-
     typedef libfault::query_object_client::query_result query_result;
 
     // Defines the protocal messages between server and client.
@@ -128,16 +124,12 @@ namespace graphlab {
     /**
      * Returns the field metadata for the vertices in the graph
      */
-    inline std::vector<graph_field> get_vertex_fields() {
-      return vertex_fields;
-    };
+    std::vector<graph_field> get_vertex_fields();
 
     /**
      * Returns the field metadata for the edges in the graph
      */
-    inline std::vector<graph_field> get_edge_fields() {
-      return edge_fields;
-    };
+    std::vector<graph_field> get_edge_fields();
 
     /**
      * Returns the sharding constraint graph.

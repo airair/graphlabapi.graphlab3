@@ -25,12 +25,12 @@ namespace graphlab {
      void get_edge_index (std::vector<size_t>& in,
                           std::vector<size_t>& out,
                           bool getIn, bool getOut,
-                          graph_vid_t vid) {
+                          graph_vid_t vid) const {
        if (getIn && inEdges.find(vid) != inEdges.end()) {
-           in = inEdges[vid];
+           in = inEdges.find(vid)->second;
        }
        if (getOut && outEdges.find(vid) != outEdges.end()) {
-           out = outEdges[vid];
+           out = outEdges.find(vid)->second;
        }
      }
 
@@ -59,4 +59,3 @@ namespace graphlab {
 } // namespace graphlab
 #include <graphlab/macros_undef.hpp>
 #endif
-

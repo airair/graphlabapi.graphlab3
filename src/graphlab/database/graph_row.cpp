@@ -32,15 +32,6 @@ namespace graphlab {
     --_nfields;
   }
 
-  std::vector<size_t> graph_row::get_modified_fields() {
-    std::vector<size_t> ret;
-    for (size_t i = 0; i < num_fields(); i++) {
-      if (_data[i].get_modified()) 
-        ret.push_back(i);
-    }
-    return ret;
-  }
-
   void graph_row::shallowcopy(graph_row& out_row) {
     memcpy(&out_row, this, sizeof(graph_row));
     out_row._own_data = false;
@@ -52,7 +43,7 @@ namespace graphlab {
     out_row._own_data = true;
     out_row._data = new graph_value[num_fields()];
     for (size_t i = 0; i < num_fields(); i++) {
-      _data[i].deepcopy(out_row._data[i]);
+      _data[i] = out_row._data[i];
     }
   }
 

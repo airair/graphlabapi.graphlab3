@@ -36,7 +36,7 @@ void testVertexQuery(graphlab::graph_database_server* server) {
 
     if (success) {
       ASSERT_TRUE(row._own_data);
-      graphlab::graph_row* expected = v->data();
+      const graphlab::graph_row* expected = v->immutable_data();
       graphlab::graph_database_test_util::compare_row(row, *expected);
 
       // compare adjacency structure
@@ -81,7 +81,7 @@ void testVertexAdjacency(const string adjrep,
       graphlab::graph_edge* e = inadj->at(i);
       ASSERT_EQ(src, e->get_src());
       ASSERT_EQ(id, e->get_id());
-      graphlab::graph_database_test_util::compare_row(data, *(e->data()));
+      graphlab::graph_database_test_util::compare_row(data, *(e->immutable_data()));
     }
     for (size_t i = 0; i < numout; i++) {
       graphlab::graph_vid_t dest;
@@ -92,7 +92,7 @@ void testVertexAdjacency(const string adjrep,
       graphlab::graph_edge* e = outadj->at(i);
       ASSERT_EQ(dest, e->get_dest());
       ASSERT_EQ(id, e->get_id());
-      graphlab::graph_database_test_util::compare_row(data, *(e->data()));
+      graphlab::graph_database_test_util::compare_row(data, *(e->immutable_data()));
     }
 }
 

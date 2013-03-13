@@ -94,6 +94,13 @@ class graph_database {
     return -1;
   }
 
+  /**
+   * Set the data field at fieldpos of row with the new value. If the delta flag   
+   * is true, the assignment is +=.
+   * Return false on failure.
+   */
+  virtual bool set_field(graph_row* row, size_t fieldpos,
+                         const graph_value& new_value, bool delta) = 0;
 
   // -------- Fine grained API ------------
 
@@ -192,11 +199,11 @@ class graph_database {
   virtual void free_shard(graph_shard* shard) = 0;
   
 
-  /**
-   * Commits all the changes made to the vertex data and edge data 
-   * in the shard, resetting all modification flags.
-   */
-  virtual void commit_shard(graph_shard* shard) = 0;
+  // /**
+  //  * Commits all the changes made to the vertex data and edge data 
+  //  * in the shard, resetting all modification flags.
+  //  */
+  // virtual void commit_shard(graph_shard* shard) = 0;
 
 
   // --------------------- Structure Modification API ----------------------

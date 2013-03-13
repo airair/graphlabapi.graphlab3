@@ -233,15 +233,21 @@ namespace graphlab {
       graph->free_edge_vector(outadj);
     }
   } 
+
   void graph_client_cli::set_vertex(graph_vid_t vid, size_t fieldpos, std::string& val) { 
     graph_vertex* v = graph->get_vertex(vid);
     if (v != NULL) {
-      bool success = v->data()->get_field(fieldpos)->set_val(val);
-      if (!success) {
-        logstream(LOG_ERROR) << error_messages.fail_setting_value(fieldpos);
-      } else {
-        v->write_changes();
-      }
+        if(v->get_field(fieldpos) == NULL) {
+          logstream(LOG_ERROR) << error_messages.fail_setting_value(fieldpos);
+          return;
+        } else {
+          bool success = v->get_field(fieldpos)->set_val(val);
+          if (!success) {
+            logstream(LOG_ERROR) << error_messages.fail_setting_value(fieldpos);
+          } else {
+            v->write_changes();
+          }
+        }
     }
   }
 

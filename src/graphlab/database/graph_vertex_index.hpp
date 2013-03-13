@@ -21,15 +21,15 @@ namespace graphlab {
    public:
 
      // Return the existence of a vertex with given id.
-     inline bool has_vertex(graph_vid_t vid) {
+     inline bool has_vertex(graph_vid_t vid) const {
        return !(index_map.find(vid) == index_map.end());
      };
 
      // Return the index of a vertex in a shard.
-     inline size_t get_index (graph_vid_t vid) {
+     inline size_t get_index (graph_vid_t vid) const {
        ASSERT_TRUE(has_vertex(vid));
-       return index_map[vid];
-     } 
+       return index_map.find(vid)->second;
+     }
 
      // Update the index by adding a vertex
      inline bool add_vertex(graph_vid_t vid, graph_row* value, size_t pos) {

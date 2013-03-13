@@ -8,7 +8,6 @@
 #include <cstdlib>
 #include <cstring>
 namespace graphlab {
-
 /**
  * \ingroup group_graph_database
  * This struct stores the value in a single field in a single vertex/edge 
@@ -31,6 +30,27 @@ namespace graphlab {
  */
 class graph_value {
  public:
+  /// Default construction creates a null integer
+  graph_value();
+
+  /// Default construction creates a null with given type 
+  graph_value(graph_datatypes_enum);
+
+  /// Copy constructor
+   graph_value(const graph_value& other);
+
+  /// Copy assignment 
+  graph_value& operator=(const graph_value& other); 
+
+
+      
+  /// Initialize the data with given type and NULL value.
+  void init(graph_datatypes_enum type);
+
+  /// Destructor. Frees the data if it is a string / blob
+  ~graph_value();
+
+ public:
   union value_union_type {
     graph_vid_t vid_value;
     graph_int_t int_value;
@@ -45,13 +65,7 @@ class graph_value {
    *   the data if the datatype is is a string / blob.
    */
   value_union_type _data;
-
-  /**
-   * The original value of the data. Only used for scalar types.
-   * Used to provide delta-based commits. 
-   */
-  value_union_type _old;
-  
+ 
   /** The number of bytes needed to represent the data. If a scalar type,
    *  this is the number of bytes needed to represent the scalar type. Otherwise,
    *  for a string/blob, this ithe length of the data. Note that a 0 length
@@ -65,27 +79,9 @@ class graph_value {
   /// If true, this is a null value and the data field is ignored
   bool _null_value;
 
-  /// If true, the data was modified by a set_* or a get_mutable_raw_pointer()
-  bool _modified;
-
-  /// If true, changes made to this entry should be committed using a delta.
-  /// Only valid for scalar types.
-  bool _use_delta_commit;
   
-  /// Default construction creates a null integer
-  graph_value();
-
-  /// Default construction creates a null with given type 
-  graph_value(graph_datatypes_enum);
-      
-  /// Destructor. Frees the data if it is a string / blob
-  ~graph_value();
-
   /// Frees the data pointer resetting it to NULL if it is a string / blob.
   void free_data();
-
-  /// Initialize the data with given type and NULL value.
-  void init(graph_datatypes_enum type);
 
   /** The number of bytes needed to represent the data. If a scalar type,
    *  this is the number of bytes needed to represent the scalar type. Otherwise,
@@ -105,15 +101,13 @@ class graph_value {
    *  Realloc or free should not be called on the returned pointer.
    *  Modifications to the data also should not be made.
    */
-  const void* get_raw_pointer();
+  const void* get_raw_pointer() const;
 
   /** Returns the raw pointer to the data. Returns NULL if data is NULL.
    *  Realloc or free should not be called on the returned pointer.
    *  Modifications to the data may be made.
    */
   void* get_mutable_raw_pointer();
-
-
 
   /// Returns the datatype of the entry
   inline graph_datatypes_enum type() const {
@@ -125,21 +119,21 @@ class graph_value {
    * Returns true on success. Returns false if the data
    * is not a VID type, or the data is NULL.
    */
-  bool get_vid(graph_vid_t* out_ret); 
+  bool get_vid(graph_vid_t* out_ret) const; 
 
   /**
    * Returns the value as a integer type in the out_ret argument.
    * Returns true on success. Returns false if the data
    * is not a integer type, or the data is NULL.
    */
-  bool get_integer(graph_int_t* out_ret); 
+  bool get_integer(graph_int_t* out_ret) const; 
 
   /**
    * Returns the value as a double type in the out_ret argument.
    * Returns true on success. Returns false if the data
    * is not a double type, or the data is NULL.
    */
-  bool get_double(graph_double_t* out_ret);
+  bool get_double(graph_double_t* out_ret) const;
 
 
   /**
@@ -147,14 +141,14 @@ class graph_value {
    * Returns true on success. Returns false if the data
    * is not a string type, or the data is NULL.
    */
-  bool get_string(graph_string_t* out_ret);
+  bool get_string(graph_string_t* out_ret) const;
 
   /**
    * Returns the value as a blob type in the out_ret argument.
    * Returns true on success. Returns false if the data
    * is not a blob type, or the data is NULL.
    */
-  bool get_blob(graph_blob_t* out_ret);
+  bool get_blob(graph_blob_t* out_ret) const;
 
 
   /**
@@ -166,7 +160,7 @@ class graph_value {
    * Returns true on success. Returns false if the data
    * is not a blob type, or the data is NULL.
    */
-  bool get_blob(size_t len, char* out_blob);
+  bool get_blob(size_t len, char* out_blob) const;
 
   /**
    * Sets the value of an integer field to the provided argument.
@@ -174,7 +168,7 @@ class graph_value {
    * Returns true on success. Returns false if the data
    * is not an integer type, or the data is NULL.
    */
-  bool set_integer(graph_int_t val);
+  bool set_integer(graph_int_t val, bool is_delta = false);
 
   /**
    * Sets the value of an double field to the provided argument.
@@ -182,7 +176,7 @@ class graph_value {
    * Returns true on success. Returns false if the data
    * is not an double type, or the data is NULL.
    */
-  bool set_double(graph_double_t val);
+  bool set_double(graph_double_t val, bool is_delta = false);
 
   /**
    * Sets the value of an vid field to the provided argument.
@@ -215,6 +209,12 @@ class graph_value {
    */
   bool set_blob(const char* val, size_t length);
 
+  /**
+   * Sets the value field to the provided argument based on the type and delta commit flag.
+   * Returns true on success. Returns false if the data
+   * cannot be cast to the matching type, or the data is NULL.
+   */
+  bool set_val(const graph_value& val, bool delta=false);
 
   /**
    * Sets the value field to the provided argument based on the type and delta commit flag.
@@ -230,67 +230,14 @@ class graph_value {
    */
   bool set_val(const std::string& val_str, bool delta = false);
 
-
-  /** Returns true if the data was modified. The data could be flagged as 
-   * modified by calling any of the set_* functions, 
-   * get_mutable_raw_pointer(), or set_modified().
-   */
-  inline bool get_modified() const {
-    return _modified;
-  }
-  
-  /** Sets the modified flag. This flag is automatically set by the set_*
-   * and the get_mutable_raw_pointer() call.
-   */ 
-  inline void set_modified() {
-    _modified = true;
-  }
-
-  /** 
-   * Returns true if the delta commit flag is set.
-   * If the delta commit flag is set, changes made will be committed 
-   * as a delta (i.e. add 10, subtract 5.1) instead of as a value 
-   * (set value to 51).
-   */
-  inline bool get_use_delta_commit() const {
-    return _use_delta_commit;
-  }
-  
-  /** Sets the delta commit flag.
-   * If the delta commit flag is set, changes made will be committed 
-   * as a delta (i.e. add 10, subtract 5.1) instead of as a value 
-   * (set value to 51).
-   * Only valid for scalar types. Returns true on success and false on failure.
-   */
-  inline bool set_use_delta_commit() {
-    if (_type == INT_TYPE || _type == DOUBLE_TYPE) {
-      _use_delta_commit = true;
-      return true;
-    } else {
-      return false;
-    }
-  }
-
-  // Deepcopy into out_value. 
-  void deepcopy(graph_value& out_value);
+  // Subtract other's value from this. Only have effect on scalar type values.
+  void diff(const graph_value& other, graph_value& out_delta);
 
   /**
-   * Set the value to post commit state: setting oldvalue to be new value,
-   * remove modification flags.
-   */
-  inline void post_commit_state() {
-    if (is_scalar_graph_datatype(_type)) {
-      _old = _data;
-    } 
-    _modified = false;
-  }
-
-  /**
-   * Serialization interface. Save the current value. 
-   * \note old value and modification flag are ignored.
+   * Serialization interface. 
    */
   inline void save(oarchive& oarc) const {
-    oarc << _type << _null_value << _use_delta_commit << _len;
+    oarc << _type << _null_value << _len;
     if (!_null_value) {
       if (is_scalar_graph_datatype(_type)) {
         oarc.write((char*)(&_data), _len);
@@ -301,11 +248,10 @@ class graph_value {
   }
 
   /**
-   * Serialization interface. Load the current value. 
-   * \note old value and modification flag are ignored.
+   * Serialization interface.
    */
   inline void load(iarchive& iarc) {
-    iarc >> _type >> _null_value >> _use_delta_commit >> _len;
+    iarc >> _type >> _null_value >> _len;
      if (!_null_value) {
        if (is_scalar_graph_datatype(_type)) {
           iarc.read((char*)(&_data), _len);
@@ -321,12 +267,6 @@ class graph_value {
   }
 
  private:
-  // copy constructor deleted. It is not safe to copy this object.
-  graph_value(const graph_value&) { } 
-
-  // assignment operator deleted. It is not safe to copy this object.
-  graph_value& operator=(const graph_value&) { return *this; }
-
   // output the string format to ostream.
   friend std::ostream& operator<<(std::ostream &strm, const graph_value& v) {
     std::string value_str; 

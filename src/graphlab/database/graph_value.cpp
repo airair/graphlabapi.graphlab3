@@ -2,24 +2,49 @@
 #include <cstring>
 #include <cstdlib>
 namespace graphlab {
-
   graph_value::graph_value(): 
       _len(sizeof(graph_int_t)), 
       _type(INT_TYPE), 
-      _null_value(true),
-      _modified(false),
-      _use_delta_commit(false) {
+      _null_value(true) {
         memset(&_data, 0, sizeof(_data));
-        memset(&_old, 0, sizeof(_old));
       }
+
+  graph_value::graph_value(graph_datatypes_enum type) {
+    init(type);
+  }
+
+  graph_value::graph_value(const graph_value& other) :
+      _len(other._len), _type(other._type), _null_value(other._null_value) {
+        if (is_scalar_graph_datatype(_type)) {
+          _data = other._data;
+        } else {
+          _data.bytes = (char*) malloc(_len);
+          memcpy(_data.bytes, other._data.bytes, _len);
+        }
+      }
+
+  graph_value& graph_value::operator=(const graph_value& other) { 
+    _type = other._type;
+    _len = other._len;
+    _null_value = other._null_value;
+    if (is_scalar_graph_datatype(_type)) {
+      _data = other._data;
+    } else {
+      if(_data.bytes != NULL) {
+        _data.bytes = (char*) realloc(_data.bytes, _len);
+      } else {
+        _data.bytes = (char*) malloc(_len);
+      }
+      memcpy(_data.bytes, other._data.bytes, _len);
+    }
+    return *this; 
+  }
+
 
   void graph_value::init(graph_datatypes_enum type) {
     _type = type; 
     _null_value = true;
-    _modified = false;
-    _use_delta_commit = false;
     memset(&_data, 0, sizeof(_data));
-    memset(&_old, 0, sizeof(_old));
     switch(type) {
      case STRING_TYPE:
      case BLOB_TYPE: _len = 0;  break;
@@ -30,11 +55,9 @@ namespace graphlab {
     }
   }
 
-
   graph_value::~graph_value() {
     free_data();
   }
-
 
   void graph_value::free_data() {
     if ((_type == STRING_TYPE || _type == BLOB_TYPE)) { 
@@ -43,20 +66,16 @@ namespace graphlab {
         _data.bytes = NULL;
         _len = 0;
       }
-      if (_old.bytes != NULL) {
-        free(_old.bytes);
-        _old.bytes = NULL;
-      }
     }
   }
 
-  const void* graph_value::get_raw_pointer() {
+  const void* graph_value::get_raw_pointer() const {
     if (is_null()) {
       return NULL;
     } else if (is_scalar_graph_datatype(_type)) {
-      return reinterpret_cast<void*>(&_data);
+      return reinterpret_cast<const void*>(&_data);
     } else {
-      return reinterpret_cast<void*>(_data.bytes);
+      return reinterpret_cast<const void*>(_data.bytes);
     }
   }
 
@@ -64,16 +83,13 @@ namespace graphlab {
     if (is_null()) {
       return NULL;
     } else if (is_scalar_graph_datatype(_type)) {
-      _modified = true;
       return reinterpret_cast<void*>(&_data);
     } else {
-      _modified = true;
       return reinterpret_cast<void*>(_data.bytes);
     }
   }
 
-
-  bool graph_value::get_vid(graph_vid_t* out_ret) {
+  bool graph_value::get_vid(graph_vid_t* out_ret) const {
     if (type() == VID_TYPE && !is_null()) {
       (*out_ret) = _data.int_value;
       return true;
@@ -82,7 +98,7 @@ namespace graphlab {
     }
   } 
 
-  bool graph_value::get_integer(graph_int_t* out_ret) {
+  bool graph_value::get_integer(graph_int_t* out_ret) const {
     if (type() == INT_TYPE && !is_null()) {
       (*out_ret) = _data.vid_value;
       return true;
@@ -91,7 +107,7 @@ namespace graphlab {
     }
   } 
 
-  bool graph_value::get_double(graph_double_t* out_ret) {
+  bool graph_value::get_double(graph_double_t* out_ret) const {
     if (type() == DOUBLE_TYPE && !is_null()) {
       (*out_ret) = _data.double_value;
       return true;
@@ -100,8 +116,7 @@ namespace graphlab {
     }
   } 
 
-
-  bool graph_value::get_string(graph_string_t* out_ret) {
+  bool graph_value::get_string(graph_string_t* out_ret) const {
     if (type() == STRING_TYPE && !is_null()) {
       out_ret->assign(_data.bytes, _len);
       return true;
@@ -110,7 +125,7 @@ namespace graphlab {
     }
   } 
 
-  bool graph_value::get_blob(graph_blob_t* out_ret) {
+  bool graph_value::get_blob(graph_blob_t* out_ret) const {
     if (type() == BLOB_TYPE && !is_null()) {
       out_ret->assign(_data.bytes, _len);
       return true;
@@ -119,8 +134,7 @@ namespace graphlab {
     }
   } 
 
-
-  bool graph_value::get_blob(size_t len, char* out_blob) {
+  bool graph_value::get_blob(size_t len, char* out_blob) const {
     if (type() == BLOB_TYPE && !is_null()) {
       memcpy(out_blob, _data.bytes, std::min(len, data_length()));
       return true;
@@ -129,20 +143,26 @@ namespace graphlab {
     }
   }
 
+  bool graph_value::set_val(const graph_value& other, bool delta) {
+    if (_type != other._type) {
+      return false;
+    }
+    const char* data_ptr =  is_scalar_graph_datatype(_type) ? (const char*)(&other._data) : 
+        (const char*)(other._data.bytes);
+    return set_val(data_ptr, other._len, delta);
+  }
 
   bool graph_value::set_val(const char* val, size_t length, bool delta) {
     switch(_type) {
      case INT_TYPE:
        {
          graph_int_t intval = *((graph_int_t*)val);
-         return delta ? set_integer(intval + _old.int_value) 
-             : set_integer(intval);
+         return set_integer(intval, delta); 
        }
      case DOUBLE_TYPE:
        {
          graph_double_t doubleval = *((graph_double_t*)val);
-         return delta ? set_double(doubleval + _old.double_value) 
-             : set_double(doubleval);
+         return set_double(doubleval, delta); 
        }
      case VID_TYPE:
        return set_vid(*((graph_vid_t*)val));
@@ -160,15 +180,24 @@ namespace graphlab {
     switch(_type) {
      case INT_TYPE:
        {
-         graph_int_t intval = boost::lexical_cast<graph_int_t>(val_str); 
-         return delta ? set_integer(intval + _old.int_value) 
-             : set_integer(intval);
+         try {
+           graph_int_t intval = boost::lexical_cast<graph_int_t>(val_str); 
+           return set_integer(intval, delta);
+         } catch (boost::bad_lexical_cast &) {
+           logstream(LOG_ERROR) << "Unable to cast "
+                                << val_str << " to graph_int_t" << std::endl;
+           return false;
+         }
        }
      case DOUBLE_TYPE:
        {
-         graph_double_t doubleval = boost::lexical_cast<graph_double_t>(val_str);
-         return delta ? set_double(doubleval + _old.double_value) 
-             : set_double(doubleval);
+         try {
+           graph_double_t doubleval = boost::lexical_cast<graph_double_t>(val_str);
+           return set_double(doubleval, delta);
+         } catch (boost::bad_lexical_cast &) {
+           logstream(LOG_ERROR) << "Unablt ot cast "
+                                << val_str << " to graph_dobuble_t" << std::endl;
+         }
        }
      case VID_TYPE:
        return set_vid(boost::lexical_cast<graph_vid_t>(val_str));
@@ -182,13 +211,13 @@ namespace graphlab {
     return false;
   }
 
-
-  bool graph_value::set_integer(graph_int_t val) {
+  bool graph_value::set_integer(graph_int_t val, bool is_delta) {
     if (type() == INT_TYPE) {
-      // if the modified flag was already set, leave it.
-      // otherwise, set it only if the value changed.
-      _modified = (_modified || _data.int_value != val || _null_value);
-      _data.int_value = val;
+      if (is_delta) {
+        _data.int_value += val;
+      } else {
+        _data.int_value = val;
+      }
       _null_value = false;
       return true;
     } else {
@@ -196,12 +225,13 @@ namespace graphlab {
     }
   }
 
-  bool graph_value::set_double(graph_double_t val) {
+  bool graph_value::set_double(graph_double_t val, bool is_delta) {
     if (type() == DOUBLE_TYPE) {
-      // if the modified flag was already set, leave it.
-      // otherwise, set it only if the value changed.
-      _modified = (_modified || _data.double_value != val || _null_value);
-      _data.double_value = val;
+      if (is_delta) {
+        _data.double_value += val;
+      } else {
+        _data.double_value = val;
+      }
       _null_value = false;
       return true;
     } else {
@@ -211,9 +241,6 @@ namespace graphlab {
 
   bool graph_value::set_vid(graph_vid_t val) {
     if (type() == VID_TYPE) {
-      // if the modified flag was already set, leave it.
-      // otherwise, set it only if the value changed.
-      _modified = (_modified || _data.vid_value != val || _null_value);
       _data.vid_value = val;
       _null_value = false;
       return true;
@@ -221,8 +248,6 @@ namespace graphlab {
       return false;
     }
   }
-
-
 
   bool graph_value::set_string(const graph_string_t& val){
     if (type() == STRING_TYPE) {
@@ -232,10 +257,8 @@ namespace graphlab {
         _len = val.length();
         _data.bytes = reinterpret_cast<char*>(realloc(_data.bytes, _len));
         memcpy(_data.bytes, val.c_str(), _len);
-        _modified = true;
       }
       else if (memcmp(_data.bytes, val.c_str(), _len) != 0) {
-        _modified = true;
         memcpy(_data.bytes, val.c_str(), _len);
       }
       return true;
@@ -256,38 +279,24 @@ namespace graphlab {
         _len = length;
         _data.bytes = reinterpret_cast<char*>(realloc(_data.bytes, _len));
         memcpy(_data.bytes, val, _len);
-        _modified = true;
-      }
-      else if (val == _data.bytes) {
-        _modified = true;
-      }
-      else if (memcmp(_data.bytes, val, _len) != 0) {
-        memcpy(_data.bytes, val, _len);
-        _modified = true;
-      }
+      } else {
+        if (val != _data.bytes) 
+          memcpy(_data.bytes, val, _len);
+      } 
       return true;
     } else {
       return false;
     }
   }
 
-  /**
-   * Make a deep copy into out_value. Ignore all fields in the out_value.
-   */
-  void graph_value::deepcopy(graph_value& out_value) {
-    out_value._type = _type;
-    out_value._data = _data;
-    out_value._old = _old;
-    out_value._len = _len;
-    out_value._null_value = _null_value;
-    out_value._modified = _modified;
-    out_value._use_delta_commit = _use_delta_commit;
-    if ((_type == STRING_TYPE || _type == BLOB_TYPE) && _data.bytes != NULL) {
-      out_value._data.bytes = (char*) malloc(_len);
-      memcpy((void*)(out_value._data.bytes), (void*)(_data.bytes), _len);
-
-      out_value._old.bytes = (char*) malloc(_len);
-      memcpy((void*)(out_value._old.bytes), (void*)(_old.bytes), _len);
+  void graph_value::diff(const graph_value& other, graph_value& out_delta) {
+    out_delta = *this;
+    if (is_scalar_graph_datatype(_type) && (_type == other._type)) {
+      switch (_type) {
+       case INT_TYPE: out_delta._data.int_value -= other._data.int_value; break;
+       case DOUBLE_TYPE: out_delta._data.double_value -= other._data.double_value; break;
+       default: break;
+      }
     }
   }
 } // namespace graphlab

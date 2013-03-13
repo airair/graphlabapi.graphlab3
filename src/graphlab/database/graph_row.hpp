@@ -12,7 +12,6 @@ namespace graphlab {
 
 // forward declaration of the graph database
 class graph_database;
-
 /**
  * \ingroup group_graph_database
  * This class stores the complete row of data for a vertex/edge.
@@ -57,8 +56,10 @@ class graph_row {
     }
   }
 
+  /// add a new field into row with NULL value.
   void add_field(graph_field& field);
 
+  /// remove a field at fieldpos.
   void remove_field(size_t fieldpos);
   
   /// Returns the number of fields on this row
@@ -100,10 +101,13 @@ class graph_row {
     else return NULL; 
   }
 
-  /**
-   * Return an vector of index where the value is modified.
+  /** 
+   * Const version of get_field. 
    */
-  std::vector<size_t> get_modified_fields();
+  inline const graph_value* get_field(size_t fieldpos) const {
+    if (fieldpos < num_fields()) return _data + fieldpos;
+    else return NULL; 
+  }
 
   /**
    * Serialization interface. Save the values and associated state into oarchive.
@@ -176,11 +180,3 @@ class graph_row {
 };
 } // namespace graphlab 
 #endif
-
-  // /**
-  //  * Returns the position of a particular field name.
-  //  * Returns a value >= 0 on success, and -1 on failure.
-  //  */
-  // int get_field_pos(const char* fieldname);
-
-

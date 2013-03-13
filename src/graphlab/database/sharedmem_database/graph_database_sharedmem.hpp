@@ -115,8 +115,13 @@ namespace graphlab {
      */
     bool remove_edge_field(size_t i);
 
-    template<typename T>
-    void donothing(T x) { } 
+  /**
+   * Set the data field at fieldpos of row with the new value. If the delta flag   
+   * is true, the assignment is +=.
+   * Return false on failure.
+   */
+    bool set_field(graph_row* row, size_t fieldpos,
+                         const graph_value& new_value, bool delta);
 
     template<typename TransformType>
     void transform_vertices(TransformType transform_functor) {
@@ -280,11 +285,11 @@ namespace graphlab {
      */
     graph_shard* get_shard_copy(graph_shard_id_t shard_id); 
 
-    /**
-     * Commits all the changes made to the vertex data and edge data 
-     * in the shard, resetting all modification flags.
-     */
-    void commit_shard(graph_shard* shard);
+    // /**
+    //  * Commits all the changes made to the vertex data and edge data 
+    //  * in the shard, resetting all modification flags.
+    //  */
+    // void commit_shard(graph_shard* shard);
 
     /**
      * Frees a shard. Frees all edge and vertex data from the memory. 

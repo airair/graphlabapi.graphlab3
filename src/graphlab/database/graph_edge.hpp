@@ -34,23 +34,40 @@ class graph_edge {
   virtual graph_eid_t get_id() const = 0;
 
 
-  /** Returns a pointer to the graph_row representing the data
-   * stored on this edge. Modifications made to the data, are only committed 
-   * to the database through a write_* call.
+  /** Returns a const pointer to the graph_row representing the data
+   * stored on this vertex. Modifications made to the data should be done through.
+   * set_field call, and committed through write_*.
    *
-   * \note Note that a pointer to the graph_row is returned. The graph_edge 
-   * object retains ownership of the graph_row object. If this edge is freed 
-   * (using \ref graph_database::free_edge ),  all pointers to the data 
+   * \note Note that a pointer to the graph_row is returned. The graph_vertex 
+   * object retains ownership of the graph_row object. If this vertex is freed 
+   * (using \ref graph_database::free_vertex ),  all pointers to the data 
    * returned by this function are invalidated.
    *
    * \note On the first call to data(), or all calls to *_refresh(), the 
-   * graph_edge performs a synchronous read of the entire row from the
+   * graph_vertex performs a synchronous read of the entire row from the
    * database, and caches it. Repeated calls to data() should always return
    * the same graph_row pointer.
    */
-  virtual graph_row* data() = 0;
-
   virtual const graph_row* immutable_data() const = 0;
+
+  /*
+   * Returns number of fields in the data.
+   */
+  virtual size_t num_fields() const = 0; 
+
+  /**
+   * Return a pointer to the graph value at the requested field.
+   * Modifications made to the data, are only committed 
+   * to the database through a write_* call.
+   */
+  virtual graph_value* get_field(size_t fieldpos) = 0;
+
+  /**
+   * Set the field at fieldpos to new value. 
+   * Modifications made to the data, are only committed 
+   * to the database through a write_* call.
+   */
+  virtual bool set_field(size_t fieldpos, const graph_value& value) = 0;
 
   // --- synchronization ---
 
@@ -119,8 +136,8 @@ class graph_edge {
   // output the string format to ostream
   friend std::ostream& operator<<(std::ostream &strm, graph_edge& e) {
     strm << "(" << e.get_src() << ", " << e.get_dest()<< "): "; 
-    if (e.data()!= NULL) {
-      strm << *(e.data());
+    if (e.immutable_data()!= NULL) {
+      strm << *(e.immutable_data());
     } else {
       strm  << "not available" << std::endl;
     }

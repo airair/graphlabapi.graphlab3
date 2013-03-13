@@ -63,7 +63,6 @@ void test_ingress(size_t nverts, size_t nedges, bool batch) {
   for (size_t i = 0; i < nverts; i++) {
     graphlab::graph_row* row = new graphlab::graph_row(vertexfields, true);
     row->get_field(0)->set_double((double)i);
-    row->get_field(0)->post_commit_state();
     if (batch)
       graph.add_vertex(i, row);
     else

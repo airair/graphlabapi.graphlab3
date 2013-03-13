@@ -73,15 +73,21 @@ namespace graphlab {
     }
   }
 
+  bool graph_database_sharedmem::set_field(graph_row* row,
+      size_t fieldpos, const graph_value& new_value, bool delta) {
+    if (row != NULL && fieldpos < row->num_fields()) { 
+      graph_value* value = row->get_field(fieldpos);
+      return value->set_val(new_value, delta);
+    } else {
+      return false;
+    }
+  }
 
   graph_vertex* graph_database_sharedmem::get_vertex(graph_vid_t vid, graph_shard_id_t shardid) {
     if (shards[shardid] == NULL || !shards[shardid]->has_vertex(vid)) {
       return NULL;
     }
-    graph_row* vertex_data = shards[shardid]->vertex_data_by_id(vid);
-    const boost::unordered_set<graph_shard_id_t>& mirrors = shards[shardid]->get_mirrors(vid);
-    ASSERT_TRUE(vertex_data != NULL);
-    return (new graph_vertex_sharedmem(vid, vertex_data, shardid, mirrors, this));
+    return (new graph_vertex_sharedmem(vid, shardid, this));
   };
 
 
@@ -194,40 +200,40 @@ namespace graphlab {
     return ret;
   }
 
-  void graph_database_sharedmem::commit_shard(graph_shard* shard) {
-    graph_shard_id_t id = shard->id();
-    ASSERT_TRUE(shards[id] != NULL);
+  // void graph_database_sharedmem::commit_shard(graph_shard* shard) {
+    // graph_shard_id_t id = shard->id();
+    // ASSERT_TRUE(shards[id] != NULL);
 
-    // commit vertex data
-    for (size_t i = 0; i < shard->num_vertices(); i++) {
-      graph_row* row = shard->vertex_data(i);
-      for (size_t j = 0; j < row->num_fields(); j++) {
-        graph_value* val = row->get_field(j);
-        if (val->get_modified()) {
-          val->post_commit_state();
-        }
-      }
-    }
-    // commit edge data
-    
-    // if the shard to commit is a derived shard, we need to overwrite 
-    // the corresponding edges in the original shard
-    bool derivedshard = shard->shard_impl.edgeid.size() > 0;
-    for (size_t i = 0; i < shard->num_edges(); i++) {
-      graph_row* local = shard->edge_data(i);
-      graph_row* origin = derivedshard ? shards[id]->edge_data(shard->shard_impl.edgeid[i]) 
-          : shards[id]->edge_data(i);
-      ASSERT_TRUE(origin != NULL);
-      for (size_t j = 0; j < local->num_fields(); j++) {
-        graph_value* val = local->get_field(j);
-        if (val->get_modified()) {
-          val->post_commit_state();
-          origin->get_field(j)->free_data();
-          val->deepcopy(*origin->get_field(j));
-        }
-      }
-    }
-  }
+    // // commit vertex data
+    // for (size_t i = 0; i < shard->num_vertices(); i++) {
+    //   graph_row* row = shard->vertex_data(i);
+    //   for (size_t j = 0; j < row->num_fields(); j++) {
+    //     graph_value* val = row->get_field(j);
+    //     if (val->get_modified()) {
+    //       val->post_commit_state();
+    //     }
+    //   }
+    // }
+    // // commit edge data
+    // 
+    // // if the shard to commit is a derived shard, we need to overwrite 
+    // // the corresponding edges in the original shard
+    // bool derivedshard = shard->shard_impl.edgeid.size() > 0;
+    // for (size_t i = 0; i < shard->num_edges(); i++) {
+    //   graph_row* local = shard->edge_data(i);
+    //   graph_row* origin = derivedshard ? shards[id]->edge_data(shard->shard_impl.edgeid[i]) 
+    //       : shards[id]->edge_data(i);
+    //   ASSERT_TRUE(origin != NULL);
+    //   for (size_t j = 0; j < local->num_fields(); j++) {
+    //     graph_value* val = local->get_field(j);
+    //     if (val->get_modified()) {
+    //       val->post_commit_state();
+    //       origin->get_field(j)->free_data();
+    //       val->deepcopy(*origin->get_field(j));
+    //     }
+    //   }
+    // }
+  // }
 
   bool graph_database_sharedmem::add_vertex(graph_vid_t vid, graph_shard_id_t master, graph_row* data) {
       if (shards[master] == NULL) {

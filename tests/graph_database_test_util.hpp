@@ -153,7 +153,7 @@ namespace graphlab {
      /**
       * Return whether two graph rows have the same content.
       */
-     static bool compare_row(graph_row& lhs, graph_row& rhs) {
+     static bool compare_row(const graph_row& lhs, const graph_row& rhs) {
        if ((lhs.is_vertex() != rhs.is_vertex()) || (lhs.num_fields() != rhs.num_fields()))
          return false;
 

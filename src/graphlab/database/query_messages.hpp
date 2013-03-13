@@ -188,26 +188,12 @@ namespace graphlab {
      inline char* update_vertex_request(int* msg_len, 
                                  graph_vid_t vid,
                                  graph_shard_id_t shardid,
-                                 const std::vector<size_t>& modified_fields,
-                                 graph_row* data) {
+                                 const std::vector<graph_value*>& modified_values,
+                                 const graph_row* old_values,
+                                 bool use_delta = false) {
        oarchive oarc;
        oarc << std::string("s_vertex_row") << vid << shardid;
-       oarc << modified_fields.size(); 
-       for (size_t i = 0; i < modified_fields.size(); i++) {
-         graph_value* val = data->get_field(modified_fields[i]);
-         oarc << modified_fields[i] << val->data_length();
-         if (val->get_use_delta_commit()) {
-           oarc << true;
-           switch (val->type())  {
-            case INT_TYPE: oarc << (val->_data.int_value-val->_old.int_value); break;
-            case DOUBLE_TYPE: oarc << (val->_data.double_value-val->_old.double_value); break;
-            default: ASSERT_TRUE(false);
-           }
-         } else {
-           oarc << false;
-           oarc.write((char*)val->get_raw_pointer(), val->data_length());
-         }
-       }
+       add_modified_value_request(oarc, modified_values, old_values, use_delta);
        *msg_len=oarc.off;
        return oarc.buf;
      }
@@ -216,23 +202,47 @@ namespace graphlab {
       * Returns a message for updating the edge data.
       * The message includes the modified fields of the edge data. 
       * Currently the message sends the new data (not delta).
-      * TODO: check delta commit
       */
      inline char* update_edge_request(int* msg_len, 
                                  graph_eid_t eid,
                                  graph_shard_id_t shardid,
-                                 const std::vector<size_t>& modified_fields,
-                                 graph_row* data) {
+                                 const std::vector<graph_value*>& modified_values,
+                                 const graph_row* old_values,
+                                 bool use_delta = false) {
        oarchive oarc;
        oarc << std::string("s_edge_row") << eid << shardid;
-       oarc << modified_fields.size(); 
-       for (size_t i = 0; i < modified_fields.size(); i++) {
-         graph_value* val = data->get_field(modified_fields[i]);
-         oarc << modified_fields[i] << val->data_length();
-         oarc.write((char*)val->get_raw_pointer(), val->data_length());
-       }
+       add_modified_value_request(oarc, modified_values, old_values, use_delta);
        *msg_len=oarc.off;
        return oarc.buf;
+     }
+
+     /**
+      * Adding modified values into the oarchive message in the format:
+      * #changes  << [fieldid << value]...
+      */
+     void add_modified_value_request (oarchive& oarc,
+                                          const std::vector<graph_value*>& modified_values,
+                                          const graph_row* old_values,
+                                          bool use_delta) {
+       std::vector<size_t> modified_fields;
+       for (size_t i = 0; i < modified_values.size(); i++) {
+         if (modified_values[i] != NULL) {
+           modified_fields.push_back(i);
+         }
+       }
+       oarc << modified_fields.size(); 
+       for (size_t i = 0; i < modified_fields.size(); i++) {
+         graph_value* val = modified_values[modified_fields[i]];
+         oarc << modified_fields[i]; 
+         if (use_delta) {
+           const graph_value* oldval = old_values->get_field(modified_fields[i]);
+           graph_value delta;
+           val->diff(*oldval, delta);
+           oarc << true << delta;
+         } else {
+           oarc << false << *val;
+         }
+       }
      }
 
      // ------------- Dynamic Field Request --------------

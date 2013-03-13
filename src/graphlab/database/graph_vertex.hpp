@@ -39,9 +39,9 @@ class graph_vertex {
    */
   virtual graph_vid_t get_id() const = 0;
 
-  /** Returns a pointer to the graph_row representing the data
-   * stored on this vertex. Modifications made to the data, are only committed 
-   * to the database through a write_* call.
+  /** Returns a const pointer to the graph_row representing the data
+   * stored on this vertex. Modifications made to the data should be done through.
+   * set_field call, and committed through write_*.
    *
    * \note Note that a pointer to the graph_row is returned. The graph_vertex 
    * object retains ownership of the graph_row object. If this vertex is freed 
@@ -53,9 +53,27 @@ class graph_vertex {
    * database, and caches it. Repeated calls to data() should always return
    * the same graph_row pointer.
    */
-  virtual graph_row* data() = 0;
-  
   virtual const graph_row* immutable_data() const = 0;
+
+  /*
+   * Returns number of fields in the data.
+   */
+  virtual size_t num_fields() const = 0; 
+
+  /**
+   * Set the field at fieldpos to new value. 
+   * Modifications made to the data, are only committed 
+   * to the database through a write_* call.
+   */
+  virtual bool set_field(size_t fieldpos, const graph_value& value) = 0;
+
+  /**
+   * Return a pointer to the graph value at the requested field.
+   * Modifications made to the data, are only committed 
+   * to the database through a write_* call.
+   */
+  virtual graph_value* get_field(size_t fieldpos) = 0;
+
 
   // --- synchronization ---
 
@@ -153,8 +171,6 @@ class graph_vertex {
                             std::vector<graph_edge*>* out_inadj,
                             std::vector<graph_edge*>* out_outadj) = 0;
 
-
-
  private:
   // copy constructor deleted. It is not safe to copy this object.
   graph_vertex(const graph_vertex&) { }
@@ -173,8 +189,8 @@ class graph_vertex {
           strm << ",";
     }
     strm << "]\n";
-    if (v.data() != NULL) {
-      strm << "data: " << *(v.data()) << std::endl;
+    if (v.immutable_data() != NULL) {
+      strm << "data: " << *(v.immutable_data()) << std::endl;
     } else {
       strm  << "data: " << "not available" << std::endl;
     }

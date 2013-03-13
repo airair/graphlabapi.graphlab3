@@ -9,7 +9,6 @@ class graph_database;
 class graph_database_sharedmem;
 
 namespace graphlab {
-
 /**
  * \ingroup group_graph_database
  * A structure which provides access to a low level representation of the 
@@ -68,7 +67,7 @@ class graph_shard {
    * Returns the ID of the vertex in the i'th position in this shard.
    * i must range from 0 to num_vertices() - 1 inclusive.
    */ 
-  inline graph_vid_t vertex(size_t i) { return shard_impl.vertex[i]; }
+  inline graph_vid_t vertex(size_t i) const { return shard_impl.vertex[i]; }
 
   /**
    * Returns the data of the vertex in the i'th position in this shard.
@@ -80,21 +79,21 @@ class graph_shard {
    /**
     * Return true if the vertex with vid is owned by this shard.
     */
-   inline bool has_vertex(const graph_vid_t& vid) {
+   inline bool has_vertex(const graph_vid_t& vid) const {
      return shard_impl.vertex_index.has_vertex(vid);
    }
 
   /**
     * Return the mirror information of the vertex in the i'th position.
     */
-   inline boost::unordered_set<graph_shard_id_t> mirrors(size_t i) {
+   inline const boost::unordered_set<graph_shard_id_t> mirrors(size_t i) const {
      return shard_impl.vertex_mirrors[i];
    }
 
   /**
     * Return true if the vertex with vid is owned by this shard.
     */
-   inline boost::unordered_set<graph_shard_id_t> get_mirrors(const graph_vid_t& vid) {
+   inline const boost::unordered_set<graph_shard_id_t> get_mirrors(const graph_vid_t& vid) const {
      size_t pos = shard_impl.vertex_index.get_index(vid);
      return shard_impl.vertex_mirrors[pos];
    }
@@ -136,8 +135,7 @@ class graph_shard {
    * The edge is a pair of (src vertex ID, dest vertex ID).
    * j must range from 0 to num_edges() - 1 inclusive.
    */
-  inline std::pair<graph_vid_t, graph_vid_t> 
-      edge(size_t j) { return shard_impl.edge[j]; }
+  inline std::pair<graph_vid_t, graph_vid_t> edge(size_t j) const { return shard_impl.edge[j]; }
 
   /**
    * Returns the data of the edge in the j'th position in this shard.
@@ -164,7 +162,6 @@ class graph_shard {
   }
 
  private:
-
   // copy constructor deleted. It is not safe to copy this object.
   graph_shard(const graph_shard&) { }
 

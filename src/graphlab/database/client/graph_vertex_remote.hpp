@@ -31,6 +31,10 @@ class graph_vertex_remote: public graph_vertex {
   // Master of the vertex.
   graph_shard_id_t master;
 
+  // modified_values[i] is set the new value of field i or NULL if field i is not modified.
+  // the stored pointer is responsible for free the resources.
+  std::vector<graph_value*> modified_values;
+
   // Mirrors
   std::vector<graph_shard_id_t> mirrors;
 
@@ -55,6 +59,12 @@ class graph_vertex_remote: public graph_vertex {
     if (vdata != NULL) {
       delete vdata;
     }
+    for (size_t i = 0; i < modified_values.size(); i++) {
+      if (modified_values[i] != NULL) {
+        delete modified_values[i];
+        modified_values[i] = NULL;
+      }
+    }
   }
 
   /**
@@ -65,23 +75,66 @@ class graph_vertex_remote: public graph_vertex {
   }
 
   /**
-   * Returns a pointer to the graph_row representing the data
-   * stored on this vertex. Modifications made to the data, are only committed 
+   * Returns a const pointer to the graph_row representing the data
+   * stored on this vertex. Modifications made to the data can only be done
+   * through set_field and changes are only committed 
    * to the database through a write_* call.
    */
-  graph_row* data() {
-    if (vdata == NULL)
-      refresh();
+  const graph_row* immutable_data() const {
     return vdata;
   };
 
-  const graph_row* immutable_data() const {
-    return vdata;
+  /**
+   * Set the field at fieldpos to new value. 
+   * Modifications made to the data, are only committed 
+   * to the database through a write_* call.
+   */
+  inline bool set_field(size_t fieldpos, const graph_value& value) {
+    if (fieldpos >= num_fields()) {
+      return false;
+    }
+    if (fieldpos >= modified_values.size()) {
+      modified_values.resize(fieldpos+1);
+    }
+    if (modified_values[fieldpos] == NULL) {
+      graph_value* val = new graph_value();
+      modified_values[fieldpos] = val;
+    }
+    // copy over old data
+    *modified_values[fieldpos] = *(vdata->get_field(fieldpos)); 
+    return modified_values[fieldpos]->set_val(value);
   }
 
+  /**
+   * Return a pointer to the graph value at the requested field.
+   *
+   * \note Instead of pointing to the original value, the pointer points
+   * to an ghost copy of the actual field.
+   *
+   * \note Modification made to the data should be commited through a write_* call.
+   */
+  inline graph_value* get_field(size_t fieldpos) {
+    if (fieldpos >= num_fields()) {
+      return NULL;
+    }
+    if (fieldpos >= modified_values.size()) {
+      modified_values.resize(fieldpos+1);
+    }
+    if (modified_values[fieldpos] == NULL) {
+      graph_value* val = new graph_value();
+      modified_values[fieldpos] = val;
+    }
+    // copy over old data
+    *modified_values[fieldpos] = *(vdata->get_field(fieldpos)); 
+    return modified_values[fieldpos];
+  }
+
+  /// Returns number of fields in the data.
+  inline size_t num_fields() const {
+    return immutable_data()->num_fields();
+  }
 
   // --- synchronization ---
-
   /**
    * Commits changes made to the data on this vertex synchronously.
    * This resets the modification and delta flags on all values in the 
@@ -91,15 +144,16 @@ class graph_vertex_remote: public graph_vertex {
     if (vdata == NULL)
       return;
     QueryMessages messages;
-    std::vector<size_t> modified_fields = vdata->get_modified_fields();
     int len;
-    char* msg = messages.update_vertex_request(&len, vid, master, modified_fields, vdata);
+    char* msg = messages.update_vertex_request(&len, vid, master, modified_values, vdata);
     std::string reply = graph->update(graph->find_server(master), msg, len); 
     std::string errormsg;
     ASSERT_TRUE(messages.parse_reply(reply, errormsg));
-
-    for (size_t i = 0; i < modified_fields.size(); i++) {
-      data()->get_field(modified_fields[i])->post_commit_state();
+    for (size_t i = 0; i < modified_values.size(); i++) {
+      if (modified_values[i] != NULL) {
+        delete modified_values[i];
+        modified_values[i] = NULL;
+      }
     }
   }
 
@@ -111,18 +165,18 @@ class graph_vertex_remote: public graph_vertex {
       return;
     QueryMessages messages;
 
-    std::vector<size_t> modified_fields = vdata->get_modified_fields();
     int len;
-    char* msg = messages.update_vertex_request(&len, vid, master, modified_fields, vdata);
-
+    char* msg = messages.update_vertex_request(&len, vid, master, modified_values, vdata);
     graph->update_async(graph->find_server(master), msg, len, reply_queue); 
 
     //TODO: check reply success
-    
     reply_queue.clear();
 
-    for (size_t i = 0; i < modified_fields.size(); i++) {
-      vdata->get_field(modified_fields[i])->post_commit_state();
+    for (size_t i = 0; i < modified_values.size(); i++) {
+      if (modified_values[i] != NULL) {
+        delete modified_values[i];
+        modified_values[i] = NULL;
+      }
     }
   }
 

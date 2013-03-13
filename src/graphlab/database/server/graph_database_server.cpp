@@ -73,7 +73,7 @@ namespace graphlab {
     if (v == NULL) {
       oarc << false << error_messages.vertex_not_found(vid, shardid);
     } else {
-      graph_row* row= v->data();
+      const graph_row* row= v->immutable_data();
       oarc << true << *row;
       database->free_vertex(v);
     }
@@ -96,13 +96,13 @@ namespace graphlab {
     oarc << true << vid << shardid << _inadj.size() << _outadj.size();
     if (get_in) {
       for (size_t i = 0; i < _inadj.size(); i++) {
-         oarc << _inadj[i]->get_src() << _inadj[i]->get_id() << *(_inadj[i]->data());
+         oarc << _inadj[i]->get_src() << _inadj[i]->get_id() << *(_inadj[i]->immutable_data());
       }
       database->free_edge_vector(_inadj);
     }
     if (get_out) {
       for (size_t i = 0; i < _outadj.size(); i++) {
-        oarc << _outadj[i]->get_dest() << _outadj[i]->get_id() << *(_outadj[i]->data());
+        oarc << _outadj[i]->get_dest() << _outadj[i]->get_id() << *(_outadj[i]->immutable_data());
       }
       database->free_edge_vector(_outadj);
     }
@@ -131,7 +131,7 @@ namespace graphlab {
     if (e == NULL) {
       oarc << false << error_messages.edge_not_found(eid, shardid);
     } else {
-      graph_row* row= e->data();
+      const graph_row* row= e->immutable_data();
       oarc << true << *row;
       database->free_edge(e);
     }
@@ -201,25 +201,21 @@ namespace graphlab {
                                                 oarchive& oarc) {
     graph_vid_t vid;
     graph_shard_id_t shardid;
-    size_t fieldpos,len;
+    size_t fieldpos;
+    graph_value new_value;
     bool delta;
-    iarc >> vid >> shardid >> fieldpos >> len >> delta;
-    char* val = (char*)malloc(len);
-    iarc.read(val, len);
-
-    graph_vertex* v = database->get_vertex(vid, shardid);
-    if (v == NULL) {
-      oarc << false << error_messages.vertex_not_found(vid, shardid);
-      return;
-    }
-
-    bool success = v->data()->get_field(fieldpos)->set_val(val, len, delta);
-    v->write_changes();
-    database->free_vertex(v);
-    if (!success) {
-      oarc << false << error_messages.fail_setting_value(fieldpos); 
+    iarc >> vid >> shardid >> fieldpos >> delta >> new_value;
+    graph_shard* shard = database->get_shard(shardid);
+    if (shard != NULL && shard->has_vertex(vid)) {
+      bool success = database->set_field(shard->vertex_data_by_id(vid), fieldpos, new_value, delta);
+      if (!success) {
+        oarc << false << error_messages.fail_setting_value(fieldpos);
+      } else {
+        oarc << true;
+      }
     } else {
-      oarc << true;
+      oarc << false << ((shard == NULL) ? error_messages.shard_not_found(shardid)
+           : error_messages.vertex_not_found(vid, shardid));
     }
   }
 
@@ -227,24 +223,21 @@ namespace graphlab {
                                              oarchive& oarc) {
     graph_eid_t eid;
     graph_shard_id_t shardid;
-    size_t fieldpos, len;
+    graph_value new_value;
+    size_t fieldpos;
     bool delta;
-    iarc >> eid >> shardid >> fieldpos >> len >> delta;
-    char* val = (char*)malloc(len);
-    iarc.read(val, len);
-    graph_edge* e = database->get_edge(eid, shardid);
-    if (e == NULL) {
-      oarc << false << error_messages.edge_not_found(eid, shardid);
-      return;
-    } 
-
-    bool success = e->data()->get_field(fieldpos)->set_val(val, len, delta);
-    e->write_changes();
-    database->free_edge(e);
-    if (!success) {
-      oarc << false << error_messages.fail_setting_value(fieldpos);
+    iarc >> eid >> shardid >> fieldpos >> delta >> new_value;
+    graph_shard* shard = database->get_shard(shardid);
+    if (shard != NULL && eid < shard->num_edges()) {
+      bool success = database->set_field(shard->edge_data(eid), fieldpos, new_value, delta);
+      if (!success) {
+        oarc << false << error_messages.fail_setting_value(fieldpos);
+      } else {
+        oarc << true;
+      }
     } else {
-      oarc << true;
+      oarc << false << ((shard == NULL) ? error_messages.shard_not_found(shardid)
+           : error_messages.edge_not_found(eid, shardid));
     }
   }
 
@@ -252,64 +245,60 @@ namespace graphlab {
                                              oarchive& oarc) {
     graph_vid_t vid;
     graph_shard_id_t shardid;
-    size_t num_changes, fieldpos, len;
+    size_t num_changes, fieldpos;
     iarc >> vid >> shardid >> num_changes;
-    graph_vertex* v = database->get_vertex(vid, shardid);
-    if (v == NULL) {
-      oarc << false << error_messages.vertex_not_found(vid, shardid);
-      return;
-    }
-
-    std::vector<std::string> errors;
-    for (size_t i = 0; i < num_changes; i++) {
+    graph_shard* shard = database->get_shard(shardid);
+    if (shard != NULL && shard->has_vertex(vid)) {
+      graph_row* row = shard->vertex_data_by_id(vid);
+      std::vector<std::string> errors;
       bool delta;
-      iarc >> fieldpos >> len >> delta;
-      char* val = (char*)malloc(len);
-      iarc.read(val, len);
-      bool success = v->data()->get_field(fieldpos)->set_val(val, len, delta);
-      if (!success)
-        errors.push_back(error_messages.fail_setting_value(fieldpos));
-    }
-
-    v->write_changes();
-    database->free_vertex(v);
-
-    if (errors.size() > 0) { 
-      oarc << false << boost::algorithm::join(errors, "\n");
+      graph_value  new_value;
+      // set new values for all changed fields
+      for (size_t i = 0; i < num_changes; i++) {
+        iarc >> fieldpos >> delta >> new_value;
+        bool success = database->set_field(row, fieldpos, new_value, delta);
+        if (!success) {
+          errors.push_back(error_messages.fail_setting_value(fieldpos));
+        }
+      }
+      if (errors.size() > 0) {
+        oarc << false << boost::algorithm::join(errors, "\n");
+      } else {
+        oarc << true;
+      }
     } else {
-      oarc << true;
+      oarc << false << ((shard == NULL) ? error_messages.shard_not_found(shardid)
+           : error_messages.vertex_not_found(vid, shardid));
     }
   }
 
   void graph_database_server::set_edge_row(iarchive& iarc, oarchive& oarc) {
     graph_eid_t eid;
     graph_shard_id_t shardid;
-    size_t num_changes, fieldpos, len;
+    size_t num_changes, fieldpos;
     iarc >> eid >> shardid >> num_changes;
-    graph_edge* e = database->get_edge(eid, shardid);
-    if (e == NULL) {
-      oarc << false << error_messages.edge_not_found(eid, shardid);
-      return;
-    }
 
-    std::vector<std::string> errors;
-    for (size_t i = 0; i < num_changes; i++) {
+    graph_shard* shard = database->get_shard(shardid);
+    if (shard != NULL && eid < shard->num_edges()) {
+      graph_row* row = shard->edge_data(eid);
+      std::vector<std::string> errors;
       bool delta;
-      iarc >> fieldpos >> len >> delta;
-      char* val = (char*)malloc(len);
-      iarc.read(val, len);
-      bool success = e->data()->get_field(fieldpos)->set_val(val, len, delta);
-      if (!success)
-        errors.push_back(error_messages.fail_setting_value(fieldpos));
-    }
-
-    e->write_changes();
-    database->free_edge(e);
-
-    if (errors.size() > 0) { 
-      oarc << false << boost::algorithm::join(errors, "\n");
+      graph_value  new_value;
+      for (size_t i = 0; i < num_changes; i++) {
+        iarc >> fieldpos >> delta >> new_value; 
+        bool success = database->set_field(row, fieldpos, new_value, delta);
+        if (!success) {
+          errors.push_back(error_messages.fail_setting_value(fieldpos));
+        }
+      } 
+      if (errors.size() > 0) {
+        oarc << false << boost::algorithm::join(errors, "\n");
+      } else {
+        oarc << true;
+      }
     } else {
-      oarc << true;
+      oarc << false << ((shard == NULL) ? error_messages.shard_not_found(shardid)
+           : error_messages.edge_not_found(eid, shardid));
     }
   }
 

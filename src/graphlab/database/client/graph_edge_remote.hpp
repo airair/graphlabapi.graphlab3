@@ -26,6 +26,11 @@ class graph_edge_remote : public graph_edge {
 
  graph_shard_id_t master;
 
+ // modified_values[i] is set the new value of field i or NULL if field i is not modified.
+ // the stored pointer is responsible for free the resources.
+ std::vector<graph_value*> modified_values;
+
+
  graph_client* graph;
 
  public:
@@ -48,9 +53,9 @@ class graph_edge_remote : public graph_edge {
     void save (oarchive& oarc) const{
       oarc << vid << shardid << num_in_edges << num_out_edges;
       for (size_t i = 0; i < num_in_edges; i++)
-        oarc << inEdges[i].get_src() << inEdges[i].get_id() << inEdges[i].data();
+        oarc << inEdges[i].get_src() << inEdges[i].get_id() << inEdges[i].immutable_data();
       for (size_t i = 0; i < num_out_edges; i++) 
-        oarc << outEdges[i].get_dest() << outEdges[i].get_id() << outEdges[i].data();
+        oarc << outEdges[i].get_dest() << outEdges[i].get_id() << outEdges[i].immutable_data();
     }
 
     void load (iarchive& iarc) {
@@ -102,6 +107,12 @@ class graph_edge_remote : public graph_edge {
  ~graph_edge_remote () {
    if (edata != NULL)
      delete edata;
+   for (size_t i = 0; i < modified_values.size(); i++) {
+      if (modified_values[i] != NULL) {
+        delete modified_values[i];
+        modified_values[i] = NULL;
+      }
+    }
  }
 
   /**
@@ -120,26 +131,61 @@ class graph_edge_remote : public graph_edge {
    */
   graph_eid_t get_id() const { return eid;};
 
-  /** 
-   * Returns a pointer to the graph_row representing the data
-   * stored on this edge. Modifications made to the data, are only committed 
-   * to the database through a write_* call.
-   *
-   * \note Note that a pointer to the graph_row is returned. The graph_edge 
-   * object retains ownership of the graph_row object. If this edge is freed 
-   * (using \ref graph_database::free_edge ),  all pointers to the data 
-   * returned by this function are invalidated.
-   */
-  graph_row* data()  {
-    if (edata == NULL)
-      refresh();
-    return edata;
-  };
 
   const graph_row* immutable_data() const {
     return edata;
   }
 
+  /**
+   * Return a pointer to the graph value at the requested field.
+   *
+   * \note Instead of pointing to the original value, the pointer points
+   * to an ghost copy of the actual field.
+   *
+   * \note Modification made to the data should be commited through a write_* call.
+   */
+  inline graph_value* get_field(size_t fieldpos) {
+    if (fieldpos >= num_fields()) {
+      return NULL;
+    }
+    if (fieldpos >= modified_values.size()) {
+      modified_values.resize(fieldpos+1);
+    }
+    if (modified_values[fieldpos] == NULL) {
+      graph_value* val = new graph_value();
+      modified_values[fieldpos] = val;
+    }
+    // copy over old data
+    *modified_values[fieldpos] = *(edata->get_field(fieldpos)); 
+    return modified_values[fieldpos];
+  }
+
+
+  /**
+   * Set the field at fieldpos to new value. 
+   * Modifications made to the data, are only committed 
+   * to the database through a write_* call.
+   */
+  inline bool set_field(size_t fieldpos, const graph_value& value) {
+    if (fieldpos >= num_fields()) {
+      return false;
+    }
+    if (fieldpos >= modified_values.size()) {
+      modified_values.resize(fieldpos+1);
+    }
+    if (modified_values[fieldpos] == NULL) {
+      graph_value* val = new graph_value();
+      modified_values[fieldpos] = val;
+    }
+    // copy over old data
+    *modified_values[fieldpos] = *(edata->get_field(fieldpos)); 
+    return modified_values[fieldpos]->set_val(value);
+  }
+
+  /// Returns number of fields in the data.
+  inline size_t num_fields() const {
+    return immutable_data()->num_fields();
+  }
   // --- synchronization ---
   /**
    * Commits changes made to the data on this edge synchronously.
@@ -149,17 +195,18 @@ class graph_edge_remote : public graph_edge {
   void write_changes() {  
     if (edata == NULL)
       return;
-    std::vector<size_t> modified_fields = edata->get_modified_fields();
-
     QueryMessages messages;
     int len;
-    char* msg = messages.update_edge_request(&len, eid, master, modified_fields, edata);
+    char* msg = messages.update_edge_request(&len, eid, master, modified_values, edata);
     std::string reply = graph->update(graph->find_server(master), msg, len); 
     std::string errormsg;
     ASSERT_TRUE(messages.parse_reply(reply, errormsg));
 
-    for (size_t i = 0; i < modified_fields.size(); i++) {
-      data()->get_field(modified_fields[i])->post_commit_state();
+    for (size_t i = 0; i < modified_values.size(); i++) {
+      if (modified_values[i] != NULL) {
+        delete modified_values[i];
+        modified_values[i] = NULL;
+      }
     }
   }
 
@@ -170,19 +217,19 @@ class graph_edge_remote : public graph_edge {
     if (edata == NULL)
       return;
 
-    std::vector<size_t> modified_fields = edata->get_modified_fields();
-
     QueryMessages messages;
     int len;
-    char* msg = messages.update_edge_request(&len, eid, master, modified_fields, edata);
+    char* msg = messages.update_edge_request(&len, eid, master, modified_values, edata);
     graph->update_async(graph->find_server(master), msg, len, reply_queue); 
 
     //TODO: check reply success
-    
     reply_queue.clear();
 
-    for (size_t i = 0; i < modified_fields.size(); i++) {
-      edata->get_field(modified_fields[i])->post_commit_state();
+    for (size_t i = 0; i < modified_values.size(); i++) {
+      if (modified_values[i] != NULL) {
+        delete modified_values[i];
+        modified_values[i] = NULL;
+      }
     }
   }
 

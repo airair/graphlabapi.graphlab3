@@ -25,6 +25,7 @@ add_library(graphlab3 STATIC
             database/client/cli_parser.cpp
             database/client/distributed_graph_client.cpp
             database/client/graph_client_cli.cpp
+            database/engine/graph_database_synchronous_engine.cpp
             comm/comm_base.cpp
             comm/mpi_comm.cpp
             comm/mpi_comm2.cpp

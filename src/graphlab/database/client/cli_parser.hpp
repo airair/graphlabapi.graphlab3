@@ -16,6 +16,8 @@ namespace graphlab {
       BATCH_ADD_TYPE,
       BATCH_GET_TYPE,
       LOAD_TYPE,
+      COMPUTE_TYPE,
+      RESET_TYPE
     };
 
     enum targettype_enum {

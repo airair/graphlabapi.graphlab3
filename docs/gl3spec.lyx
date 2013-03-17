@@ -343,6 +343,14 @@ The vertex data
 \end_layout
 
 \end_deeper
+\begin_layout Enumerate
+Index for master vertex lookup
+\end_layout
+
+\begin_layout Enumerate
+Index for vertex adjacency lookup
+\end_layout
+
 \begin_layout Standard
 The API design is based somewhat on the MySQL C API.
  The goal is to minimize memory allocations within the interface itself
@@ -606,7 +614,7 @@ size_t graph_field::max_data_length() const;
 \end_layout
 
 \begin_layout Subsection
-Common Data Types
+Data types and representation
 \end_layout
 
 \begin_layout Standard
@@ -659,7 +667,30 @@ graph_value* graph_row::get_field(int fieldpos);
 
 \begin_layout LyX-Code
 
-graph_value* graph_row::get_field(const char* fieldname);
+\end_layout
+
+\begin_layout LyX-Code
+
+// add a field to the row
+\end_layout
+
+\begin_layout LyX-Code
+
+bool add_field(std::string& name, graph_datatypes_enum type);
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// remove a field from the row
+\end_layout
+
+\begin_layout LyX-Code
+
+bool remove_field(size_t fieldpos);
 \end_layout
 
 \end_inset
@@ -681,7 +712,7 @@ graph_value
 \series bold
 graph_value
 \series default
- type is not copyable.
+ type is copiable.
 \end_layout
 
 \begin_layout LyX-Code
@@ -737,26 +768,26 @@ size_t graph_value::data_length();
 
 \begin_layout LyX-Code
 
+// returns the type of the value
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_datatype_enum get_type();
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
 // Gets the pointer to the raw data.
 \end_layout
 
 \begin_layout LyX-Code
 
 const char* graph_value::get_raw_pointer();
-\end_layout
-
-\begin_layout LyX-Code
-
-\end_layout
-
-\begin_layout LyX-Code
-
-// Gets the pointer to the raw data 
-\end_layout
-
-\begin_layout LyX-Code
-
-char* graph_value::get_mutable_raw_pointer();
 \end_layout
 
 \begin_layout LyX-Code
@@ -827,6 +858,11 @@ string graph_value::get_string();
 
 \begin_layout LyX-Code
 
+...
+\end_layout
+
+\begin_layout LyX-Code
+
 \end_layout
 
 \begin_layout LyX-Code
@@ -856,22 +892,7 @@ bool graph_value::set_blob(const graph_blob_t& val);
 
 \begin_layout LyX-Code
 
-bool graph_value::set_blob(const char*, size_t len)); 
-\end_layout
-
-\begin_layout LyX-Code
-
- 
-\end_layout
-
-\begin_layout LyX-Code
-
-bool graph_value::get_modified() const;
-\end_layout
-
-\begin_layout LyX-Code
-
-void graph_value::set_modified();
+bool graph_value::set_blob(const char*, size_t len));
 \end_layout
 
 \begin_layout LyX-Code
@@ -880,25 +901,16 @@ void graph_value::set_modified();
 
 \begin_layout LyX-Code
 
-// delta commit
+// set the value based on the ascii representation of the type.
 \end_layout
 
 \begin_layout LyX-Code
 
-bool graph_value::get_use_delta_commit() const;
-\end_layout
-
-\begin_layout LyX-Code
-
-void graph_value::set_use_delta_commit();
+bool graph_value::set_val(std::string& value);
 \end_layout
 
 \end_inset
 
-
-\end_layout
-
-\begin_layout LyX-Code
 
 \end_layout
 
@@ -951,7 +963,7 @@ status open
 
 \begin_layout LyX-Code
 
-bool graphdb::insert_vertex(const graph_row& data);
+bool graphdb::insert_vertex(graph_vid_t vid, const graph_row& data);
 \end_layout
 
 \begin_layout LyX-Code
@@ -976,7 +988,28 @@ status open
 
 \begin_layout LyX-Code
 
-bool graphdb::insert_vertices(const std::vector<graph_row>& v);
+struct graph_vertex_insert_descriptor {
+\end_layout
+
+\begin_layout LyX-Code
+
+	graph_vid_t vid;
+\end_layout
+
+\begin_layout LyX-Code
+
+	graph_row data;
+\end_layout
+
+\begin_layout LyX-Code
+
+}
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graphdb::insert_vertices(const std::vector<graph_vertex_insert_descriptor>&
+ v);
 \end_layout
 
 \begin_layout LyX-Code
@@ -1024,15 +1057,167 @@ i->j
  fields carrying NULL values.
 \end_layout
 
+\begin_layout Quote
+It is possible to overwrite an existing NULL-valued data with a second insertion
+ with a not-NULL valued vertex.
+ Attempts to insert the same vertex twice with not-NULL valued data will
+ fail.
+\end_layout
+
 \begin_layout Subsection
-Read/Write API
+Client Read/Write API
 \end_layout
 
 \begin_layout Standard
-There are two API groups which may be used to interact with the graph database.
- The first provides fine-grained access patterns while the other provides
- bulk access patterns.
- All access methods are by default 
+A minimal set of read and write API is exposed to the client.
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+struct graph_vertex_descriptor {
+\end_layout
+
+\begin_layout LyX-Code
+
+	graph_vid_t vid;
+\end_layout
+
+\begin_layout LyX-Code
+
+	graph_row data;
+\end_layout
+
+\begin_layout LyX-Code
+
+	graph_shard_id_t master;
+\end_layout
+
+\begin_layout LyX-Code
+
+	std::vector<graph_shard_id_t> spans;
+\end_layout
+
+\begin_layout LyX-Code
+
+}
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+struct vertex_adj_descriptor {
+\end_layout
+
+\begin_layout LyX-Code
+
+	graph_vid_t center;
+\end_layout
+
+\begin_layout LyX-Code
+
+	bool in_edges;
+\end_layout
+
+\begin_layout LyX-Code
+
+	std::vector<graph_vid_t> neighbor_ids;
+\end_layout
+
+\begin_layout LyX-Code
+
+	std::vector<graph_row> data;
+\end_layout
+
+\begin_layout LyX-Code
+
+}
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// Read API
+\end_layout
+
+\begin_layout LyX-Code
+
+std::vector<graph_vertex_result> graphdb::get_vertices (std::vector<graph_vid_t>
+& vids);
+\end_layout
+
+\begin_layout LyX-Code
+
+graph_edge_list_result braphdb::get_vertex_adj(graph_vid_t vid, bool in_edges);
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// Write API
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graphdb::write_vertices(std::vector<graph_vertex_descriptor>& vertices);
+\end_layout
+
+\begin_layout LyX-Code
+
+bool graphdb::write_vertex_adj(graph_edge_list_descriptor>& edges);
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// Batch transform API
+\end_layout
+
+\begin_layout LyX-Code
+
+void transform_vertices(boost::functional<void(graph_row&)> fun);
+\end_layout
+
+\begin_layout LyX-Code
+
+void transform_edges(boost::functional<void(graph_row&)> fun);
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\end_layout
+
+\begin_layout Standard
+All access methods are by default 
 \series bold
 PRAM consistent
 \series default
@@ -1040,6 +1225,18 @@ PRAM consistent
  In other words, writes issued from the same machine are seen in the same
  order, and the same machine immediately sees the effect of all writes.
  (This can be guaranteed by having all writes block until completion)
+\end_layout
+
+\begin_layout Subsection
+GraphLabDBServer
+\end_layout
+
+\begin_layout Standard
+To support a wide range of quires, server side provides another set of interface.
+ There are two API groups which may be used to interact with the server.
+ The first provides fine-grained access patterns while the other provides
+ bulk access patterns.
+ 
 \end_layout
 
 \begin_layout Subsubsection
@@ -1057,101 +1254,6 @@ graph_vertex
 graph_edge
 \series default
  object.
- These objects are not copyable and are therefore manipulated as pointers.
- All returned graph_vertex and graph_edge objects must be freed using the
- free_vertex and free_edge functions.
-\end_layout
-
-\begin_layout Paragraph
-
-\series bold
-Finding vertices
-\end_layout
-
-\begin_layout LyX-Code
-\begin_inset listings
-inline false
-status open
-
-\begin_layout LyX-Code
-
-// returns a vertex for a queried vid.
- Returns NULL on failure
-\end_layout
-
-\begin_layout LyX-Code
-
-// The returned vertex pointer must be freed using free_vertex
-\end_layout
-
-\begin_layout LyX-Code
-
-graph_vertex* graphdb::get_vertex(graph_vid_t vid)
-\end_layout
-
-\begin_layout LyX-Code
-
- 
-\end_layout
-
-\begin_layout LyX-Code
-
-// returns the vertex ID in ret_vid for an index query.
- Returns false on failure
-\end_layout
-
-\begin_layout LyX-Code
-
-bool graphdb::find_vertex(size_t fieldpos,
-\end_layout
-
-\begin_layout LyX-Code
-
-                          graph_int_t value, 
-\end_layout
-
-\begin_layout LyX-Code
-
-                          std::vector<graph_vid_t>* out_vid);
-\end_layout
-
-\begin_layout LyX-Code
-
-bool graphdb::find_vertex(size_t fieldpos, 
-\end_layout
-
-\begin_layout LyX-Code
-
-                          graph_string_t value, 
-\end_layout
-
-\begin_layout LyX-Code
-
-                          std::vector<graph_vid_t>* out_vid);
-\end_layout
-
-\begin_layout LyX-Code
-
- 
-\end_layout
-
-\begin_layout LyX-Code
-
-void graphdb::free_vertex(graph_vertex* vertex);
-\end_layout
-
-\begin_layout LyX-Code
-
-void graphdb::free_edge_list(graph_edge_list* edge);
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout LyX-Code
-
 \end_layout
 
 \begin_layout Paragraph
@@ -1178,16 +1280,19 @@ data()
 refresh() 
 \series default
 function.
- Modifications to the data can also be written through the 
+\end_layout
+
+\begin_layout Standard
+Modifications to the data can also be written through 
 \series bold
-write_changes()
+commit_vertices
 \series default
- function.
- Only modified data is written since the 
+.
+ Only modified data is written since the
 \series bold
-graph_row
+ graph_vertex 
 \series default
- object does modification tracking.
+does modification tracking.
 \end_layout
 
 \begin_layout LyX-Code
@@ -1202,18 +1307,35 @@ graphaph_vid_t graph_vertex::get_id()
 
 \begin_layout LyX-Code
 
-// Accesses the vertex data.
- May return NULL if data was not read yet.
 \end_layout
 
 \begin_layout LyX-Code
 
-// in which case a refresh() call is necessary.
+// Accesses the vertex data, may block until the data is fetched.
 \end_layout
 
 \begin_layout LyX-Code
 
-graph_row* graph_vertex::data();
+// No modification allowed to the data.
+\end_layout
+
+\begin_layout LyX-Code
+
+const graph_row* graph_vertex::immutable_data();
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// Modify a given field;
+\end_layout
+
+\begin_layout LyX-Code
+
+bool set_field(size_t fieldpos, const graph_value& value);
 \end_layout
 
 \begin_layout LyX-Code
@@ -1223,28 +1345,6 @@ graph_row* graph_vertex::data();
 \begin_layout LyX-Code
 
 // --- synchronization ---
-\end_layout
-
-\begin_layout LyX-Code
-
-// write changes to data.
- Wait for completion
-\end_layout
-
-\begin_layout LyX-Code
-
-void graph_vertex::write_changes(); 
-\end_layout
-
-\begin_layout LyX-Code
-
-// write changes to data.
- without waiting.
-\end_layout
-
-\begin_layout LyX-Code
-
-void graph_vertex::write_changes_async(); 
 \end_layout
 
 \begin_layout LyX-Code
@@ -1259,17 +1359,6 @@ void graph_vertex::refresh();
 
 \begin_layout LyX-Code
 
-// writes local data to remote servers and reads the latest data
-\end_layout
-
-\begin_layout LyX-Code
-
-void graph_vertex::write_and_refresh(); 
-\end_layout
-
-\begin_layout LyX-Code
-
- 
 \end_layout
 
 \begin_layout LyX-Code
@@ -1289,12 +1378,6 @@ graph_shard_id_t graph_vertex::master_shard();
 
 \begin_layout LyX-Code
 
-// returns the number of shards this vertex spans
-\end_layout
-
-\begin_layout LyX-Code
-
-size_t graph_vertex::get_num_shards(); 
 \end_layout
 
 \begin_layout LyX-Code
@@ -1319,37 +1402,22 @@ std::vector<graph_shard_id_t> graph_vertex::get_shard_list();
 
 \begin_layout LyX-Code
 
-// gets part of the adjacency list of this 
-\end_layout
-
-\begin_layout LyX-Code
-
-// vertex belonging on shard 'shard_id'
-\end_layout
-
-\begin_layout LyX-Code
-
 // The returned edge pointers must be freed using free_edge
 \end_layout
 
 \begin_layout LyX-Code
 
-void graph_vertex::get_adj_list(graph_shard_id_t shard_id, 
+void graph_vertex::get_adj_list(bool prefetch_data,
 \end_layout
 
 \begin_layout LyX-Code
 
-								bool prefetch_data,
+                                std::vector<graph_edge> out_inadj,
 \end_layout
 
 \begin_layout LyX-Code
 
-                                std::vector<graph_edge*>* out_inadj,
-\end_layout
-
-\begin_layout LyX-Code
-
-                                std::vector<graph_edge*>* out_outadj);
+                                std::vector<graph_edge> out_outadj);
 \end_layout
 
 \begin_layout LyX-Code
@@ -1389,16 +1457,19 @@ data()
 refresh() 
 \series default
 function.
- Modifications to the data can also be written through the 
+\end_layout
+
+\begin_layout Standard
+Modifications to the data can also be written through 
 \series bold
-write_changes()
+commit_edges
 \series default
- function.
- Only modified data is written since the 
+.
+ Only modified data is written since the
 \series bold
-graph_row
+ graph_vertex 
 \series default
- object does modification tracking.
+does modification tracking.
 \end_layout
 
 \begin_layout LyX-Code
@@ -1418,18 +1489,25 @@ graph_vid_t graph_edge::get_dest()
 
 \begin_layout LyX-Code
 
-// Accesses the edge data.
- May return NULL if data was not read yet.
 \end_layout
 
 \begin_layout LyX-Code
 
-// in which case a refresh() call is necessary.
+// Accesses the edge data, may block until the data is fetched.
 \end_layout
 
 \begin_layout LyX-Code
 
-graph_row* graph_edge::data();
+// No modification allowed to the data.
+\end_layout
+
+\begin_layout LyX-Code
+
+const graph_row* graph_edge::immutable_data();
+\end_layout
+
+\begin_layout LyX-Code
+
 \end_layout
 
 \begin_layout LyX-Code
@@ -1444,28 +1522,6 @@ graph_row* graph_edge::data();
 
 \begin_layout LyX-Code
 
-// write changes to data.
- Wait for completion
-\end_layout
-
-\begin_layout LyX-Code
-
-void graph_edge::write_changes(); 
-\end_layout
-
-\begin_layout LyX-Code
-
-// write changes to data.
- without waiting.
-\end_layout
-
-\begin_layout LyX-Code
-
-void graph_edge::write_changes_async(); 
-\end_layout
-
-\begin_layout LyX-Code
-
 // synchronize local data with remote servers clearing local changes
 \end_layout
 
@@ -1476,17 +1532,6 @@ void graph_edge::refresh();
 
 \begin_layout LyX-Code
 
-// writes local data to remote servers and reads the latest data
-\end_layout
-
-\begin_layout LyX-Code
-
-void graph_edge::write_and_refresh(); 
-\end_layout
-
-\begin_layout LyX-Code
-
- 
 \end_layout
 
 \begin_layout LyX-Code
@@ -1506,6 +1551,77 @@ graph_shard_id_t graph_edge::master_shard();
 
 \end_inset
 
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+GraphLab Server Object
+\end_layout
+
+\begin_layout Standard
+The server object serves one shard.
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset listings
+inline false
+status open
+
+\begin_layout LyX-Code
+
+graph_shard_id_t graphdb_server::get_shard_id();
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+std::vector<graph_vertex> graphdb_server::local_vertices();
+\end_layout
+
+\begin_layout LyX-Code
+
+std::vector<graph_edge> graphdb_server::local_edges();
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+std::vector<graph_vertex> graphdb_server::adjacent_vertices();
+\end_layout
+
+\begin_layout LyX-Code
+
+std::vector<graph_edge> graphdb_server::adjacent_edges();
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+commit_vertices(std::vector<graph_vertex>& vertices);
+\end_layout
+
+\begin_layout LyX-Code
+
+commit_edges(std::vector<graph_edge>& edges);
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout LyX-Code
 
 \end_layout
 
@@ -1794,7 +1910,7 @@ Shard object
 \end_layout
 
 \begin_layout LyX-Code
-This is basically  a graph with graph_vertex and graph_edge.
+This is basically a graph with graph_vertex and graph_edge.
 \end_layout
 
 \begin_layout LyX-Code
@@ -1813,29 +1929,14 @@ so I will not describe it in detail here ...
 \end_layout
 
 \begin_layout Section
-GraphDatabase Server Side Computation
+GraphDB Compute Plug-In
 \end_layout
 
 \begin_layout Standard
-Simple queries should not change the state fo the database as update queries
- do.
- However, interesting graph queries may trigger server side computation
- and server-2-server communication.
- Furthermore, the computation could be iterative, thus requiring temporary
- modifications of the data.
- We call such queries 
-\series bold
-Fuzzy Queries
-\series default
- because it requires a mix of normal query and update opearations.
- Modification maded during the Fuzzy Queries is transient and will not be
- recorded and forwarded.
-\end_layout
-
-\begin_layout Standard
-The processing of the Fuzzy Queries can be decomposed into the following
- phases.
- For example, 
+Updates from the graphdb client will change the state of the database.
+ One important difference between the updates from graphdb client and thoes
+ from the server side computation are that the latter is considered internal
+ state changes.
 \end_layout
 
 \begin_layout LyX-Code
@@ -1845,41 +1946,32 @@ status open
 
 \begin_layout LyX-Code
 
-typedef fuzzy_query
+<template typename GraphdbServer>
 \end_layout
 
 \begin_layout LyX-Code
 
-typedef fuzzy_query_result
+class graphdb_compute_plugin {
 \end_layout
 
 \begin_layout LyX-Code
 
+	init();
 \end_layout
 
 \begin_layout LyX-Code
 
-// Initialize data for computation
+	run();
 \end_layout
 
 \begin_layout LyX-Code
 
-graphdb::init(fuzzy_query& query);
+	finalize();
 \end_layout
 
 \begin_layout LyX-Code
 
-\end_layout
-
-\begin_layout LyX-Code
-
-// Compute the query in the temporary space and returns a handler to the
- query result
-\end_layout
-
-\begin_layout LyX-Code
-
-fuzzy_query_result graphdb::compute(fuzzy_query& query, long timeout);
+}
 \end_layout
 
 \begin_layout LyX-Code
@@ -1888,30 +1980,17 @@ fuzzy_query_result graphdb::compute(fuzzy_query& query, long timeout);
 
 \begin_layout LyX-Code
 
-// Commit the result
+bool graphdb::attach(std::string query_name, graphdb_compute_plugin query);
 \end_layout
 
 \begin_layout LyX-Code
 
-graphdb::commit(fuzzy_query_result& result);
+bool graphdb::execute(std::string query_name);
 \end_layout
 
 \begin_layout LyX-Code
 
-\end_layout
-
-\begin_layout LyX-Code
-
-// Finalize the query, free all temporarily allocated resources.
-\end_layout
-
-\begin_layout LyX-Code
-
-graphdb::finalize(fuzzy_query query);
-\end_layout
-
-\begin_layout LyX-Code
-
+bool graphdb::detach(std::string query_name);
 \end_layout
 
 \end_inset

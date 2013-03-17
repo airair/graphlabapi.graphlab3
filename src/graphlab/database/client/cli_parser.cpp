@@ -39,6 +39,10 @@ namespace graphlab {
         cmd = BATCH_GET_TYPE;
       } else if (str == "batch_add") {
         cmd = BATCH_ADD_TYPE;
+      } else if (str == "compute") {
+        cmd = COMPUTE_TYPE;
+      } else if (str == "reset") {
+        cmd = RESET_TYPE;
       } else {
         return false;
       }
@@ -48,6 +52,8 @@ namespace graphlab {
     bool cli_parser::try_parse_target(std::string str, targettype_enum& target) {
       if (str == "vertex") {
         target = VERTEX_TYPE;
+      } else if (str == "edge") {
+        target = EDGE_TYPE;
       } else if (str == "vertex_adj") {
         target = VERTEX_ADJ_TYPE;
       } else if (str == "vertex_field") {

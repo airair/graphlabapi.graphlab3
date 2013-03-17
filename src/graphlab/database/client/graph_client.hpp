@@ -31,6 +31,12 @@ namespace graphlab {
                              std::vector<query_result>& reply_queue) = 0;
     virtual void query_all(char* msg, size_t msg_len,
                              std::vector<query_result>& reply_queue) = 0;
+    virtual void update_list (std::vector<std::string>& servers,
+                              char* msg, size_t msg_len,
+                             std::vector<query_result>& reply_queue) = 0;
+    virtual void query_list (std::vector<std::string>& servers,
+                             char* msg, size_t msg_len,
+                             std::vector<query_result>& reply_queue) = 0;
     virtual std::string find_server(graph_shard_id_t shardid)  = 0;
 
     // ------------ Basic info query API --------------------
@@ -41,6 +47,8 @@ namespace graphlab {
     virtual const graph_shard_manager& get_shard_manager() = 0;
 
     // ------------ Fine grained API --------------------
+    virtual size_t num_in_edges(graph_vid_t vid) = 0;
+    virtual size_t num_out_edges(graph_vid_t vid) = 0;
     virtual graph_vertex* get_vertex(graph_vid_t vid)  = 0;
     virtual std::vector<graph_vertex*> get_vertex_adj_to_shard(
         graph_shard_id_t shard_from, graph_shard_id_t shard_to)  = 0;
@@ -67,6 +75,10 @@ namespace graphlab {
     virtual void add_edge_field(graph_field& field) = 0;
     virtual void remove_vertex_field(size_t fieldpos) = 0;
     virtual void remove_edge_field(size_t fieldpos) = 0;
+    virtual void reset_field(bool is_vertex, size_t field, std::string& value_str) = 0; 
+
+    // ----------------- Compute API -------------------
+    virtual void compute() = 0;
 
     // ----------------- Ingress API --------------------
     virtual bool add_vertex_now (graph_vid_t vid, graph_row* data=NULL) = 0; 

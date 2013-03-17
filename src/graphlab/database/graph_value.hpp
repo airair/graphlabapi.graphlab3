@@ -11,17 +11,7 @@ namespace graphlab {
 /**
  * \ingroup group_graph_database
  * This struct stores the value in a single field in a single vertex/edge 
- * of the graph. It permits modification of the stored data, and tracks
- * if changes were made (\ref is_modified() ). This allows changes to be 
- * committed back to the database with minimal communication. 
- *
- * Additionally, a delta commit flag can be set on scalar values which will 
- * cause modifications to the commited as "amount changed" rather than as an
- * absolute value. For instance, if a value 5, was changed to 6, a delta commit
- * will get the backend to perform a "+1" operation, while a regular commit
- * will get the backend to set the value to 6.
- * 
- * This object is not thread-safe, and may not copied.
+ * of the graph. 
  *
  * \note
  *  This struct is intentionally make fully public to allows the graph_value 

@@ -4,6 +4,7 @@
 #include <graphlab/serialization/oarchive.hpp>
 #include <graphlab/database/query_messages.hpp>
 #include <graphlab/database/error_messages.hpp>
+#include <graphlab/database/engine/graph_database_synchronous_engine.hpp>
 #include <fault/query_object_client.hpp>
 
 namespace graphlab {
@@ -77,6 +78,8 @@ class graph_database_server {
       add_field(iarc, oarc);
     } else if (header == "gc_remove_field") {
       remove_field(iarc, oarc);
+    } else if (header == "gc_reset_field") {
+      reset_field(iarc, oarc);
     }// Batch updates
     else if (header == "gc_batch_add_vertex") {
       batch_add_vertex(iarc, oarc);
@@ -104,7 +107,21 @@ class graph_database_server {
     iarc >> header;
 
     oarchive oarc;
-    if (header == "g_vertex_fields_meta") {
+    // Temporary overiding query to deal with non-blocking update
+    if (header == "s_vertex_field") {
+      set_vertex_field(iarc, oarc);
+    } else if (header == "s_edge_field") {
+      set_edge_field(iarc, oarc);
+    } else if (header == "s_vertex_row") {
+      set_vertex_row(iarc, oarc);
+    } else if (header == "s_edge_row") {
+      set_edge_row(iarc, oarc);
+    } // computing 
+    else if (header == "compute") {
+      compute(iarc, oarc);
+    }
+    // Usual queries
+    else if (header == "g_vertex_fields_meta") {
       get_vertex_fields(iarc, oarc);
     } else if (header == "g_edge_fields_meta") {
       get_edge_fields(iarc, oarc);
@@ -116,6 +133,8 @@ class graph_database_server {
       get_num_shards(iarc, oarc);
     } else if (header =="g_shard_list") {
       get_shard_list(iarc, oarc);
+    } else if (header == "g_vertex_adj_size") {
+      get_vertex_adj_size(iarc, oarc);
     } else if (header == "g_vertex") {
       get_vertex(iarc, oarc);
     }  else if (header == "g_edge") {
@@ -135,8 +154,7 @@ class graph_database_server {
       batch_get_vertices(iarc, oarc);
     } else if (header == "g_vertex_shard_adj") {
       batch_get_vertex_adj_to_shard(iarc, oarc);
-    } // Fuzzy updates
-    else {
+    } else {
       std::string message = error_messages.unknown_query_header(header);
       logstream(LOG_WARNING) << message << std::endl;;
       oarc << false << message;
@@ -181,6 +199,11 @@ class graph_database_server {
    */
   void set_edge_row(iarchive& iarc, oarchive& oarc);
 
+  /**
+   * Reset given fields to NULL.
+   */
+  void reset_field(iarchive& iarc, oarchive& oarc);
+
 
   // ------------- Query Handlers ---------------
 
@@ -220,6 +243,8 @@ class graph_database_server {
   void get_num_shards(iarchive& iarc, oarchive& oarc);
 
   void get_shard_list(iarchive& iarc, oarchive& oarc);
+
+  void get_vertex_adj_size(iarchive& iarc, oarchive& oarc);
 
   /**
    * Returns a serialized string of the query vertex.
@@ -280,6 +305,7 @@ class graph_database_server {
    */
   void get_vertex_adj(iarchive& iarc, oarchive& oarc);
 
+
   /**
    * Returns the serialization of the shards corresponding to the 
    * query shard id in iarc.
@@ -311,8 +337,8 @@ class graph_database_server {
   void batch_add_vertex_mirror(iarchive& iarc, oarchive& oarc);
 
 
-  // -------------- Custome Plugin API --------------
-
+  // -------------- Computation Engine --------------
+  void compute(iarchive& iarc, oarchive& oarc);
 
   // ---------------------------------------------------
   graph_database* get_database() {

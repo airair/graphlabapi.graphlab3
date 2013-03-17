@@ -73,6 +73,7 @@ namespace graphlab {
     }
   }
 
+
   bool graph_database_sharedmem::set_field(graph_row* row,
       size_t fieldpos, const graph_value& new_value, bool delta) {
     if (row != NULL && fieldpos < row->num_fields()) { 
@@ -81,6 +82,19 @@ namespace graphlab {
     } else {
       return false;
     }
+  }
+
+  bool graph_database_sharedmem::reset_field(bool is_vertex, size_t fieldpos,
+                                             std::string& value) {
+    boost::function<bool (graph_row& row)> fun(boost::bind(&graph_database_sharedmem::reset_field_helper, this, _1, fieldpos, value));
+    if (is_vertex && fieldpos < vertex_fields.size()) {
+      transform_vertices(fun);
+    } else if (!is_vertex && fieldpos < edge_fields.size()) {
+      transform_edges(fun);
+    } else {
+      return false;
+    }
+    return true;
   }
 
   graph_vertex* graph_database_sharedmem::get_vertex(graph_vid_t vid, graph_shard_id_t shardid) {

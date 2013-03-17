@@ -72,6 +72,14 @@ namespace graphlab {
        return oarc.buf;
      }
 
+     inline char* vertex_adj_size_request(int* msg_len, graph_vid_t vid,
+                                          bool getin, bool getout) {
+       oarchive oarc;
+       oarc << std::string("g_vertex_adj_size") << vid << getin << getout;
+       *msg_len=oarc.off;
+       return oarc.buf;
+     }
+
      ///  returns a message for querying the entire vertex data of vid 
      inline char* vertex_row_request(int* msg_len, graph_vid_t vid, graph_shard_id_t shardid) {
        oarchive oarc;
@@ -180,10 +188,35 @@ namespace graphlab {
      }
 
      // ------------- Update request ------------------
+     /* Returns a message for updating a single field of vertex.  */
+     inline char* update_vertex_field_request(int* msg_len,
+                                              graph_vid_t vid,
+                                              graph_shard_id_t shardid,
+                                              size_t fieldpos,
+                                              const graph_value* value,
+                                              bool use_delta = false) {
+       oarchive oarc;
+       oarc << std::string("s_vertex_field") << vid << shardid << fieldpos << use_delta << *value;
+       *msg_len=oarc.off;
+       return oarc.buf;
+     }
+
+     /* Returns a message for updating a single field of vertex.*/
+     inline char* update_edge_field_request(int* msg_len,
+                                              graph_eid_t eid,
+                                              graph_shard_id_t shardid,
+                                              size_t fieldpos,
+                                              const graph_value* value,
+                                              bool use_delta = false) {
+       oarchive oarc;
+       oarc << std::string("s_edge_field") << eid << shardid << fieldpos << use_delta << *value;
+       *msg_len=oarc.off;
+       return oarc.buf;
+     }
+
      /*
       * Returns a message for updateing the vertex data.
       * The message includes the modified fields of the vertex data. 
-      * Currently the message sends the new data (not delta).
       */
      inline char* update_vertex_request(int* msg_len, 
                                  graph_vid_t vid,
@@ -201,7 +234,6 @@ namespace graphlab {
      /*
       * Returns a message for updating the edge data.
       * The message includes the modified fields of the edge data. 
-      * Currently the message sends the new data (not delta).
       */
      inline char* update_edge_request(int* msg_len, 
                                  graph_eid_t eid,
@@ -262,6 +294,14 @@ namespace graphlab {
                                size_t fieldpos) {
        oarchive oarc;
        oarc << std::string("gc_remove_field") << is_vertex << fieldpos;
+       *msg_len = oarc.off;
+       return oarc.buf;
+     }
+
+     inline char* reset_field(int* msg_len, bool is_vertex,
+                              size_t fieldpos, std::string& val) {
+       oarchive oarc;
+       oarc << std::string("gc_reset_field") << is_vertex << fieldpos << val;
        *msg_len = oarc.off;
        return oarc.buf;
      }
@@ -431,26 +471,25 @@ namespace graphlab {
        return success;
      }
 
-     // template<typename F, typename T>
-     // bool parse_future_reply(std::vector<query_result>& futures, F fun, T& acc, std::string& errormsg) {
-     //   bool success = true;
-     //   for (size_t i = 0; i < futures.size(); i++) {
-     //     T next;
-     //     if (futures[i].get_status() == 0) {
-     //       bool succ = parse_reply(futures[i].get_reply(), next, errormsf);
-     //       if (succ) {
-     //         acc = fun(acc, next);
-     //       } else {
-     //         return false;
-     //       }
-     //     } else {
-     //       errormsg = "Server connection failed";
-     //       logstream(LOG_ERROR) << errormsg;
-     //       return false;
-     //     }
-     //   } 
-     //   return true;
-     // }
+     template<typename T>
+     bool parse_and_aggregate(std::vector<query_result>& futures, T& acc, std::vector<std::string>& errormsgs) {
+       bool success = true;
+       for (size_t i = 0; i < futures.size(); i++) {
+         T next;
+         std::string error;
+         if (futures[i].get_status() == 0) {
+           bool succ = parse_reply(futures[i].get_reply(), next, error);
+           if (succ) {
+             acc += next;
+           } else {
+             errormsgs.push_back(error);
+           }
+         } else {
+           logstream(LOG_ERROR) <<  "Server connection failed" << std::endl;
+         }
+       }
+       return (errormsgs.size() == 0);
+     }
   }; // end of class
 } // end of namespace
 #include<graphlab/macros_undef.hpp>

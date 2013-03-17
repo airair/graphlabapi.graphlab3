@@ -87,6 +87,18 @@ namespace graphlab {
      */
     void query_all(char* msg, size_t msg_len, std::vector<query_result>& reply_queue);
 
+    /**
+     * Send update message to a list of servers asynchronously.
+     */
+    void update_list(std::vector<std::string>& servers,
+                     char* msg, size_t msg_len, std::vector<query_result>& reply_queue);
+
+    /**
+     * Send query message to a list of servers asynchronously.
+     */
+    void query_list(std::vector<std::string>& servers,
+                    char* msg, size_t msg_len, std::vector<query_result>& reply_queue);
+
    public:
     /**
      * Creates a local simulated distributed_graph client with pointer to a shared memory
@@ -140,6 +152,10 @@ namespace graphlab {
 
 
     // -------- Fine grained API ------------
+    size_t num_in_edges(graph_vid_t vid);
+
+    size_t num_out_edges(graph_vid_t vid);
+
     /**
      * Returns a graph_vertex object for the queried vid. Returns NULL on failure
      * Returns NULL on failure.
@@ -271,6 +287,8 @@ namespace graphlab {
 
     void remove_edge_field(size_t fieldpos);
 
+    void reset_field(bool is_vertex, size_t field, std::string& value_str); 
+
     // ----------- Ingress API -----------------
     /**
      * Insert a vertex wth given value.
@@ -355,6 +373,21 @@ namespace graphlab {
     void remove_field(size_t fieldpos, bool is_vertex);
 
     /**
+     * Request to do compute.
+     */
+    void compute() {
+      oarchive oarc;
+      oarc << std::string("compute");
+      int len = oarc.off;
+      char* msg = oarc.buf;
+      std::vector<query_result> queue;
+      query_all(msg, len, queue);
+      for (size_t i = 0; i < queue.size(); i++) {
+        queue[i].get_reply();
+      }
+    }
+
+    /**
       \internal
       This internal function is used to load a single line from an input stream
       */
@@ -392,7 +425,6 @@ namespace graphlab {
     std::vector< std::vector<edge_record> > edge_buffer;
     std::vector< boost::unordered_map<graph_vid_t, mirror_record> > mirror_buffer;
     std::vector< query_result > ingress_reply;
-
     boost::unordered_map<graph_vid_t, mirror_record>  ingress_mirror_table;
 
     friend class graph_vertex_remote;

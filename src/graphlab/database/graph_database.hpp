@@ -8,7 +8,6 @@
 #include <graphlab/database/graph_shard.hpp>
 namespace graphlab {
 
-
 /**
  * \ingroup group_graph_database
  * An abstract interface for a graph database implementation 
@@ -61,39 +60,6 @@ class graph_database {
    */
   virtual bool remove_edge_field(size_t fieldpos) = 0;
 
-
-  /**
-   * Returns the index of the vertex column with the given field name. 
-   *
-   * \note For database implementors: A default implementation using a linear 
-   * search of \ref get_edge_fields() is provided.
-   */
-  virtual int find_vertex_field(const char* fieldname) {
-    const std::vector<graph_field>& vfields = get_vertex_fields();
-    for (size_t i = 0;i < vfields.size(); ++i) {
-      if (vfields[i].name.compare(fieldname) == 0) {
-        return i;
-      }
-    }
-    return -1;
-  }
-
-  /**
-   * Returns the index of the edge column with the given field name. 
-   *
-   * \note For database implementors: A default implementation using a linear 
-   * search of \ref get_edge_fields() is provided.
-   */
-  virtual int find_edge_field(const char* fieldname) {
-    const std::vector<graph_field>& efields = get_edge_fields();
-    for (size_t i = 0;i < efields.size(); ++i) {
-      if (efields[i].name.compare(fieldname) == 0) {
-        return i;
-      }
-    }
-    return -1;
-  }
-
   /**
    * Set the data field at fieldpos of row with the new value. If the delta flag   
    * is true, the assignment is +=.
@@ -102,7 +68,18 @@ class graph_database {
   virtual bool set_field(graph_row* row, size_t fieldpos,
                          const graph_value& new_value, bool delta) = 0;
 
+  /**
+   * Reset all data in the given fieldpos with the new value.
+   * Return false on failure.
+   */
+  virtual bool reset_field(bool is_vertex, size_t fieldpos,
+                            std::string& value) = 0;
+
+
   // -------- Fine grained API ------------
+  virtual size_t num_in_edges(graph_vid_t vid, graph_shard_id_t shardid) = 0;
+
+  virtual size_t num_out_edges(graph_vid_t vid, graph_shard_id_t shardid) = 0;
 
   /** 
    * returns a vertex in ret_vertex for a queried vid in the shard with shardid.
@@ -221,3 +198,34 @@ class graph_database {
 } // namespace graphlab
 
 #endif
+  // /**
+  //  * Returns the index of the vertex column with the given field name. 
+  //  *
+  //  * \note For database implementors: A default implementation using a linear 
+  //  * search of \ref get_edge_fields() is provided.
+  //  */
+  // virtual int find_vertex_field(const char* fieldname) {
+  //   const std::vector<graph_field>& vfields = get_vertex_fields();
+  //   for (size_t i = 0;i < vfields.size(); ++i) {
+  //     if (vfields[i].name.compare(fieldname) == 0) {
+  //       return i;
+  //     }
+  //   }
+  //   return -1;
+  // }
+
+  // /**
+  //  * Returns the index of the edge column with the given field name. 
+  //  *
+  //  * \note For database implementors: A default implementation using a linear 
+  //  * search of \ref get_edge_fields() is provided.
+  //  */
+  // virtual int find_edge_field(const char* fieldname) {
+  //   const std::vector<graph_field>& efields = get_edge_fields();
+  //   for (size_t i = 0;i < efields.size(); ++i) {
+  //     if (efields[i].name.compare(fieldname) == 0) {
+  //       return i;
+  //     }
+  //   }
+  //   return -1;
+  // }

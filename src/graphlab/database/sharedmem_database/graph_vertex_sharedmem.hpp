@@ -169,7 +169,7 @@ class graph_vertex_sharedmem : public graph_vertex {
    * Returns the IDs of the shards with mirror of this vertex
    */
   inline std::vector<graph_shard_id_t> mirror_shards() const {
-    std::vector<graph_shard_id_t> ret(mirrors->size());
+    std::vector<graph_shard_id_t> ret;
     foreach(const graph_shard_id_t& mirror, *mirrors) {
       ret.push_back(mirror);
     }

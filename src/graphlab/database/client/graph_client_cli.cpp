@@ -181,6 +181,32 @@ namespace graphlab {
     std::cout << "done" << std::endl;
   }
 
+  void graph_client_cli::process_compute(parsed_command& cmd) {
+    graph->compute();
+    std::cout << "done" << std::endl;
+  }
+
+  void graph_client_cli::process_reset(parsed_command& cmd) {
+
+    bool is_vertex;
+    std::string value_str;
+    size_t fieldpos;
+    switch (cmd.target_type) {
+     case cli_parser::VERTEX_TYPE: {
+       is_vertex = true;
+       break;
+     }
+     case cli_parser::EDGE_TYPE: {
+       is_vertex = false;
+       break;
+     }
+     default: error_unsupported_command(); return;
+    }
+    if (parser.parse_pair(cmd.value, fieldpos, value_str, "\t ", "error parsing pair: field value")) {
+      graph->reset_field(is_vertex, fieldpos, value_str);
+    }
+    std::cout << "done" << std::endl;
+  }
 
   void graph_client_cli::get_graph_info() {
     size_t nverts = graph->num_vertices();

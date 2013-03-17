@@ -113,6 +113,28 @@ namespace graphlab {
   }
 
   // ------------------ Fine Grained API ---------------------------
+  size_t distributed_graph_client::num_in_edges(graph_vid_t vid) {
+    int msg_len;
+    char* request = messages.vertex_adj_size_request(&msg_len, vid, true, false);
+    std::vector<query_result> reply_queue;
+    query_all(request, msg_len, reply_queue);
+    size_t ret = 0;
+    std::vector<std::string> errormsgs;
+    messages.parse_and_aggregate(reply_queue, ret, errormsgs);
+    return ret;
+  }
+
+  size_t distributed_graph_client::num_out_edges(graph_vid_t vid) {
+    int msg_len;
+    char* request = messages.vertex_adj_size_request(&msg_len, vid, false, true);
+    std::vector<query_result> reply_queue;
+    query_all(request, msg_len, reply_queue);
+    size_t ret = 0;
+    std::vector<std::string> errormsgs;
+    messages.parse_and_aggregate(reply_queue, ret, errormsgs);
+    return ret;
+  }
+  
   graph_vertex* distributed_graph_client::get_vertex(graph_vid_t vid) {
     int msg_len;
     graph_shard_id_t master = shard_manager.get_master(vid);
@@ -293,6 +315,19 @@ namespace graphlab {
         logstream(LOG_ERROR) << error_messages.server_not_reachable(server_list[i]);
       } else {
         messages.parse_reply(reply_queue[i].get_reply(), errormsg);
+      }
+    }
+  }
+
+  void distributed_graph_client::reset_field(bool is_vertex, size_t fieldpos,
+                                             std::string& value_str) {
+    int msg_len;
+    char* request = messages.reset_field(&msg_len, is_vertex, fieldpos, value_str);
+    std::vector<query_result> reply_queue;
+    update_all(request, msg_len, reply_queue);
+    for (size_t i =0; i < reply_queue.size(); i++) {
+      if (reply_queue[i].get_status() != 0) {
+        logstream(LOG_ERROR) << error_messages.server_not_reachable(server_list[i]);
       }
     }
   }
@@ -650,20 +685,32 @@ namespace graphlab {
 
   void distributed_graph_client::update_all(char* msg, size_t msg_len,
                                             std::vector<query_result>& reply_queue) {
-    for (size_t i = 0; i < server_list.size(); ++i) {
-      char* msg_copy = (char*)malloc(msg_len);
-      memcpy(msg_copy, msg, msg_len);
-      update_async(server_list[i], msg_copy, msg_len, reply_queue);
-    }
-    free(msg);
+    update_list(server_list, msg, msg_len, reply_queue);
   }
 
   void distributed_graph_client::query_all(char* msg, size_t msg_len,
                                            std::vector<query_result>& reply_queue) {
-    for (size_t i = 0; i < server_list.size(); ++i) {
+    query_list(server_list, msg, msg_len, reply_queue);
+  }
+
+  void distributed_graph_client::query_list(std::vector<std::string>& servers,
+                                           char* msg, size_t msg_len,
+                                           std::vector<query_result>& reply_queue) {
+    for (size_t i = 0; i < servers.size(); ++i) {
       char* msg_copy = (char*)malloc(msg_len);
       memcpy(msg_copy, msg, msg_len);
-      query_async(server_list[i], msg_copy, msg_len, reply_queue);
+      query_async(servers[i], msg_copy, msg_len, reply_queue);
+    }
+    free(msg);
+  }
+
+  void distributed_graph_client::update_list(std::vector<std::string>& servers,
+                                            char* msg, size_t msg_len,
+                                            std::vector<query_result>& reply_queue) {
+    for (size_t i = 0; i < servers.size(); ++i) {
+      char* msg_copy = (char*)malloc(msg_len);
+      memcpy(msg_copy, msg, msg_len);
+      update_async(servers[i], msg_copy, msg_len, reply_queue);
     }
     free(msg);
   }

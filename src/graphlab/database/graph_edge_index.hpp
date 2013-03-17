@@ -34,6 +34,22 @@ namespace graphlab {
        }
      }
 
+     size_t num_in_edges(graph_vid_t vid) const {
+       if (inEdges.find(vid) != inEdges.end()) {
+         return inEdges.find(vid)->second.size();
+       } else {
+         return 0;
+       }
+     }
+
+     size_t num_out_edges(graph_vid_t vid) const {
+       if (outEdges.find(vid) != outEdges.end()) {
+         return outEdges.find(vid)->second.size();
+       } else {
+         return 0;
+       }
+     }
+
      /**
       * Update the index by adding an edge with (source, target, pos) in this shard. 
       */

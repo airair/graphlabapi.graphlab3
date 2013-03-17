@@ -32,6 +32,8 @@ namespace graphlab {
            case cli_parser::BATCH_ADD_TYPE: process_batch_add(cmd); break;
            case cli_parser::BATCH_GET_TYPE: process_batch_get(cmd); break;
            case cli_parser::LOAD_TYPE: process_load(cmd); break;
+           case cli_parser::COMPUTE_TYPE: process_compute(cmd); break;
+           case cli_parser::RESET_TYPE: process_reset(cmd); break;
            default:  break;
           }
         }
@@ -45,6 +47,8 @@ namespace graphlab {
     void process_load(parsed_command& cmd);
     void process_batch_get(parsed_command& cmd);
     void process_batch_add(parsed_command& cmd);
+    void process_compute(parsed_command& cmd);
+    void process_reset(parsed_command& cmd);
 
     void get_graph_info();
     void get_vertex(graph_vid_t vid);

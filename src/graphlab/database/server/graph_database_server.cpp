@@ -49,6 +49,23 @@ namespace graphlab {
     oarc << true << database->get_shard_list();
   }
 
+  void graph_database_server::get_vertex_adj_size(iarchive& iarc, oarchive& oarc) {
+    graph_vid_t vid;
+    bool getin, getout;
+    iarc >> vid >> getin >> getout;
+    size_t ret = 0;
+    const std::vector<graph_shard_id_t>& shard_list = database->get_shard_list();
+    if (getin) {
+      for (size_t i = 0; i < shard_list.size(); i++) 
+        ret += database->num_in_edges(vid, shard_list[i]);
+    }
+    if (getout) {
+      for (size_t i = 0; i < shard_list.size(); i++) 
+        ret += database->num_out_edges(vid, shard_list[i]);
+    }
+    oarc << true << ret;
+ }
+
 
   // -----------  GET Vertex Handlers ------------------
   void graph_database_server::get_vertex(iarchive& iarc, oarchive& oarc) {
@@ -302,6 +319,15 @@ namespace graphlab {
     }
   }
 
+  void graph_database_server::reset_field (iarchive& iarc,
+                                     oarchive& oarc) {
+    bool is_vertex;
+    size_t fieldpos;
+    std::string value;
+    iarc >> is_vertex >> fieldpos >> value;
+    oarc << database->reset_field(is_vertex, fieldpos, value);
+  }
+
   // ------------------ Ingress Handlers -----------------
   void graph_database_server::add_vertex (iarchive& iarc,
                                           oarchive& oarc) {
@@ -520,5 +546,13 @@ namespace graphlab {
       }
       if (!success) 
         oarc << errormsgs;
+  }
+
+  void graph_database_server::compute(iarchive& iarc, oarchive& oarc) {
+    graph_database_synchronous_engine engine(database, query_client);
+    engine.init();
+    engine.run();
+    engine.finalize();
+    oarc << true;
   }
 }

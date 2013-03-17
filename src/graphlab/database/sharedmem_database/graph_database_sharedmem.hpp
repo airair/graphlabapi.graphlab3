@@ -105,6 +105,8 @@ namespace graphlab {
      */
     bool remove_vertex_field(size_t);
 
+
+
     /**
      * Add new field to the edge in the graph
      */
@@ -115,6 +117,7 @@ namespace graphlab {
      */
     bool remove_edge_field(size_t i);
 
+
   /**
    * Set the data field at fieldpos of row with the new value. If the delta flag   
    * is true, the assignment is +=.
@@ -122,6 +125,9 @@ namespace graphlab {
    */
     bool set_field(graph_row* row, size_t fieldpos,
                          const graph_value& new_value, bool delta);
+
+
+    bool reset_field(bool is_vertex, size_t fieldpos, std::string& value);
 
     template<typename TransformType>
     void transform_vertices(TransformType transform_functor) {
@@ -150,6 +156,18 @@ namespace graphlab {
     }
 
     // -------- Fine grained API ------------
+    inline size_t num_in_edges(graph_vid_t vid, graph_shard_id_t shardid) {
+      graph_shard* shard = get_shard(shardid);
+      ASSERT_TRUE(shard != NULL);
+      return shard->shard_impl.edge_index.num_in_edges(vid);
+    } 
+
+    inline size_t num_out_edges(graph_vid_t vid, graph_shard_id_t shardid) {
+      graph_shard* shard = get_shard(shardid);
+      ASSERT_TRUE(shard != NULL);
+      return shard->shard_impl.edge_index.num_out_edges(vid);
+    } 
+
     /**
      * Returns a graph_vertex object for the queried vid. Returns NULL on failure
      * The vertex data is passed eagerly as a pointer. Adjacency information is passed through the <code>edge_index</code>. 
@@ -324,6 +342,16 @@ namespace graphlab {
 
     inline void remove_field_helper(graph_row& row, size_t fieldpos) {
       row.remove_field(fieldpos);
+    }
+
+    inline bool reset_field_helper(graph_row& row, size_t fieldpos,
+                                    std::string& value_str) {
+        graph_value* val = row.get_field(fieldpos);
+        if (val != NULL) {
+          return val->set_val(value_str); 
+        } else {
+          return false;
+        }
     }
   };
 } // namespace graphlab

@@ -22,14 +22,12 @@ namespace graphlab {
       * into <code>in</code> and <code>out</code> vectors.
       * Skip the incoming (or outgoing) edge if getIn(or getOut) is false.
       */
-     void get_edge_index (std::vector<size_t>& in,
-                          std::vector<size_t>& out,
-                          bool getIn, bool getOut,
-                          graph_vid_t vid) const {
+     void get_vertex_adj (std::vector<graph_leid_t>& out,
+                          bool getIn, graph_vid_t vid) const {
        if (getIn && inEdges.find(vid) != inEdges.end()) {
-           in = inEdges.find(vid)->second;
+           out = inEdges.find(vid)->second;
        }
-       if (getOut && outEdges.find(vid) != outEdges.end()) {
+       if (!getIn && outEdges.find(vid) != outEdges.end()) {
            out = outEdges.find(vid)->second;
        }
      }
@@ -67,10 +65,10 @@ namespace graphlab {
 
    private:
     // A vector where each element is a map from vid to a list of in edge ids on a shard.
-    boost::unordered_map<graph_vid_t, std::vector<size_t> > inEdges;
+    boost::unordered_map<graph_vid_t, std::vector<graph_leid_t> > inEdges;
 
     // A vector where each element is a map from vid to a list of out edge ids on a shard.
-    boost::unordered_map<graph_vid_t, std::vector<size_t> > outEdges;
+    boost::unordered_map<graph_vid_t, std::vector<graph_leid_t> > outEdges;
   };
 } // namespace graphlab
 #include <graphlab/macros_undef.hpp>

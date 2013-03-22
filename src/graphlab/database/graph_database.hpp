@@ -5,227 +5,153 @@
 #include <graphlab/database/graph_field.hpp>
 #include <graphlab/database/graph_vertex.hpp>
 #include <graphlab/database/graph_edge.hpp>
+#include <graphlab/database/graph_row.hpp>
 #include <graphlab/database/graph_shard.hpp>
-namespace graphlab {
 
+#include <graphlab/serialization/iarchive.hpp>
+#include <graphlab/serialization/oarchive.hpp>
+namespace graphlab {
 /**
  * \ingroup group_graph_database
  * An abstract interface for a graph database implementation 
  */
 class graph_database {
  public:
-  
-  graph_database() { }
+  // Store the query result of a vertex adjacency
+  struct vertex_adj_descriptor {
+     std::vector<graph_vid_t> neighbor_ids;
+     std::vector<graph_eid_t> eids;
+
+     vertex_adj_descriptor& operator+=(const vertex_adj_descriptor& other) {
+       neighbor_ids.insert(neighbor_ids.end(), other.neighbor_ids.begin(), other.neighbor_ids.end());
+       eids.insert(eids.end(), other.eids.begin(), other.eids.end());
+       return *this;
+     }
+
+     void save (oarchive& oarc) const {
+       oarc << neighbor_ids << eids;
+     }
+     void load (iarchive& iarc)  {
+       iarc >> neighbor_ids >> eids;
+     }
+   };
+
+   struct vertex_insert_descriptor {
+     graph_vid_t vid;
+     graph_row data;
+     void save (oarchive& oarc) const {
+       oarc << vid << data;
+     }
+     void load (iarchive& iarc)  {
+       iarc >> vid >> data;
+     }
+   };
+
+   struct edge_insert_descriptor {
+     graph_vid_t src, dest;
+     graph_row data;
+     void save (oarchive& oarc) const {
+       oarc << src << dest << data;
+     }
+     void load (iarchive& iarc)  {
+       iarc >> src >> dest >> data;
+     }
+   };
+
+ public:
   virtual ~graph_database() { }
 
-  /**
-   * Returns the number of vertices in the graph.
-   * This may be slow.
-   */
-  virtual uint64_t num_vertices() const = 0;
+  /// Returns the number of vertices in the graph.
+  /// This may be slow.
+  virtual uint64_t num_vertices() = 0;
   
-  /**
-   * Returns the number of edges in the graph.
-   * This may be slow.
-   */
-  virtual uint64_t num_edges() const = 0;
+  /// Returns the number of edges in the graph.
+  /// This may be slow.
+  virtual uint64_t num_edges() = 0;
 
-  /**
-   * Returns the field metadata for the vertices in the graph
-   */
-  virtual const std::vector<graph_field> get_vertex_fields() const = 0;
+  /// Returns the field metadata for the vertices in the graph
+  virtual const std::vector<graph_field> get_vertex_fields() = 0;
 
-  /**
-   * Returns the field metadata for the edges in the graph
-   */
-  virtual const std::vector<graph_field> get_edge_fields() const = 0;
+  /// Returns the field metadata for the edges in the graph
+  virtual const std::vector<graph_field> get_edge_fields() = 0;
 
-  /**
-   * Add a field to the vertex data schema
-   */
-  virtual bool add_vertex_field(graph_field& field) = 0;
+  // --------------------- Schema Modification API ----------------------
+  /// Add a field to the vertex data schema
+  virtual int add_vertex_field(const graph_field& field) = 0;
 
-  /**
-   * Add a field to the vertex data schema
-   */
-  virtual bool add_edge_field(graph_field& field) = 0;
-
-  /**
-   * Add a field to the vertex data schema
-   */
-  virtual bool remove_vertex_field(size_t fieldpos) = 0;
-
-  /**
-   * Add a field to the vertex data schema
-   */
-  virtual bool remove_edge_field(size_t fieldpos) = 0;
-
-  /**
-   * Set the data field at fieldpos of row with the new value. If the delta flag   
-   * is true, the assignment is +=.
-   * Return false on failure.
-   */
-  virtual bool set_field(graph_row* row, size_t fieldpos,
-                         const graph_value& new_value, bool delta) = 0;
-
-  /**
-   * Reset all data in the given fieldpos with the new value.
-   * Return false on failure.
-   */
-  virtual bool reset_field(bool is_vertex, size_t fieldpos,
-                            std::string& value) = 0;
-
-
-  // -------- Fine grained API ------------
-  virtual size_t num_in_edges(graph_vid_t vid, graph_shard_id_t shardid) = 0;
-
-  virtual size_t num_out_edges(graph_vid_t vid, graph_shard_id_t shardid) = 0;
-
-  /** 
-   * returns a vertex in ret_vertex for a queried vid in the shard with shardid.
-   * Returns NULL on failure
-   * The returned vertex pointer must be freed using free_vertex
-   */
-  virtual graph_vertex* get_vertex(graph_vid_t vid, graph_shard_id_t shardid) = 0;
-
-  /** returns an edge in ret_edge for a queried edge id and shardid. Returns NULL on failure
-   * The returned edge pointer must be freed using free_edge
-   */
-  virtual graph_edge* get_edge(graph_eid_t eid, graph_shard_id_t shardid) = 0;
-
-  /** Gets part of the adjacency list of vertex vid belonging to shard shard_id.
-   *  Returns NULL on failure. The returned edges must be freed using
-   *  graph_database::free_edge() for graph_database::free_edge_vector()
-   */
-  virtual void get_adj_list(graph_vid_t vid, graph_shard_id_t shard_id,
-                    bool prefetch_data,
-                    std::vector<graph_edge*>* out_inadj,
-                    std::vector<graph_edge*>* out_outadj) = 0; 
-
-  /**
-   *  Finds a vertex using an indexed integer field. Returns the vertex IDs
-   *  in out_vids corresponding to the vertices where the integer field 
-   *  identified by fieldpos has the specified value.
-   *  Return true on success, and false on failure.
-   */
-  virtual bool find_vertex(size_t fieldpos,
-                           graph_int_t value, 
-                           std::vector<graph_vid_t>* out_vids) = 0;
-
-  /**
-   *  Finds a vertex using an indexed string field. Returns the vertex IDs
-   *  in out_vids corresponding to the vertices where the string field 
-   *  identified  by fieldpos has the specified value.
-   *  Return true on success, and false on failure.
-   */
-  virtual bool find_vertex(size_t fieldpos,
-                           graph_string_t value, 
-                           std::vector<graph_vid_t>* out_vids) = 0;
-
-  /**
-   * Frees a vertex object
-   */
-  virtual void free_vertex(graph_vertex* vertex) = 0;
-
-  /**
-   * Frees a single edge object
-   */
-  virtual void free_edge(graph_edge* edge) = 0;
-  
-  /**
-   * Frees a collection of edges. The vector will be cleared. on return.
-   */
-  virtual void free_edge_vector(std::vector<graph_edge*>& edgelist) = 0;
-
-
-//  ------ Coarse Grained API ---------
-
-  /**
-   * Returns the number of shards in the database
-   */
-  virtual size_t num_shards() const = 0;
-
-  /**
-   * Returns the list of shard ids in the database
-   */
-  virtual std::vector<graph_shard_id_t> get_shard_list() const = 0;
-
-  /**
-   * Synchronously obtains a shard from the database.
-   * Returns NULL on failure
-   */
-  virtual graph_shard* get_shard(graph_shard_id_t shard_id) = 0;
-                          
-  /**
-   * Gets the contents of the shard which are adjacent to some other shard on local.
-   * Returns NULL on failure
-   */
-  virtual graph_shard* get_shard_contents_adj_to(graph_shard_id_t shard_id,
-                                                 graph_shard_id_t adjacent_to) = 0;
-
-  /**
-   * Gets the contents of the shard which are adjacent to the list of vertex ids. 
-   * Returns NULL on failure
-   */
-  virtual graph_shard* get_shard_contents_adj_to(const std::vector<graph_vid_t>& vids,
-                                                 graph_shard_id_t adjacent_to) = 0;
-
-  /**
-   * Frees a shard.
-   */  
-  virtual void free_shard(graph_shard* shard) = 0;
-  
-
-  // /**
-  //  * Commits all the changes made to the vertex data and edge data 
-  //  * in the shard, resetting all modification flags.
-  //  */
-  // virtual void commit_shard(graph_shard* shard) = 0;
-
+  /// Add a field to the edge data schema
+  virtual int add_edge_field(const graph_field& field) = 0;
 
   // --------------------- Structure Modification API ----------------------
-  
-  virtual bool add_vertex(graph_vid_t vid, graph_shard_id_t master, graph_row* data=NULL) = 0;
+  virtual int add_vertex(graph_vid_t vid, const graph_row& data) = 0;
 
-  virtual bool add_edge(graph_vid_t source, graph_vid_t target,
-                        graph_shard_id_t shard_id, graph_row* data=NULL) = 0;
+  virtual int add_edge(graph_vid_t source, graph_vid_t target, const graph_row& data) = 0;
 
-  virtual bool add_vertex_mirror(graph_vid_t vid, graph_shard_id_t master,
-                                 graph_shard_id_t mirror) = 0;
-};
+  // --------------------- Batch Structure Modification API ----------------------
+  virtual bool add_vertices(const std::vector<vertex_insert_descriptor>& vertices,
+                            std::vector<int>& errorcodes) = 0;
+
+  virtual bool add_edges(const std::vector<edge_insert_descriptor>& edges,
+                         std::vector<int>& errorcodes) = 0;
+
+  // --------------------- Single Query API -----------------------------------------
+  // Read API
+  virtual int get_vertex(graph_vid_t vid, graph_row& out) = 0;
+  virtual int get_edge(graph_eid_t eid, graph_row& out)  = 0;
+  virtual int get_vertex_adj(graph_vid_t vid, bool in_edges, vertex_adj_descriptor& out) = 0;
+
+  // Write API
+  virtual int set_vertex(graph_vid_t vid, const graph_row& data) = 0;
+  virtual int set_edge(graph_eid_t eid, const graph_row& data) = 0;
 
 
+  // --------------------- Batch Query API -----------------------------------------
+  virtual bool get_vertices (const std::vector<graph_vid_t>& vids,
+                             std::vector<graph_row>& out, 
+                             std::vector<int>& errorcodes) = 0;
+  virtual bool get_edges (const std::vector<graph_eid_t>& eids,
+                          std::vector<graph_row>& out, 
+                          std::vector<int>& errorcodes) = 0;
+
+  virtual bool set_vertices (const std::vector< std::pair<graph_vid_t, graph_row> >& pairs, 
+                             std::vector<int>& errorcodes) = 0;
+  virtual bool set_edges (const std::vector< std::pair<graph_eid_t, graph_row> >& pairs,
+                          std::vector<int>& errorcodes) = 0;
+
+  // ---------------------- Base Utility Function -------------------------
+  /**
+   * Returns the index of the vertex column with the given field name. 
+   *
+   * \note For database implementors: A default implementation using a linear 
+   * search of \ref get_edge_fields() is provided.
+   */
+  virtual int find_vertex_field(const char* fieldname) {
+    const std::vector<graph_field>& vfields = get_vertex_fields();
+    for (size_t i = 0;i < vfields.size(); ++i) {
+      if (vfields[i].name.compare(fieldname) == 0) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Returns the index of the edge column with the given field name. 
+   *
+   * \note For database implementors: A default implementation using a linear 
+   * search of \ref get_edge_fields() is provided.
+   */
+  virtual int find_edge_field(const char* fieldname) {
+    const std::vector<graph_field>& efields = get_edge_fields();
+    for (size_t i = 0;i < efields.size(); ++i) {
+      if (efields[i].name.compare(fieldname) == 0) {
+        return i;
+      }
+    }
+    return -1;
+  }
+  };
 } // namespace graphlab
 
 #endif
-  // /**
-  //  * Returns the index of the vertex column with the given field name. 
-  //  *
-  //  * \note For database implementors: A default implementation using a linear 
-  //  * search of \ref get_edge_fields() is provided.
-  //  */
-  // virtual int find_vertex_field(const char* fieldname) {
-  //   const std::vector<graph_field>& vfields = get_vertex_fields();
-  //   for (size_t i = 0;i < vfields.size(); ++i) {
-  //     if (vfields[i].name.compare(fieldname) == 0) {
-  //       return i;
-  //     }
-  //   }
-  //   return -1;
-  // }
 
-  // /**
-  //  * Returns the index of the edge column with the given field name. 
-  //  *
-  //  * \note For database implementors: A default implementation using a linear 
-  //  * search of \ref get_edge_fields() is provided.
-  //  */
-  // virtual int find_edge_field(const char* fieldname) {
-  //   const std::vector<graph_field>& efields = get_edge_fields();
-  //   for (size_t i = 0;i < efields.size(); ++i) {
-  //     if (efields[i].name.compare(fieldname) == 0) {
-  //       return i;
-  //     }
-  //   }
-  //   return -1;
-  // }

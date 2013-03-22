@@ -10,7 +10,6 @@
 #include <vector>
 
 namespace graphlab {
-
   /**
    * \ingroup group_graph_database
    * A global object (shared among servers) which provides

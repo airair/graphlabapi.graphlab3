@@ -8,10 +8,40 @@
 namespace graphlab {
 
 /// \ingroup group_graph_database
+/// identifies a field id
+typedef uint16_t graph_field_id_t;
 /// identifies a vertex id
 // typedef __uint128_t graph_vid_t;
 typedef uint64_t graph_vid_t;
+/// identifies an edge id
 typedef uint64_t graph_eid_t;
+/// identifies an edge local index within the shard 
+typedef uint64_t graph_leid_t;
+/// IDs used for shards
+typedef unsigned char graph_shard_id_t;
+union eid_union {
+  graph_eid_t eid;
+  struct {
+    graph_shard_id_t shard_id : 8;
+    graph_leid_t local_eid : 56 ; 
+  } split;
+};
+
+inline std::pair<graph_shard_id_t, graph_leid_t> split_eid(graph_eid_t eid) {
+  eid_union u;
+  u.eid = eid;
+  std::pair<graph_shard_id_t, graph_leid_t> pair;
+  pair.first = u.split.shard_id;
+  pair.second = u.split.local_eid;
+  return pair;
+}
+
+inline graph_eid_t make_eid(graph_shard_id_t shardid, graph_leid_t leid) {
+  eid_union u;
+  u.split.shard_id = shardid;
+  u.split.local_eid = leid;
+  return u.eid;
+}
 
 /// \ingroup group_graph_database
 /// integer field data type 
@@ -92,12 +122,6 @@ inline graph_datatypes_enum string_to_type(std::string typestr) {
     return UNKNOWN_TYPE;
   } 
 }
-
-
-/// \ingroup group_graph_database
-/// IDs used for shards
-typedef uint32_t graph_shard_id_t;
-
 } // namespace graphlab
 
 #endif

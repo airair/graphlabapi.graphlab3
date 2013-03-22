@@ -12,17 +12,20 @@ add_graphlab_executable(comm_bench comm_bench.cpp)
 
 add_graphlab_executable(qthread_basic_test qthread_basic_test.cpp)
 
-add_graphlab_executable(graph_database_sharedmem_test  graph_database_sharedmem_test.cpp)
+add_graphlab_executable(graph_shard_server_test graph_shard_server_test.cpp)
 
-add_graphlab_executable(graph_database_server_test graph_database_server_test.cpp)
+add_graphlab_executable(graphdb_test_server graphdb_test_server.cpp)
 
-add_graphlab_executable(graph_database_test_server graph_database_test_server.cpp)
+#add_graphlab_executable(graph_database_sharedmem_test  graph_database_sharedmem_test.cpp)
 
-add_graphlab_executable(pagerank_test_server pagerank_test_server.cpp)
 
-add_graphlab_executable(graph_database_test_client graph_database_test_client.cpp)
+#add_graphlab_executable(graph_database_test_server graph_database_test_server.cpp)
 
-add_graphlab_executable(distributed_graph_test distributed_graph_test.cpp)
+#add_graphlab_executable(pagerank_test_server pagerank_test_server.cpp)
+
+#add_graphlab_executable(graph_database_test_client graph_database_test_client.cpp)
+
+#add_graphlab_executable(distributed_graph_test distributed_graph_test.cpp)
 
 add_graphlab_executable(qthread_sgd qthread_sgd.cpp)
 

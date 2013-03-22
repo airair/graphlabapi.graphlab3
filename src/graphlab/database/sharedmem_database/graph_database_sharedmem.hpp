@@ -7,8 +7,6 @@
 #include <graphlab/database/graph_edge.hpp>
 #include <graphlab/database/graph_shard.hpp>
 #include <graphlab/database/graph_database.hpp>
-#include <graphlab/database/sharedmem_database/graph_vertex_sharedmem.hpp>
-#include <graphlab/database/sharedmem_database/graph_edge_sharedmem.hpp>
 #include <graphlab/macros_def.hpp>
 namespace graphlab {
   /**

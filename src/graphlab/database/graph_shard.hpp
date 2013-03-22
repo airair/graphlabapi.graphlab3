@@ -2,6 +2,7 @@
 #define GRAPHLAB_DATABASE_GRAPH_SHARD_HPP 
 #include <graphlab/database/basic_types.hpp>
 #include <graphlab/database/graph_shard_impl.hpp>
+#include <graphlab/logger/assertions.hpp>
 #include <boost/functional/hash.hpp>
 
 // forward declaration
@@ -41,7 +42,10 @@ class graph_shard {
 
  public:
    inline graph_shard() { }
-
+   
+   inline graph_shard(graph_shard_id_t shardid) {
+     shard_impl.shard_id = shardid;
+   }
    
    inline ~graph_shard() {}
 
@@ -49,19 +53,17 @@ class graph_shard {
     * Returns the id of this shard.
     * Id is -1 if this is a derived shard.
     */
-   inline graph_shard_id_t id() const {
-     return shard_impl.shard_id;
-   }
+   inline graph_shard_id_t id() const { return shard_impl.shard_id; }
 
   /**
    * Returns the number of vertices in this shard
    */ 
-  inline size_t num_vertices() const { return shard_impl.num_vertices; }
+  inline size_t num_vertices() const { return shard_impl.vertex.size(); }
 
   /**
    * Returns the number of edges in this shard
    */ 
-  inline size_t num_edges() const { return shard_impl.num_edges; }
+  inline size_t num_edges() const { return shard_impl.edge.size(); }
 
   /**
    * Returns the ID of the vertex in the i'th position in this shard.
@@ -74,7 +76,10 @@ class graph_shard {
    * vertex_data(i) corresponds to the data on the vertex with ID vertex(i)
    * i must range from 0 to num_vertices() - 1 inclusive.
    */
-  inline graph_row* vertex_data(size_t i) { return shard_impl.vertex_data + i; }
+  inline graph_row* vertex_data(size_t i) { 
+    ASSERT_LT(i, num_vertices()); 
+    return &(shard_impl.vertex_data[0])+i;
+  }
 
    /**
     * Return true if the vertex with vid is owned by this shard.
@@ -86,18 +91,19 @@ class graph_shard {
   /**
     * Return the mirror information of the vertex in the i'th position.
     */
-   inline const boost::unordered_set<graph_shard_id_t> mirrors(size_t i) const {
-     return shard_impl.vertex_mirrors[i];
+   inline const std::vector<graph_shard_id_t> mirrors(size_t i) const {
+     const boost::unordered_set<graph_shard_id_t> mirrorset = shard_impl.vertex_mirrors[i];
+     std::vector<graph_shard_id_t> ret(mirrorset.begin(), mirrorset.end());
+     return ret;
    }
 
   /**
     * Return true if the vertex with vid is owned by this shard.
     */
-   inline const boost::unordered_set<graph_shard_id_t> get_mirrors(const graph_vid_t& vid) const {
+   inline const std::vector<graph_shard_id_t> mirrors_by_id(const graph_vid_t& vid) const {
      size_t pos = shard_impl.vertex_index.get_index(vid);
-     return shard_impl.vertex_mirrors[pos];
+     return mirrors(pos);
    }
-
 
    /**
     * Returns the data of vertex with vid. Return NULL if there is no vertex 
@@ -111,7 +117,100 @@ class graph_shard {
      }
    }
 
+   /**
+   * Returns edge in the j'th position in this shard.
+   * The edge is a pair of (src vertex ID, dest vertex ID).
+   * j must range from 0 to num_edges() - 1 inclusive.
+   */
+  inline std::pair<graph_vid_t, graph_vid_t> edge(size_t j) const { return shard_impl.edge[j]; }
+
+  /**
+   * Returns the data of the edge in the j'th position in this shard.
+   * edge_data(i) corresponds to the data on the edge edge(i)
+   * i must range from 0 to num_edges() - 1 inclusive.
+   */
+  inline graph_row* edge_data(size_t i) {
+    return &(shard_impl.edge_data[0]) + i; 
+  }
+
+  /**
+   * Fill the adjacency structure of given vertex withvid.
+   */
+  inline void vertex_adj_ids (std::vector<graph_leid_t>& outids, 
+                          graph_vid_t vid, bool is_in_edges) const { 
+    shard_impl.edge_index.get_vertex_adj(outids, vid, is_in_edges);
+  }
+
+  /**
+   * Returns the adjacency data of given vertex withvid.
+   */
+  inline void vertex_adj (std::vector<graph_vid_t>& out, 
+                          graph_vid_t vid, bool is_in_edges) const { 
+    std::vector<graph_leid_t> ids;
+    shard_impl.edge_index.get_vertex_adj(ids, is_in_edges, vid);
+    if (is_in_edges) {
+      for (size_t i = 0; i < ids.size(); i++) {
+        out.push_back(shard_impl.edge[ids[i]].first);
+      }
+    } else {
+      for (size_t i = 0; i < ids.size(); i++) {
+        out.push_back(shard_impl.edge[ids[i]].second);
+      }
+    }
+  }
+
+  // ----------- Modification API -----------------
+  /**
+   * Insert a (vid, row) into the shard. Return the position of the vertex in the shard.
+   * For optimization, take over the row pointer.
+   */
+  size_t add_vertex(graph_vid_t vid, const graph_row& row) {
+    return shard_impl.add_vertex(vid, row);
+  };
+
+  /**
+   * Insert a (vid, mirror) record into the shard. Shard must be the master of the vertex.
+   */
+  void add_vertex_mirror(graph_vid_t v, graph_shard_id_t mirror_id) {
+    shard_impl.add_vertex_mirror(v, mirror_id);
+  };
+
+  /**
+   * Insert a (source, target, row) into the shard. Return the position of the edge in the shard.
+   * For optimization purpose, the data ownership of row is transfered.
+   */
+  size_t add_edge(graph_vid_t source, graph_vid_t target, const graph_row& row) {
+    return shard_impl.add_edge(source, target, row);
+  }
+
+  // ----------- Serialization API ----------
+  inline void save(oarchive& oarc) const {
+    oarc << shard_impl;
+  }
+
+  inline void load(iarchive& iarc) {
+    iarc >> shard_impl;
+  }
+
+
+  // Print the shard summary
+  friend std::ostream& operator<<(std::ostream &strm, const graph_shard& shard) {
+    return strm << "Shard " << shard.id() << "\n"
+                << "num vertices: " << shard.num_vertices() << "\n"
+                << "num edges: " << shard.num_edges() << "\n";
+  }
+
   
+ private:
+  // copy constructor deleted. It is not safe to copy this object.
+  graph_shard(const graph_shard&) { }
+
+  // assignment operator deleted. It is not safe to copy this object.
+  graph_shard& operator=(const graph_shard&) { return *this; }
+};
+} // namespace graphlab 
+#endif
+ 
   /**
    * Returns the number of out edges of the vertex in the i'th position in this
    * shard. This counts the total number of out edges of this vertex in the graph.
@@ -130,47 +229,4 @@ class graph_shard {
    */
   // inline size_t num_in_edges(size_t i) { return shard_impl.num_in_edges[i]; }
 
-  /**
-   * Returns edge in the j'th position in this shard.
-   * The edge is a pair of (src vertex ID, dest vertex ID).
-   * j must range from 0 to num_edges() - 1 inclusive.
-   */
-  inline std::pair<graph_vid_t, graph_vid_t> edge(size_t j) const { return shard_impl.edge[j]; }
 
-  /**
-   * Returns the data of the edge in the j'th position in this shard.
-   * edge_data(i) corresponds to the data on the edge edge(i)
-   * i must range from 0 to num_edges() - 1 inclusive.
-   */
-  inline graph_row* edge_data(size_t i) { return shard_impl.edge_data + i; }
-
-
-  // ----------- Serialization API ----------
-  inline void save(oarchive& oarc) const {
-    oarc << shard_impl;
-  }
-
-  inline void load(iarchive& iarc) {
-    iarc >> shard_impl;
-  }
-
-  // Print the shard summary
-  friend std::ostream& operator<<(std::ostream &strm, const graph_shard& shard) {
-    return strm << "Shard " << shard.id() << "\n"
-                << "num vertices: " << shard.num_vertices() << "\n"
-                << "num edges: " << shard.num_edges() << "\n";
-  }
-
- private:
-  // copy constructor deleted. It is not safe to copy this object.
-  graph_shard(const graph_shard&) { }
-
-  // assignment operator deleted. It is not safe to copy this object.
-  graph_shard& operator=(const graph_shard&) { return *this; }
-
-  friend class graph_database;
-  friend class graph_database_sharedmem;
-  friend class graph_vertex_sharedmem;
-};
-} // namespace graphlab 
-#endif

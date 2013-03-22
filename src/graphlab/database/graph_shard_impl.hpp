@@ -31,46 +31,17 @@ struct graph_shard_impl {
   /**
    * Creates an empty shard.
    */
-  inline graph_shard_impl(): shard_id(-1), num_vertices(0), num_edges(0),
-                      _vdata_capacity(1000), _edata_capacity(10000),
-                      vertex_data(new graph_row[_vdata_capacity]),
-                      edge_data(new graph_row[_edata_capacity]) { }
+  inline graph_shard_impl(): shard_id(-1) { }
 
   /**
    * Deconstructor. Free the edge and vertex data.
    */
-  inline ~graph_shard_impl() {
-    if (vertex_data != NULL)
-      delete[] vertex_data;
-    if (edge_data != NULL)
-      delete[] edge_data;
-    vertex_data = edge_data = NULL;
-  }
+  inline ~graph_shard_impl() { }
 
   /** 
    * the ID of the current shard 
    */
   graph_shard_id_t shard_id;
-
-  /** 
-   * The number of vertices in this shard
-   */
-  size_t num_vertices; 
-  
-  /**
-   * The number of edges in this shard
-   */
-  size_t num_edges;
-
-  /**
-   * The capacity of vertex data
-   */
-  size_t _vdata_capacity;
-
-  /**
-   * The initial capacity of edge data
-   */
-  size_t _edata_capacity;
 
   /**
    * An array of the vertex IDs in this shard. 
@@ -82,7 +53,7 @@ struct graph_shard_impl {
    * An array of all the vertex data in this shard.
    * The array has num_edges elements
    */
-  graph_row* vertex_data;
+  std::vector<graph_row> vertex_data;
 
   /**
    * An array of length num_edges where edgeid[i] is the internal edge id (relevant to shard)
@@ -101,7 +72,7 @@ struct graph_shard_impl {
    * An array of length num_edges of all the edge data in the shard. 
    * This array has a 1-1 corresponding to the edges array.
    */
-  graph_row* edge_data;
+  std::vector<graph_row> edge_data;
 
   /**
    * Index for adjacency structure lookup.
@@ -120,19 +91,20 @@ struct graph_shard_impl {
   std::vector<boost::unordered_set<graph_shard_id_t> > vertex_mirrors;
 
 
-
 // ----------- Serialization API ----------------
-
   void save(oarchive& oarc) const;
   
   void load(iarchive& iarc);
+
+  void deepcopy(graph_shard_impl& out) const;
   
 // ----------- Modification API -----------------
   /**
    * Insert a (vid, row) into the shard. Return the position of the vertex in the shard.
    * For optimization, take over the row pointer. 
    * */
-  size_t add_vertex(graph_vid_t vid, graph_row* row);
+  size_t add_vertex(graph_vid_t vid, const graph_row& row);
+
   /**
    * Insert a (vid, mirror) record into the shard. Shard must be the master of the vertex.
    */
@@ -142,21 +114,7 @@ struct graph_shard_impl {
    * Insert a (source, target, row) into the shard. Return the position of the edge in the shard.
    * For optimization purpose, the data ownership of row is transfered.
    * */
-  size_t add_edge(graph_vid_t source, graph_vid_t target, graph_row* row);
-
-  /**
-   * Make a deep copy of this shard into out.
-   */
-  void deepcopy(graph_shard_impl& out);
-
- private:
-  // copy constructor deleted. It is not safe to copy this object.
-  graph_shard_impl(const graph_shard_impl&) { }
-
-  // assignment operator deleted. It is not safe to copy this object.
-  graph_shard_impl& operator=(const graph_shard_impl&) { return *this; }
-
-
+  size_t add_edge(graph_vid_t source, graph_vid_t target, const graph_row& row);
 };
 } // namespace graphlab
 #endif

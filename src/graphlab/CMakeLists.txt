@@ -20,12 +20,16 @@ add_library(graphlab3 STATIC
             database/graph_value.cpp
             database/graph_shard_impl.cpp
             database/graph_shard_manager.cpp
-            database/sharedmem_database/graph_database_sharedmem.cpp
-            database/server/graph_database_server.cpp
-            database/client/cli_parser.cpp
-            database/client/distributed_graph_client.cpp
-            database/client/graph_client_cli.cpp
-            database/engine/graph_database_synchronous_engine.cpp
+            database/graphdb_config.cpp
+            database/graphdb_query_object.cpp
+            database/query_message.cpp
+            database/server/graph_shard_server.cpp
+            database/server/graphdb_server.cpp
+            database/client/graphdb_client.cpp
+            database/client/graph_loader.cpp
+            #database/client/distributed_graph_client.cpp
+            #database/client/graph_client_cli.cpp
+            #database/engine/graph_database_synchronous_engine.cpp
             comm/comm_base.cpp
             comm/mpi_comm.cpp
             comm/mpi_comm2.cpp

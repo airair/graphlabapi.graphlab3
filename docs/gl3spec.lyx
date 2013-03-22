@@ -1113,7 +1113,7 @@ struct graph_vertex_descriptor {
 
 \begin_layout LyX-Code
 
-struct vertex_adj_descriptor {
+struct graph_vertex_adj_descriptor {
 \end_layout
 
 \begin_layout LyX-Code
@@ -1152,13 +1152,14 @@ struct vertex_adj_descriptor {
 
 \begin_layout LyX-Code
 
-std::vector<graph_vertex_result> graphdb::get_vertices (std::vector<graph_vid_t>
-& vids);
+std::vector<graph_vertex_descriptor> graphdb::get_vertices (std::vector<graph_vi
+d_t>& vids);
 \end_layout
 
 \begin_layout LyX-Code
 
-graph_edge_list_result braphdb::get_vertex_adj(graph_vid_t vid, bool in_edges);
+graph_vertex_adj_descriptor braphdb::get_vertex_adj(graph_vid_t vid, bool
+ in_edges);
 \end_layout
 
 \begin_layout LyX-Code
@@ -1184,35 +1185,8 @@ bool graphdb::write_vertex_adj(graph_edge_list_descriptor>& edges);
 
 \end_layout
 
-\begin_layout LyX-Code
-
-// Batch transform API
-\end_layout
-
-\begin_layout LyX-Code
-
-void transform_vertices(boost::functional<void(graph_row&)> fun);
-\end_layout
-
-\begin_layout LyX-Code
-
-void transform_edges(boost::functional<void(graph_row&)> fun);
-\end_layout
-
-\begin_layout LyX-Code
-
-\end_layout
-
-\begin_layout LyX-Code
-
-\end_layout
-
 \end_inset
 
-
-\end_layout
-
-\begin_layout Standard
 
 \end_layout
 
@@ -1562,6 +1536,7 @@ GraphLab Server Object
 
 \begin_layout Standard
 The server object serves one shard.
+ Additional functionalites supported by the server are:
 \end_layout
 
 \begin_layout LyX-Code
@@ -1580,7 +1555,17 @@ graph_shard_id_t graphdb_server::get_shard_id();
 
 \begin_layout LyX-Code
 
+// Get all vertices from local
+\end_layout
+
+\begin_layout LyX-Code
+
 std::vector<graph_vertex> graphdb_server::local_vertices();
+\end_layout
+
+\begin_layout LyX-Code
+
+// Get all edges from local
 \end_layout
 
 \begin_layout LyX-Code
@@ -1594,7 +1579,17 @@ std::vector<graph_edge> graphdb_server::local_edges();
 
 \begin_layout LyX-Code
 
+// Get all vertices adjacent to the local edges
+\end_layout
+
+\begin_layout LyX-Code
+
 std::vector<graph_vertex> graphdb_server::adjacent_vertices();
+\end_layout
+
+\begin_layout LyX-Code
+
+// Get all edges adjacent to the local vertices
 \end_layout
 
 \begin_layout LyX-Code
@@ -1608,12 +1603,45 @@ std::vector<graph_edge> graphdb_server::adjacent_edges();
 
 \begin_layout LyX-Code
 
+// Commit all changes made in the vertices
+\end_layout
+
+\begin_layout LyX-Code
+
 commit_vertices(std::vector<graph_vertex>& vertices);
 \end_layout
 
 \begin_layout LyX-Code
 
+// Commit all changes made in the edges
+\end_layout
+
+\begin_layout LyX-Code
+
 commit_edges(std::vector<graph_edge>& edges);
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+\end_layout
+
+\begin_layout LyX-Code
+
+// Batch transform API
+\end_layout
+
+\begin_layout LyX-Code
+
+void transform_vertices(boost::functional<void(graph_row&)> fun);
+\end_layout
+
+\begin_layout LyX-Code
+
+void transform_edges(boost::functional<void(graph_row&)> fun);
 \end_layout
 
 \end_inset

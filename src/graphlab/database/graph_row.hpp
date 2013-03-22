@@ -18,53 +18,33 @@ class graph_database;
  * It allows query for individual entries (columns) in the row,
  * as well as various meta-data.
  *
- * \note 
- * This object may or may not be responsible of the underlying data. If <code>_own_data</code>
- * is set, it is responsible for the resource, and will free the data in its deconstructor.
- * graph_row stored in the <code>graph_shard</code> has the ownership of the data.
- *
- * This object is not thread-safe, and may not copied.
- *
  * \note
  *  This struct is intentionally make fully public to allows the graph_row
  *  type to be used natively in the database implementations easily.
  */
 class graph_row {
  public:
-  /// An array of all the values on this row
-  graph_value* _data;
-
-  /// If true, this row is responsible for data allocation. 
-  bool _own_data;
-
-  /// Number of fields in the row.
-  size_t _nfields;
+  /// An array of all the values in this row
+  std::vector<graph_value> _data;
 
   /// If true, this represents a vertex; if false, this represents an edge.
   bool _is_vertex;
 
   /// Empty constructor 
-  inline graph_row() : _data(NULL), _own_data(false), _nfields(0), _is_vertex(false) { }
-
+  inline graph_row() : _is_vertex(true) { }
+  
   /// Given fields metadata, creates a row with NULL values in the given fields.
-  graph_row(std::vector<graph_field>& fields, bool is_vertex); 
+  graph_row(const std::vector<graph_field>& fields, bool is_vertex); 
   
   /// Destructor. Frees the values if <code>_own_data</code> is true.
-  inline ~graph_row() {
-    if (_own_data) {
-      delete[] _data;
-    }
-  }
+  inline ~graph_row() { }
 
   /// add a new field into row with NULL value.
   void add_field(graph_field& field);
 
-  /// remove a field at fieldpos.
-  void remove_field(size_t fieldpos);
-  
   /// Returns the number of fields on this row
   inline size_t num_fields() const {
-    return _nfields; 
+    return _data.size(); 
   }
 
   /** 
@@ -86,7 +66,7 @@ class graph_row {
    */
   inline bool is_null() const {
     for (size_t i = 0; i < num_fields(); i++) {
-      if (!_data->is_null())
+      if (!_data[i].is_null())
         return false;
     }
     return true;
@@ -97,26 +77,27 @@ class graph_row {
    * Returns a pointer to the value. Returns NULL if the position is invalid.
    */
   inline graph_value* get_field(size_t fieldpos) {
-    if (fieldpos < num_fields()) return _data + fieldpos;
-    else return NULL; 
+    if (fieldpos < num_fields()) 
+      return (&_data[0] + fieldpos);
+    else
+      return NULL; 
   }
 
   /** 
    * Const version of get_field. 
    */
   inline const graph_value* get_field(size_t fieldpos) const {
-    if (fieldpos < num_fields()) return _data + fieldpos;
-    else return NULL; 
+    if (fieldpos < num_fields()) 
+      return (&_data[0] + fieldpos);
+    else
+      return NULL; 
   }
 
   /**
    * Serialization interface. Save the values and associated state into oarchive.
    */
   void save (oarchive& oarc) const {
-    oarc << _is_vertex << _nfields;
-    for (size_t i = 0; i < _nfields; i++) {
-      oarc << _data[i];
-    }
+    oarc << _is_vertex << _data;
   }
 
   /**
@@ -124,38 +105,11 @@ class graph_row {
    * The graph_row owns the data loaded from the iarchive. 
    */
   void load (iarchive& iarc) {
-    iarc >> _is_vertex >> _nfields;
-    _own_data = true;
-    if (_data == NULL) 
-      _data = new graph_value[_nfields];
-    for (size_t i = 0; i < _nfields; i++) {
-      iarc >> _data[i];
-    }
+    iarc >> _is_vertex >> _data;
   }
 
  private:
-  // copy constructor deleted. It is not safe to copy this object.
-  graph_row(const graph_row&) { }
-
-  // assignment operator deleted. It is not safe to copy this object.
-  graph_row& operator=(const graph_row&) { return *this; }
-
-  /**
-   * Makes a shallow copy of this row into out_row and retains the data ownership. 
-   */
-  void shallowcopy(graph_row& out_row);
-
-  /**
-   * Makes a deep copy of this row into out_row, which owns the copied data.
-   */
-  void deepcopy (graph_row& out_row);
-
-  /**
-   * Makes a copy of this row into out_row and transfer the data ownership to out_row. 
-   */
-  void copy_transfer_owner(graph_row& out_row);
-
-
+  
   /**
    * Output the string format to ostream.
    */
@@ -173,10 +127,6 @@ class graph_row {
     strm << "}";
     return strm;
   }
-
-  friend class graph_database;
-  friend class graph_database_sharedmem;
-  friend struct graph_shard_impl;
 };
 } // namespace graphlab 
 #endif

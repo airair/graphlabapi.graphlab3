@@ -302,7 +302,7 @@ endif()
 ExternalProject_Add(qthreads
                     PREFIX ${GraphLab_SOURCE_DIR}/deps/qthreads
                     URL http://graphlab.org/deps/qthreads.tar.bz2
-                    URL_MD5 cd91cefdcc04cec19a933009e11d23c6
+                    URL_MD5 fd94ae41a06f3756c1042d47cfa671d3
                     INSTALL_DIR ${GraphLab_SOURCE_DIR}/deps/local
                     BUILD_IN_SOURCE 1
                     CONFIGURE_COMMAND ./configure --prefix=<INSTALL_DIR> --enable-oversubscription --with-scheduler=nemesis --enable-lf-febs -enable-condwait-queue

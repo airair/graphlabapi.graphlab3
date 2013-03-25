@@ -93,9 +93,9 @@ namespace graphlab {
        return *this;
      }
    private:
+    header h;
     oarchive oarc;
     iarchive* iarc;
-    header h;
   }; // end of class
 } // end of namespace
 #endif

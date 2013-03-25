@@ -4,9 +4,6 @@
 #include<boost/functional.hpp>
 #include<boost/bind.hpp>
 namespace graphlab {
-     typedef graph_database::vertex_adj_descriptor vertex_adj_descriptor;
-     typedef graph_database::vertex_insert_descriptor vertex_insert_descriptor;
-     typedef graph_database::edge_insert_descriptor edge_insert_descriptor;
 
   // -------------------- Query API -----------------------
   // Read API
@@ -141,22 +138,24 @@ namespace graphlab {
 
   // -------- Modification API --------------
   int graph_shard_server::add_vertex(graph_vid_t vid, const graph_row& data) {
+    int errorcode = 0;
     if (shard.has_vertex(vid)) { // vertex has already been inserted 
         graph_row* row =  shard.vertex_data_by_id(vid);
         if (row->is_null()) { // existing vertex has no value, update with new value
           *row = data;
-          return 0;
         } else { // existing vertex has value, cannot overwrite, return false
-          return EDUP;
+          errorcode = EDUP;
         }
     } else {
       if (data.is_vertex()) {
         shard.add_vertex(vid, data);
-        return 0;
       } else {
-        return EINVTYPE;
+        errorcode = EINVTYPE;
       }
     }
+    logstream(LOG_WARNING) << glstrerr(errorcode) 
+                           << ": (" << vid << ":" << data << ") " << std::endl;
+    return errorcode;
   }
 
   int graph_shard_server::add_edge(graph_vid_t source, graph_vid_t target, const graph_row& data) {
@@ -164,6 +163,9 @@ namespace graphlab {
       shard.add_edge(source, target, data);
       return 0;
     } else {
+      logstream(LOG_WARNING) << glstrerr(EINVTYPE) 
+                             << ": (" << source << "," << target 
+                             << ": " << data << ") " << std::endl;
       return EINVTYPE;
     }
   }
@@ -190,14 +192,29 @@ namespace graphlab {
     return success;
   }
 
+  bool graph_shard_server::add_vertex_mirrors(const std::vector<mirror_insert_descriptor>& vid_mirror_pairs, std::vector<int>& errorcodes) {
+    bool success = true;
+    for (size_t i = 0; i < vid_mirror_pairs.size(); i++) {
+      int err = add_vertex_mirror(vid_mirror_pairs[i].first, vid_mirror_pairs[i].second);
+      errorcodes.push_back(err);
+      success &= (err == 0);
+    }
+    return success;
+  }
+
   /**
    * Add shard_id to the vertex mirror list. Assuming the vertex to be updated is stored in a local shard.
    */
-  int graph_shard_server::add_vertex_mirror(graph_vid_t vid, graph_shard_id_t mirror_shard) {
-    if (!shard.has_vertex(vid)) 
-      return EINVID;
-    shard.add_vertex_mirror(vid, mirror_shard);
-    return 0;
+  int graph_shard_server::add_vertex_mirror(graph_vid_t vid, const std::vector<graph_shard_id_t>& mirrors) {
+    int errorcode = 0;
+    if (!shard.has_vertex(vid)) { 
+      graph_row empty_row;
+      shard.add_vertex(vid, empty_row);
+    }
+    for (size_t i = 0; i < mirrors.size(); i++) {
+      shard.add_vertex_mirror(vid, mirrors[i]);
+    }
+    return errorcode;
   }
 
   // ---------- Helper functions -------------

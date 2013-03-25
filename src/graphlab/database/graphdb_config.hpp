@@ -39,7 +39,7 @@ namespace graphlab {
 
     bool parse_zkinfo(std::ifstream& in);
 
-    bool parse_fields(std::ifstream& in, std::vector<graph_field>& fields);
+    // bool parse_fields(std::ifstream& in, std::vector<graph_field>& fields);
 
 
    private:

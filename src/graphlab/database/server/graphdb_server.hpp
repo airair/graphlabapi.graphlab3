@@ -9,6 +9,7 @@
 namespace graphlab {
 
 class graphdb_server : public libfault::query_object {
+
 public:
   graphdb_server(size_t shardid, bool is_master = true) 
       : server(shardid), is_master(is_master) {}

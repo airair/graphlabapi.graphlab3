@@ -4,8 +4,23 @@ namespace graphlab {
   // ----------------------------- Batch Methods --------------------------------------
   bool graphdb_client::add_edges(const std::vector<edge_insert_descriptor>& edges,
                                  std::vector<int>& errorcodes) {
+
     QueryMessage::header header(QueryMessage::BADD, QueryMessage::EDGE);
     scatter_messages<edge_insert_descriptor, char>(header, edges, boost::bind(&graphdb_client::ein2shard, this, _1), NULL, errorcodes);
+    
+    // add mirrors
+    mirror_table_type mirror_table = mirror_table_from_edges(edges);
+    std::vector<mirror_insert_descriptor> vid_mirror_pairs;
+    for (mirror_table_type::iterator it = mirror_table.begin(); it != mirror_table.end(); it++) {
+      graph_vid_t vid = it->first;
+      std::vector<graph_shard_id_t> mirrors(it->second.begin(), it->second.end());
+      vid_mirror_pairs.push_back (mirror_insert_descriptor(vid, mirrors));
+    }
+
+    bool success = add_vertex_mirrors(vid_mirror_pairs, errorcodes);
+    ASSERT_TRUE(success);
+
+    // check error codes
     for (size_t i = 0; i < errorcodes.size(); ++i) {
       if (errorcodes[i] != 0)
         return false;
@@ -23,6 +38,18 @@ namespace graphlab {
     }
     return true;
   }
+
+  bool graphdb_client::add_vertex_mirrors(const std::vector<mirror_insert_descriptor>& vid_mirror_pairs,
+                                          std::vector<int>& errorcodes) {
+    QueryMessage::header header(QueryMessage::BADD, QueryMessage::VMIRROR);
+    scatter_messages<mirror_insert_descriptor, char>(header, vid_mirror_pairs, boost::bind(&graphdb_client::vidpair2shard<std::vector<graph_shard_id_t> >, this, _1), NULL, errorcodes);
+    for (size_t i = 0; i < errorcodes.size(); ++i) {
+      if (errorcodes[i] != 0)
+        return false;
+    }
+    return true;
+  }
+
 
   bool graphdb_client::get_edges(const std::vector<graph_eid_t>& eids,
                                  std::vector<graph_row>& out, 
@@ -75,40 +102,19 @@ namespace graphlab {
     return true;  
   }
 
-  int graphdb_client::add_edge(graph_vid_t source, graph_vid_t target, const graph_row& data) {
+  int graphdb_client::add_edge(graph_vid_t source, graph_vid_t dest, const graph_row& data) {
     QueryMessage qm(QueryMessage::ADD, QueryMessage::EDGE);
-    qm << source << target << data;
-    query_result future = queryobj.query(shard_manager.get_master(source, target), 
-                                         qm.message(), qm.length());
+    qm << source << dest << data;
+    graph_shard_id_t target = shard_manager.get_master(source, dest); 
+    query_result future = queryobj.update(target, qm.message(), qm.length());
+
+
+    std::vector<graph_shard_id_t> mirrors(target);
+    // send out mirrors
+    add_vertex_mirror(source, mirrors);
+    add_vertex_mirror(target, mirrors);
+
     return queryobj.parse_reply(future);
-  }
-
-  int graphdb_client::add_edge_field(const graph_field& field) {
-    QueryMessage qm(QueryMessage::ADD, QueryMessage::EFIELD);
-    qm << field;
-    std::vector<query_result> futures;
-    queryobj.update_all(qm.message(), qm.length(), futures);
-
-    for (size_t i = 0; i < futures.size(); ++i) {
-      int error = queryobj.parse_reply(futures[i]);
-      if (error != 0)
-        return error;
-    }
-    return 0;
-  }
-
-  int graphdb_client::add_vertex_field(const graph_field& field) {
-    QueryMessage qm(QueryMessage::ADD, QueryMessage::VFIELD);
-    qm << field;
-    std::vector<query_result> futures;
-    queryobj.update_all(qm.message(), qm.length(), futures);
-
-    for (size_t i = 0; i < futures.size(); ++i) {
-      int error = queryobj.parse_reply(futures[i]);
-      if (error != 0)
-        return error;
-    }
-    return 0;
   }
 
   int graphdb_client::add_vertex(graph_vid_t vid, const graph_row& data) {
@@ -192,6 +198,34 @@ namespace graphlab {
     return acc;
   }
 
+  int graphdb_client::add_edge_field(const graph_field& field) {
+    QueryMessage qm(QueryMessage::ADD, QueryMessage::EFIELD);
+    qm << field;
+    std::vector<query_result> futures;
+    queryobj.update_all(qm.message(), qm.length(), futures);
+
+    for (size_t i = 0; i < futures.size(); ++i) {
+      int error = queryobj.parse_reply(futures[i]);
+      if (error != 0)
+        return error;
+    }
+    return 0;
+  }
+
+  int graphdb_client::add_vertex_field(const graph_field& field) {
+    QueryMessage qm(QueryMessage::ADD, QueryMessage::VFIELD);
+    qm << field;
+    std::vector<query_result> futures;
+    queryobj.update_all(qm.message(), qm.length(), futures);
+
+    for (size_t i = 0; i < futures.size(); ++i) {
+      int error = queryobj.parse_reply(futures[i]);
+      if (error != 0)
+        return error;
+    }
+    return 0;
+  }
+
   const std::vector<graph_field> graphdb_client::get_edge_fields() {
     QueryMessage qm(QueryMessage::GET, QueryMessage::EFIELD);
     query_result future = queryobj.query_any(qm.message(), qm.length());
@@ -207,6 +241,15 @@ namespace graphlab {
     ASSERT_EQ(queryobj.parse_reply(future, ret), 0);
     return ret;
   }
+
+  int graphdb_client::add_vertex_mirror(graph_vid_t vid, const std::vector<graph_shard_id_t>& mirrors) {
+    QueryMessage qm(QueryMessage::ADD, QueryMessage::VMIRROR);
+    qm << vid << mirrors;
+    query_result future = queryobj.update(shard_manager.get_master(vid), qm.message(), qm.length());
+    int errorcode = queryobj.parse_reply(future);
+    return errorcode;
+  }
+
 
   // --------------- Helper functions -----------------------
   graph_shard_id_t graphdb_client::eid2shard(const graph_eid_t& eid) { 
@@ -227,5 +270,15 @@ namespace graphlab {
 
   graph_shard_id_t graphdb_client::ein2shard(const edge_insert_descriptor& des) {
     return shard_manager.get_master(des.src, des.dest);
+  }
+
+  graphdb_client::mirror_table_type graphdb_client::mirror_table_from_edges (const std::vector<edge_insert_descriptor>& edges) {
+    mirror_table_type map;
+    for (size_t i = 0; i < edges.size(); ++i) {
+      graph_shard_id_t target = ein2shard(edges[i]); 
+      map[edges[i].src].insert(target);
+      map[edges[i].dest].insert(target);
+    }
+    return map;
   }
 } // end of graphlab namespace

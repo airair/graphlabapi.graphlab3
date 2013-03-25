@@ -1,15 +1,16 @@
 #ifndef GRAPHLAB_DATABASE_GRAPH_LOADER_HPP
 #define GRAPHLAB_DATABASE_GRAPH_LOADER_HPP
-
 #include <graphlab/database/client/builtin_parsers.hpp>
+#include <graphlab/database/graph_database.hpp>
 #include <boost/functional.hpp>
 #include <string>
 
 namespace graphlab {
   class graphdb_client;
-
   class graph_loader {
    public:
+     typedef graph_database::edge_insert_descriptor edge_insert_descriptor;
+
      typedef boost::function<bool(graph_loader&, const std::string&, const std::string&)> line_parser_type;
 
    public:
@@ -23,6 +24,8 @@ namespace graphlab {
      void load(std::string prefix, line_parser_type line_parser);
 
      void load_from_posixfs(std::string prefix, line_parser_type line_parser);
+
+     void flush();
 
      /**
        \internal
@@ -57,6 +60,7 @@ namespace graphlab {
 
   private:
      graphdb_client* client;
+     std::vector<edge_insert_descriptor> edge_ingress_buffer; 
   };
 }
 

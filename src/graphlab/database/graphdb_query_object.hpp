@@ -122,8 +122,8 @@ namespace graphlab {
     libfault::query_object_client* qoclient;
 
     inline std::string find_server(graph_shard_id_t shardid) {
-      return "shard"+boost::lexical_cast<std::string>(shardid);
-    } 
+      return boost::lexical_cast<std::string>((size_t)shardid);
+    }
 
     std::vector<graph_shard_id_t> shard_list;
 

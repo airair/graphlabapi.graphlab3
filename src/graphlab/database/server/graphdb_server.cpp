@@ -6,21 +6,32 @@ namespace graphlab {
      typedef graph_database::vertex_adj_descriptor vertex_adj_descriptor;
      typedef graph_database::vertex_insert_descriptor vertex_insert_descriptor;
      typedef graph_database::edge_insert_descriptor edge_insert_descriptor;
+     typedef graph_database::mirror_insert_descriptor mirror_insert_descriptor;
 
   // ------------------ Server Query and Update interface ----------------------------
   bool graphdb_server::update(char* msg, size_t msglen, char** outreply, size_t *outreplylen) {
     logstream(LOG_EMPH) << "Update Request. "; 
     oarchive oarc;
-    int error = process(msg, msglen, oarc);
+    bool success = process(msg, msglen, oarc);
+    if (success) {
+      logstream(LOG_EMPH) << "Success." << std::endl;
+    } else {
+      logstream(LOG_EMPH) << "Failure." << std::endl; 
+    }
     *outreply = oarc.buf;
     *outreplylen = oarc.off;
-    return (error == 0); 
+    return success; 
   }
 
   void graphdb_server::query(char* msg, size_t msglen, char** outreply, size_t *outreplylen) {
     logstream(LOG_EMPH) << "Query Request. "; 
     oarchive oarc;
-    process(msg, msglen, oarc);
+    bool success = process(msg, msglen, oarc);
+    if (success) {
+      logstream(LOG_EMPH) << "Success." << std::endl;
+    } else {
+      logstream(LOG_EMPH) << "Failure." << std::endl; 
+    }
     *outreply = oarc.buf;
     *outreplylen = oarc.off;
   }
@@ -59,9 +70,9 @@ namespace graphlab {
        break;
      }
      case QueryMessage::VMIRROR: {
-       graph_vid_t vid;  graph_shard_id_t shardid;
-       qm >> vid >> shardid;
-       errorcode = server.add_vertex_mirror(vid, shardid);
+       graph_vid_t vid;  std::vector<graph_shard_id_t> mirrors;
+       qm >> vid >> mirrors;
+       errorcode = server.add_vertex_mirror(vid, mirrors);
        break;
      }
      case QueryMessage::VFIELD: {
@@ -118,8 +129,20 @@ namespace graphlab {
      case QueryMessage::EFIELD: {
        errorcode = 0;
        oarc << 0 << (server.get_edge_fields());
+       break;
      }
+     case QueryMessage::NVERTS: {
+        errorcode = 0;
+        oarc << 0 << (server.num_vertices());
+        break;
+      } 
+     case QueryMessage::NEDGES: {
+        errorcode = 0;
+        oarc << 0 <<  (server.num_edges());
+        break;
+      }
      default: errorcode = EINVHEAD;
+              oarc << errorcode;
     }
     return errorcode;
   }
@@ -162,6 +185,12 @@ namespace graphlab {
        std::vector<edge_insert_descriptor> in;
        qm >> in;
        success = server.add_edges(in, errorcodes);
+       break;
+     }
+     case QueryMessage::VMIRROR: {
+       std::vector<mirror_insert_descriptor> in;
+       qm >> in;
+       success = server.add_vertex_mirrors(in, errorcodes);
        break;
      }
      default: oarc << false << EINVHEAD; 

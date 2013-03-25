@@ -17,7 +17,6 @@ namespace graphlab {
  */
 class graph_database {
  public:
-  // Store the query result of a vertex adjacency
   struct vertex_adj_descriptor {
      std::vector<graph_vid_t> neighbor_ids;
      std::vector<graph_eid_t> eids;
@@ -57,6 +56,9 @@ class graph_database {
        iarc >> src >> dest >> data;
      }
    };
+  
+   // TODO: Internal struct between client and server holding vertex mirror information. This type should be moved to somewhere else, hidden from the public graph database interface.
+   typedef std::pair<graph_vid_t, std::vector<graph_shard_id_t> > mirror_insert_descriptor;
 
  public:
   virtual ~graph_database() { }

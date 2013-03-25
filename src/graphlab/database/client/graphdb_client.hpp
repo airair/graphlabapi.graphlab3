@@ -1,18 +1,23 @@
 #ifndef GRAPHLAB_DATABASE_GRAPHDB_CLIENT_HPP
 #define GRAPHLAB_DATABASE_GRAPHDB_CLIENT_HPP
+
 #include<graphlab/database/graph_database.hpp>
 #include<graphlab/database/graphdb_config.hpp>
 #include<graphlab/database/graph_shard_manager.hpp>
 #include<graphlab/database/graphdb_query_object.hpp>
 #include<graphlab/database/query_message.hpp>
 #include<map>
+#include<set>
+
 namespace graphlab {
   class graphdb_client: public graph_database {
    public:
      typedef graph_database::vertex_adj_descriptor vertex_adj_descriptor;
      typedef graph_database::vertex_insert_descriptor vertex_insert_descriptor;
      typedef graph_database::edge_insert_descriptor edge_insert_descriptor;
+     typedef graph_database::mirror_insert_descriptor mirror_insert_descriptor;
 
+     typedef std::map<graph_vid_t, std::set<graph_shard_id_t> > mirror_table_type;
      typedef graphdb_query_object::query_result query_result;
 
    public:
@@ -70,6 +75,13 @@ namespace graphlab {
 
    private:
      // ---------------------- Helper functions ---------------------------------------
+     int add_vertex_mirror(graph_vid_t, const std::vector<graph_shard_id_t>& mirrors);
+
+     bool add_vertex_mirrors(const std::vector<mirror_insert_descriptor>& vmirrors,
+                             std::vector<int>& errorcodes);
+
+     mirror_table_type mirror_table_from_edges (const std::vector<edge_insert_descriptor>& edges);
+
      template<typename Tin, typename Tout>
      void scatter_messages (QueryMessage::header query_header, 
                             const std::vector<Tin>& in_values,
@@ -104,6 +116,11 @@ namespace graphlab {
          replies.push_back(std::pair<graph_shard_id_t, query_result> (shardid, future));
        }
 
+
+       errorcodes.resize(in_values.size(), 0);
+       if (out_values != NULL)
+         out_values->resize(in_values.size());
+
        // parse the reply 
        for (size_t i = 0; i < replies.size(); i++) {
          std::vector<int> errorcodes_i;
@@ -120,11 +137,11 @@ namespace graphlab {
          if (success) { errorcodes_i.resize(ids.size()); } // resize a vector of 0 error codes
          // fill the out vectors
          if (out_values != NULL) {
-           out_values->resize(in_values.size());
+           for (size_t j = 0; j < ids.size(); j++) {
+             (*out_values)[ids[j]] = results_i[j];
+           }
          }
-         for (size_t j = 0; j < ids.size(); j++) {
-           (*out_values)[ids[j]] = results_i[j];
-         }
+
          for (size_t j = 0; j < ids.size(); j++) {
            errorcodes[ids[j]] = errorcodes_i[j];
          }
@@ -147,6 +164,7 @@ namespace graphlab {
      graph_shard_id_t vidpair2shard(const std::pair<graph_vid_t, T>& pair) {
        return shard_manager.get_master(pair.first);
      }
+
    private:
      graphdb_query_object queryobj;
      graph_shard_manager shard_manager;

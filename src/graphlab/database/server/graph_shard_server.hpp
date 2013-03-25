@@ -7,6 +7,7 @@ namespace graphlab {
      typedef graph_database::vertex_adj_descriptor vertex_adj_descriptor;
      typedef graph_database::vertex_insert_descriptor vertex_insert_descriptor;
      typedef graph_database::edge_insert_descriptor edge_insert_descriptor;
+     typedef graph_database::mirror_insert_descriptor mirror_insert_descriptor;
 
    public:
      /// Creates server with empty fields.
@@ -36,9 +37,7 @@ namespace graphlab {
   // --------------------- Structure Modification API ----------------------
    int add_vertex(graph_vid_t vid, const graph_row& data);
 
-   int add_vertex_mirror(graph_vid_t vid, graph_shard_id_t mirror);
-
-   int add_edge(graph_vid_t source, graph_vid_t target, const graph_row& data);
+  int add_edge(graph_vid_t source, graph_vid_t target, const graph_row& data);
 
   // --------------------- Batch Structure Modification API ----------------------
    bool add_vertices(const std::vector<vertex_insert_descriptor>& vertices,
@@ -74,6 +73,10 @@ namespace graphlab {
   // --------------------- Internal functions --------------------------------
    graph_shard& get_shard() { return shard; }
 
+   int add_vertex_mirror(graph_vid_t vid, const std::vector<graph_shard_id_t>& mirrors);
+
+   bool add_vertex_mirrors(const std::vector<mirror_insert_descriptor>& vid_mirror_pairs, std::vector<int>& errorcodes);
+ 
    private:
      // --------------------- Helper functions -----------------------------------
      // Batch transform vertices 

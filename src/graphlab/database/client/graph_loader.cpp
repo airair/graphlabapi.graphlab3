@@ -72,6 +72,7 @@ namespace graphlab {
       search_prefix = path.filename().native();
       directory_name = (directory_name.empty() ? "." : directory_name);
     }
+
     std::vector<std::string> graph_files;
     fs_util::list_files_with_prefix(directory_name, search_prefix, graph_files);
     if (graph_files.size() == 0) {
@@ -97,11 +98,28 @@ namespace graphlab {
       fin.pop();
       if (gzip) fin.pop();
     }
+    flush();
   } // end of load from posixfs
 
-  void graph_loader::add_edge(graph_vid_t source, graph_vid_t target) {
+  void graph_loader::add_edge(graph_vid_t source, graph_vid_t dest) {
     graph_row row;
     row._is_vertex = false;
-    client->add_edge(source, target, row);
+    // client->add_edge(source, target, row);
+    edge_insert_descriptor e;
+    e.src = source; 
+    e.dest = dest;
+    e.data = row;
+    edge_ingress_buffer.push_back(e);
+    if (edge_ingress_buffer.size() > 5000000) {
+      flush();
+    }
   } 
+
+  void graph_loader::flush() {
+    logstream(LOG_EMPH) << "Flush ... " << std::endl;
+    std::vector<int> errorcodes;
+    bool success = client->add_edges(edge_ingress_buffer, errorcodes);
+    ASSERT_TRUE(success);
+    edge_ingress_buffer.clear();
+  }
 } // end of namespace

@@ -9,11 +9,11 @@ namespace graphlab {
     "num_vertices", "num_edges", "edge_size", "vertex_field", "edge_field", "undefined"
   };
 
-  QueryMessage::QueryMessage(header h) : h(h) {
+  QueryMessage::QueryMessage(header h) : h(h), iarc(NULL) {
     oarc << h.cmd << h.obj;
   }
 
-  QueryMessage::QueryMessage(qm_cmd_type cmd, qm_obj_type obj) : h(cmd, obj) {
+  QueryMessage::QueryMessage(qm_cmd_type cmd, qm_obj_type obj) : h(cmd, obj), iarc(NULL) {
     oarc << cmd << obj;
   }
 

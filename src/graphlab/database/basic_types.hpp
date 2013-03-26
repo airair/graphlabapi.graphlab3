@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <stdint.h>
+#include <graphlab/logger/assertions.hpp>
 #include <boost/algorithm/string.hpp>
 
 namespace graphlab {
@@ -16,14 +17,14 @@ typedef uint64_t graph_vid_t;
 /// identifies an edge id
 typedef uint64_t graph_eid_t;
 /// identifies an edge local index within the shard 
-typedef uint64_t graph_leid_t;
+typedef uint32_t graph_leid_t;
 /// IDs used for shards
-typedef unsigned char graph_shard_id_t;
+typedef uint16_t graph_shard_id_t;
 union eid_union {
   graph_eid_t eid;
   struct {
-    graph_shard_id_t shard_id : 8;
-    graph_leid_t local_eid : 56 ; 
+    graph_shard_id_t shard_id : 16;
+    graph_leid_t local_eid : 32; 
   } split;
 };
 

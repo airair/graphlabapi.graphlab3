@@ -16,7 +16,7 @@ namespace graphlab {
     if (success) {
       logstream(LOG_EMPH) << "Success." << std::endl;
     } else {
-      logstream(LOG_EMPH) << "Failure." << std::endl; 
+      logstream(LOG_WARNING) << "Failure." << std::endl; 
     }
     *outreply = oarc.buf;
     *outreplylen = oarc.off;
@@ -30,7 +30,7 @@ namespace graphlab {
     if (success) {
       logstream(LOG_EMPH) << "Success." << std::endl;
     } else {
-      logstream(LOG_EMPH) << "Failure." << std::endl; 
+      logstream(LOG_WARNING) << "Failure." << std::endl; 
     }
     *outreply = oarc.buf;
     *outreplylen = oarc.off;
@@ -46,8 +46,8 @@ namespace graphlab {
      case QueryMessage::SET: return (process_set(qm, oarc) == 0);
      case QueryMessage::ADD: return (process_add(qm, oarc) == 0);
      case QueryMessage::BADD: return process_batch_add(qm, oarc);
-     case QueryMessage::BGET: return process_batch_set(qm, oarc);
-     case QueryMessage::BSET: return process_batch_get(qm, oarc);
+     case QueryMessage::BGET: return process_batch_get(qm, oarc);
+     case QueryMessage::BSET: return process_batch_set(qm, oarc);
      default: return false;
     }
   }
@@ -98,25 +98,28 @@ namespace graphlab {
     QueryMessage::header h = qm.get_header(); 
     switch (h.obj) {
      case QueryMessage::VERTEX: {
-       graph_vid_t vid; graph_row data;
-       qm >> vid >> data;
+       graph_vid_t vid; 
+       qm >> vid; 
+       graph_row data;
        errorcode = server.get_vertex(vid, data);
        oarc << errorcode;
        if (errorcode == 0) oarc << data;
        break;
      }
      case QueryMessage::EDGE: {
-       graph_eid_t eid; graph_row data;
-       qm >> eid >> data;
+       graph_eid_t eid;
+       qm >> eid; 
+       graph_row data;
        errorcode = server.get_edge(eid, data);
        oarc << errorcode;
        if (errorcode == 0) oarc << data;
        break;
      }
      case QueryMessage::VERTEXADJ: {
-       graph_eid_t eid; graph_row data;
-       qm >> eid >> data;
-       errorcode = server.get_edge(eid, data);
+       graph_vid_t vid; bool in_edges;
+       qm >> vid >> in_edges;
+       vertex_adj_descriptor data;
+       errorcode = server.get_vertex_adj(vid, in_edges, data);
        oarc << errorcode;
        if (errorcode == 0) oarc << data;
        break;

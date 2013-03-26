@@ -1,5 +1,4 @@
 #include<graphlab/database/client/graphdb_client.hpp>
-
 namespace graphlab {
   // ----------------------------- Batch Methods --------------------------------------
   bool graphdb_client::add_edges(const std::vector<edge_insert_descriptor>& edges,
@@ -147,7 +146,6 @@ namespace graphlab {
     graph_shard_id_t master = shard_manager.get_master(vid);
     std::vector<graph_shard_id_t> spans; 
     shard_manager.get_neighbors(master, spans);
-    spans.push_back(master);
 
     std::vector<query_result> futures;
     std::vector<int> errorcodes;

@@ -25,9 +25,6 @@ namespace graphlab {
   }
 
   int graph_shard_server::get_vertex_adj(graph_vid_t vid, bool is_in_edges, vertex_adj_descriptor& out) {
-    if (!shard.has_vertex(vid)) {
-      return EINVID;
-    }
     // internal index of the adjacency edges
     std::vector<graph_leid_t> internal_ids;
     shard.vertex_adj_ids(internal_ids, vid, is_in_edges);
@@ -45,7 +42,7 @@ namespace graphlab {
       out.eids.push_back(make_eid(shard.id(), internal_ids[i])); 
     }
     return 0;
-  } 
+  }
 
   // Write API
   int graph_shard_server::set_vertex(const graph_vid_t vid, const graph_row& data) {
@@ -64,7 +61,7 @@ namespace graphlab {
   bool graph_shard_server::get_vertices(const std::vector<graph_vid_t>& vids,
                                         std::vector<graph_row>& out,
                                         std::vector<int>& errorcodes) {
-    ASSERT_EQ(vids.size(), out.size());
+    out.resize(vids.size());
     bool success = true;
     out.resize(vids.size());
     for (size_t i = 0; i < vids.size(); ++i) {
@@ -78,7 +75,7 @@ namespace graphlab {
   bool graph_shard_server::get_edges(const std::vector<graph_eid_t>& eids,
                                      std::vector<graph_row>& out,
                                      std::vector<int>& errorcodes) {
-    ASSERT_EQ(eids.size(), out.size());
+    out.resize(eids.size());
     bool success = true;
     out.resize(eids.size());
     for (size_t i = 0; i < eids.size(); ++i) {

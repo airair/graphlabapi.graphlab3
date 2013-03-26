@@ -27,6 +27,10 @@ class graph_database {
        return *this;
      }
 
+     size_t size() const {
+       return neighbor_ids.size();
+     } 
+
      void save (oarchive& oarc) const {
        oarc << neighbor_ids << eids;
      }

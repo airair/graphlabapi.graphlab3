@@ -65,10 +65,15 @@ class graph_row {
    * Returns true if all entries in the row is NULl value. false otherwise
    */
   inline bool is_null() const {
+    if (num_fields() == 0) {
+      return true;
+    }
+
     for (size_t i = 0; i < num_fields(); i++) {
       if (!_data[i].is_null())
         return false;
     }
+
     return true;
   }
 

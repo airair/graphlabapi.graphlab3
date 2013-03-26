@@ -23,14 +23,14 @@ namespace graphlab {
       * Skip the incoming (or outgoing) edge if getIn(or getOut) is false.
       */
      void get_vertex_adj (std::vector<graph_leid_t>& out,
-                          bool getIn, graph_vid_t vid) const {
+                          graph_vid_t vid, bool getIn) const {
        if (getIn && inEdges.find(vid) != inEdges.end()) {
            out = inEdges.find(vid)->second;
        }
        if (!getIn && outEdges.find(vid) != outEdges.end()) {
            out = outEdges.find(vid)->second;
        }
-     }
+    }
 
      size_t num_in_edges(graph_vid_t vid) const {
        if (inEdges.find(vid) != inEdges.end()) {
@@ -51,7 +51,7 @@ namespace graphlab {
      /**
       * Update the index by adding an edge with (source, target, pos) in this shard. 
       */
-    inline void add_edge(graph_vid_t source, graph_vid_t target, size_t pos) {
+    inline void add_edge(graph_vid_t source, graph_vid_t target, graph_leid_t pos) {
       outEdges[source].push_back(pos);
       inEdges[target].push_back(pos);
     }

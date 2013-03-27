@@ -12,6 +12,10 @@ cmake_policy(SET CMP0005 NEW)
 # Determine where additional GraphLab specific cmake modules are
 # defined
 set(CMAKE_MODULE_PATH ${GraphLab_SOURCE_DIR}/cmake)
+# for mpi
+#set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "/Users/haijieg/mylibs/")
+#set(CMAKE_C_COMPILER "/usr/bin/clang")
+#set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 
 # TODO: what is this used by
 set(BUILD_SHARED_LIBS ON)
@@ -132,8 +136,8 @@ ExternalProject_Add(libfault
   UPDATE_COMMAND git pull
   CONFIGURE_COMMAND  env CMAKE_LIBRARY_PATH=${GraphLab_SOURCE_DIR}/deps/local/lib CMAKE_INCLUDE_PATH=${GraphLab_SOURCE_DIR}/deps/local/include <SOURCE_DIR>/configure --prefix=<INSTALL_DIR> --cmake=${CMAKE_COMMAND}
   BUILD_IN_SOURCE 1
-  BUILD_COMMAND cd debug/ && make
-  INSTALL_COMMAND cd debug/ && make install
+  BUILD_COMMAND cd release/ && make
+  INSTALL_COMMAND cd release/ && make install
   )
 # add include path
 include_directories(

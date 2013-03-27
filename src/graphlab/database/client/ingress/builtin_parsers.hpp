@@ -57,8 +57,7 @@ namespace graphlab {
      *
      */
     template <typename Graph>
-    bool snap_parser(Graph& graph, const std::string& srcfilename,
-                     const std::string& str) {
+    bool snap_parser(Graph& graph, const std::string& str) {
       if (str.empty()) return true;
       else if (str[0] == '#') {
         std::cout << str << std::endl;
@@ -80,8 +79,7 @@ namespace graphlab {
      *
      */
     template <typename Graph>
-    bool tsv_parser(Graph& graph, const std::string& srcfilename,
-                    const std::string& str) {
+    bool tsv_parser(Graph& graph, const std::string& str) {
       if (str.empty()) return true;
       size_t source, target;
       char* targetptr;
@@ -98,8 +96,7 @@ namespace graphlab {
     // The spirit parser seems to have issues when compiling under
     // C++11. Temporary workaround with a hard coded parser. TOFIX
     template <typename Graph>
-    bool adj_parser(Graph& graph, const std::string& srcfilename,
-                    const std::string& line) {
+    bool adj_parser(Graph& graph, const std::string& line) {
       // If the line is empty simply skip it
       if(line.empty()) return true;
       std::stringstream strm(line);
@@ -126,8 +123,7 @@ namespace graphlab {
 #else
 
     template <typename Graph>
-    bool adj_parser(Graph& graph, const std::string& srcfilename,
-                    const std::string& line) {
+    bool adj_parser(Graph& graph, const std::string& line) {
       // If the line is empty simply skip it
       if(line.empty()) return true;
       // We use the boost spirit parser which requires (too) many separate

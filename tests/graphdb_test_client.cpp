@@ -1,5 +1,5 @@
 #include <graphlab/database/client/graphdb_client.hpp>
-#include <graphlab/database/client/graph_loader.hpp>
+#include <graphlab/database/client/ingress/graph_loader.hpp>
 #include <graphlab/database/graphdb_config.hpp>
 #include <graphlab/database/util/graphdb_util.hpp>
 #include <graphlab/logger/logger.hpp>
@@ -38,21 +38,24 @@ int main(int argc, char** argv) {
   graphlab::graphdb_config config(configfile);
   graphlab::graphdb_client client(config);
 
+  graphlab::graph_loader loader(&client);
+  // loader.load_from_posixfs("/Users/haijieg/data/google_graph/web-Google.txt", "snap");
+  // loader.load_from_posixfs("/Users/haijieg/data/google_graph/web-Google-tiny.txt", "snap");
+  
   size_t expected_nverts = 1000; 
   size_t expected_nedges = 2*expected_nverts; 
   make_ring_graph(expected_nverts, client);
 
-  // graphlab::graph_loader loader(&client);
-  // loader.load_format("/Users/haijieg/data/google_graph/web-Google.txt", "snap");
-  // loader.load_format("/Users/haijieg/data/google_graph/web-Google-tiny.txt", "snap");
-  
   size_t num_vertices = client.num_vertices();
-  cout << "Num vertices: " << num_vertices << endl;
-
   size_t num_edges = client.num_edges();
+
+  cout << "Num vertices: " << num_vertices << endl;
   cout << "Num edges: " << num_edges << endl;
+
+
   ASSERT_EQ(expected_nverts, num_vertices);
   ASSERT_EQ(expected_nedges, num_edges);
+
 
   typedef graphlab::graph_database::vertex_adj_descriptor vertex_adj_descriptor;
   cout << "Add fields..." << endl; 

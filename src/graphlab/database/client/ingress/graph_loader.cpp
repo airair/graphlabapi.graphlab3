@@ -1,5 +1,4 @@
-#include <graphlab/database/client/graph_loader.hpp>
-#include <graphlab/database/client/graphdb_client.hpp>
+#include <graphlab/database/client/ingress/graph_loader.hpp>
 #include <graphlab/util/fs_util.hpp>
 
 #include <boost/functional.hpp>
@@ -19,36 +18,9 @@
 #include <sstream>
 
 namespace graphlab {
-  graph_loader::graph_loader(graphdb_client* client) : client(client) { }
-
-  /**
-   *  \brief load a graph with a standard format. Must be called on all 
-   *  machines simultaneously.
-   * 
-   *  The supported graph formats are described in \ref graph_formats.
-   */
-  void graph_loader::load_format(const std::string& path, const std::string& format) {
-    line_parser_type line_parser;
-    if (format == "snap") {
-      line_parser = builtin_parsers::snap_parser<graph_loader>;
-      load(path, line_parser);
-    } else if (format == "adj") {
-      line_parser = builtin_parsers::adj_parser<graph_loader>;
-      load(path, line_parser);
-    } else if (format == "tsv") {
-      line_parser = builtin_parsers::tsv_parser<graph_loader>;
-      load(path, line_parser);
-    } else {
-      logstream(LOG_ERROR)
-          << "Unrecognized Format \"" << format << "\"!" << std::endl;
-      return;
-    }
-  } // end of load
-
-  void graph_loader::load(std::string prefix, line_parser_type line_parser) {
-    if (prefix.length() == 0) return;
-    load_from_posixfs(prefix, line_parser);
-  } // end of load
+  graph_loader::graph_loader(graphdb_client* client,
+                             size_t max_buffer) : client(client),
+    max_buffer(max_buffer), pool(4) { }
 
   /**
    *  \brief Load a graph from a collection of files in stored on
@@ -56,7 +28,7 @@ namespace graphlab {
    *  \ref load(const std::string& path, line_parser_type line_parser) 
    *  but only loads from the filesystem. 
    */
-  void graph_loader::load_from_posixfs(std::string prefix, line_parser_type line_parser) {
+  void graph_loader::load_from_posixfs(std::string prefix, const std::string& format) {
     std::string directory_name; std::string original_path(prefix);
     boost::filesystem::path path(prefix);
     std::string search_prefix;
@@ -78,6 +50,8 @@ namespace graphlab {
     if (graph_files.size() == 0) {
       logstream(LOG_WARNING) << "No files found matching " << original_path << std::endl;
     }
+
+    timer ti; ti.start();
     for(size_t i = 0; i < graph_files.size(); ++i) {
       logstream(LOG_EMPH) << "Loading graph from file: " << graph_files[i] << std::endl;
       // is it a gzip file ?
@@ -90,7 +64,7 @@ namespace graphlab {
       // Using gzip filter
       if (gzip) fin.push(boost::iostreams::gzip_decompressor());
       fin.push(in_file);
-      const bool success = load_from_stream(graph_files[i], fin, line_parser);
+      const bool success = load_from_stream(graph_files[i], fin, format);
       if(!success) {
         logstream(LOG_FATAL) 
             << "\n\tError parsing file: " << graph_files[i] << std::endl;
@@ -98,28 +72,7 @@ namespace graphlab {
       fin.pop();
       if (gzip) fin.pop();
     }
-    flush();
+    logstream(LOG_EMPH) << "Finish loading. Total time: " << ti.current_time()
+                        << " secs." << std::endl;
   } // end of load from posixfs
-
-  void graph_loader::add_edge(graph_vid_t source, graph_vid_t dest) {
-    graph_row row;
-    row._is_vertex = false;
-    // client->add_edge(source, target, row);
-    edge_insert_descriptor e;
-    e.src = source; 
-    e.dest = dest;
-    e.data = row;
-    edge_ingress_buffer.push_back(e);
-    if (edge_ingress_buffer.size() > 5000000) {
-      flush();
-    }
-  } 
-
-  void graph_loader::flush() {
-    logstream(LOG_EMPH) << "Flush ... " << std::endl;
-    std::vector<int> errorcodes;
-    bool success = client->add_edges(edge_ingress_buffer, errorcodes);
-    ASSERT_TRUE(success);
-    edge_ingress_buffer.clear();
-  }
 } // end of namespace

@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
   graphlab::graphdb_config config(configfile);
   graphlab::graphdb_client client(config);
 
-  graphlab::graph_loader loader(&client);
+  // graphlab::graph_loader loader(&client);
   // loader.load_from_posixfs("/Users/haijieg/data/google_graph/web-Google.txt", "snap");
   // loader.load_from_posixfs("/Users/haijieg/data/google_graph/web-Google-tiny.txt", "snap");
   

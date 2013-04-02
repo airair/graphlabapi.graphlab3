@@ -7,6 +7,7 @@
 #define EINVTYPE 1002 /* Invalid datatype */
 #define EDUP 1003 /* Duplicate objects (vertex already exists) */
 #define EINVHEAD 1004 /* Invalid query header */
+#define EINVCMD 1005 /* Invalid command */
 namespace graphlab {
   inline std::string glstrerr (int errorno) {
     switch (errorno) {
@@ -15,6 +16,7 @@ namespace graphlab {
      case EINVTYPE: return "Invalid datatype";
      case EDUP: return "Duplicate objects (vertex/field already exists)";
      case EINVHEAD: return "Invalid query header";
+     case EINVCMD: return "Invalid command";
      default: return strerror(errorno);
     }
   }

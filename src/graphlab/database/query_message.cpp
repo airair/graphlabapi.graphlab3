@@ -1,12 +1,12 @@
 #include <graphlab/database/query_message.hpp>
 namespace graphlab {  
-  const char* QueryMessage::qm_cmd_type_str[6] = {
-    "get", "set", "add", "batch_get", "batch_set", "batch_add"
+  const char* QueryMessage::qm_cmd_type_str[NUM_CMD_TYPE] = {
+    "get", "set", "add", "batch_get", "batch_set", "batch_add", "admin"
   };
 
-  const char* QueryMessage::qm_obj_type_str[11] = {
+  const char* QueryMessage::qm_obj_type_str[NUM_OBJ_TYPE] = {
     "vertex", "edge", "vertex_adj", "vertex_mirror", "shard",
-    "num_vertices", "num_edges", "edge_size", "vertex_field", "edge_field", "undefined"
+    "num_vertices", "num_edges", "vertex_field", "edge_field", "terminate", "undefined"
   };
 
   QueryMessage::QueryMessage(header h) : h(h), iarc(NULL) {

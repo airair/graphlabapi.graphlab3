@@ -37,9 +37,14 @@ public:
   int process_set(QueryMessage& qm, oarchive& oarc);
   int process_add(QueryMessage& qm, oarchive& oarc);
 
+  int process_admin(QueryMessage& qm, oarchive& oarc);
+
   bool process_batch_get(QueryMessage& qm, oarchive& oarc);
   bool process_batch_set(QueryMessage& qm, oarchive& oarc);
   bool process_batch_add(QueryMessage& qm, oarchive& oarc);
+
+
+  void terminate() { exit(0); }
 
  private:
   graphlab::graph_shard_server server;

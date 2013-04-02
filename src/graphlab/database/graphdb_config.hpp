@@ -33,6 +33,10 @@ namespace graphlab {
       return zk_prefix;
     }
 
+    std::vector<std::string> get_serveraddrs() {
+      return server_addrs;
+    }
+
    private:
 
     bool parse(std::string fname);
@@ -47,6 +51,8 @@ namespace graphlab {
     size_t nshards;
 
     std::vector<std::string> zk_hosts;
+
+    std::vector<std::string> server_addrs;
 
     std::string zk_prefix;
 

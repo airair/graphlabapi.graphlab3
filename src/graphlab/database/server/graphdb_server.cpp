@@ -48,6 +48,7 @@ namespace graphlab {
      case QueryMessage::BADD: return process_batch_add(qm, oarc);
      case QueryMessage::BGET: return process_batch_get(qm, oarc);
      case QueryMessage::BSET: return process_batch_set(qm, oarc);
+     case QueryMessage::ADMIN: return (process_admin(qm, oarc) == 0);
      default: return false;
     }
   }
@@ -260,5 +261,16 @@ namespace graphlab {
       oarc << errorcodes;
     }
     return success;
+  }
+
+  int graphdb_server::process_admin(QueryMessage& qm, oarchive& oarc) {
+    switch (qm.get_header().obj) {
+      case QueryMessage::TERMINATE:
+        terminate();
+        return 0;
+      default:
+        oarc << false << EINVHEAD; 
+        return EINVHEAD;
+    }
   }
 } // end of namespace

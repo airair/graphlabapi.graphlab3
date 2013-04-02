@@ -33,16 +33,24 @@ namespace graphlab {
      enum qm_cmd_type{ 
        GET, SET, ADD,
        // batch commands
-       BGET, BSET, BADD };
+       BGET, BSET, BADD,
+       // admin command
+       ADMIN
+     };
 
      enum qm_obj_type{ 
        VERTEX, EDGE, VERTEXADJ, VMIRROR, SHARD, 
-       NVERTS, NEDGES, VFIELD, EFIELD, UNDEFINED
+       NVERTS, NEDGES, VFIELD, EFIELD, 
+       TERMINATE,
+       UNDEFINED
      };
 
-     static const char* qm_cmd_type_str[6]; 
+     static const size_t NUM_CMD_TYPE = 7;
+     static const size_t NUM_OBJ_TYPE = 11;
 
-     static const char* qm_obj_type_str[11];
+     static const char* qm_cmd_type_str[NUM_CMD_TYPE]; 
+
+     static const char* qm_obj_type_str[NUM_OBJ_TYPE];
 
      struct header {
        qm_cmd_type cmd;

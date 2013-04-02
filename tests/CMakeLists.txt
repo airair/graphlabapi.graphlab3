@@ -18,6 +18,10 @@ add_graphlab_executable(graphdb_test_server graphdb_test_server.cpp)
 
 add_graphlab_executable(graphdb_test_client graphdb_test_client.cpp)
 
+add_graphlab_executable(graphdb_ingress_test graphdb_ingress_test.cpp)
+
+add_graphlab_executable(graphdb_admin ../../src/graphlab/database/admin/graphdb_admin.cpp)
+
 #add_graphlab_executable(graph_database_sharedmem_test  graph_database_sharedmem_test.cpp)
 
 

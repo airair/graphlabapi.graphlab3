@@ -23,6 +23,15 @@ namespace graphlab {
     in >> nshards;
     logstream(LOG_EMPH) << "nshards: " << nshards << std::endl; 
 
+    std::string addr;
+    for (size_t i = 0; i < nshards; ++i) {
+      if (getline(in, addr)) {
+        server_addrs.push_back(addr);
+      } else {
+        logstream(LOG_ERROR) << "Error parsing config file." << std::endl;
+      }
+    }
+
     // success &= parse_fields(in, vertex_fields);
     // success &= parse_fields(in, edge_fields);
 //     if (!success) {

@@ -41,7 +41,7 @@ namespace graphlab {
      enum qm_obj_type{ 
        VERTEX, EDGE, VERTEXADJ, VMIRROR, SHARD, 
        NVERTS, NEDGES, VFIELD, EFIELD, 
-       TERMINATE,
+       RESET,
        UNDEFINED
      };
 

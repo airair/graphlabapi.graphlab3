@@ -20,22 +20,14 @@ namespace graphlab {
     ASSERT_LT(shardi, nshards);
     ASSERT_LT(shardj, nshards);
 
-    const std::vector<graph_shard_id_t>& ls1 = constraint_graph[shardi];
-    const std::vector<graph_shard_id_t>& ls2 = constraint_graph[shardj];
-    neighbors.clear();
-    size_t i = 0;
-    size_t j = 0;
-    while (i < ls1.size() && j < ls2.size()) {
-      if (ls1[i] == ls2[j]) {
-        neighbors.push_back(ls1[i]);
-        ++i; ++j;
-      } else if (ls1[i] < ls2[j]) {
-        ++i;
-      } else {
-        ++j;
-      }
+    std::pair<graph_shard_id_t, graph_shard_id_t> key(std::min(shardi, shardj), std::max(shardi, shardj));
+
+    if (joint_map.find(key) == joint_map.end()) {
+      return false;
+    } else {
+      neighbors = joint_map.at(key);
+      return true;
     }
-    return true;
   }
 
   void graph_shard_manager::make_grid_constraint() {
@@ -58,6 +50,29 @@ namespace graphlab {
 
       std::sort(adjlist.begin(), adjlist.end());
       constraint_graph.push_back(adjlist);
+    }
+
+    // Pre compute joint lookup table
+    for (graph_shard_id_t shardj = 0; shardj < nshards; shardj++) {
+      for (graph_shard_id_t shardi = 0; shardi <= shardj; shardi++) {
+        std::pair<graph_shard_id_t, graph_shard_id_t> key(shardi, shardj);
+        std::vector<graph_shard_id_t>& joint_neighbors = joint_map[key];
+        const std::vector<graph_shard_id_t>& ls1 = constraint_graph[shardi];
+        const std::vector<graph_shard_id_t>& ls2 = constraint_graph[shardj];
+        size_t i = 0;
+        size_t j = 0;
+        // compute the intersection
+        while (i < ls1.size() && j < ls2.size()) {
+          if (ls1[i] == ls2[j]) {
+            joint_neighbors.push_back(ls1[i]);
+            ++i; ++j;
+          } else if (ls1[i] < ls2[j]) {
+            ++i;
+          } else {
+            ++j;
+          }
+        }
+      }
     }
   }
 

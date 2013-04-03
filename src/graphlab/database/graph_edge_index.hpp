@@ -59,9 +59,15 @@ namespace graphlab {
     inline void save (oarchive& oarc) const {
        oarc << inEdges << outEdges;
      }
+
     inline void load (iarchive& iarc) {
        iarc >> inEdges >> outEdges;
      }
+
+    inline void clear() {
+      inEdges.clear();
+      outEdges.clear();
+    }
 
    private:
     // A vector where each element is a map from vid to a list of in edge ids on a shard.

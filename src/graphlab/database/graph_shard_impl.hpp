@@ -38,6 +38,17 @@ struct graph_shard_impl {
    */
   inline ~graph_shard_impl() { }
 
+  void clear() {
+    vertex.clear();
+    vertex_data.clear();
+    edge.clear();
+    edge_data.clear();
+    edgeid.clear();
+    vertex_mirrors.clear();
+    edge_index.clear();
+    vertex_index.clear();
+  }
+
   /** 
    * the ID of the current shard 
    */

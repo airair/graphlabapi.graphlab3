@@ -49,6 +49,8 @@ class graph_shard {
    
    inline ~graph_shard() {}
 
+   void clear() { shard_impl.clear(); }
+
    /**
     * Returns the id of this shard.
     * Id is -1 if this is a derived shard.

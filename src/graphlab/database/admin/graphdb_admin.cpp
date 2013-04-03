@@ -55,11 +55,11 @@ namespace graphlab {
          return true;
        }
      }
-     case TERMINATE: {
-       QueryMessage qm(QueryMessage::ADMIN, QueryMessage::TERMINATE);
+     case RESET: {
+       QueryMessage qm(QueryMessage::ADMIN, QueryMessage::RESET);
        graphlab::graphdb_query_object qo(config);
        std::vector<query_result> results;
-       qo.query_all(qm.message(), qm.length(), results);
+       qo.update_all(qm.message(), qm.length(), results);
        return true;
      }
      default: {
@@ -72,8 +72,8 @@ namespace graphlab {
   graphdb_admin::cmd_type graphdb_admin::parse(std::string str) {
     if (str == "start") {
       return START;
-    } else if (str == "terminate") {
-      return TERMINATE;
+    } else if (str == "reset") {
+      return RESET;
     } else {
       return UNKNOWN;
     }
@@ -84,7 +84,7 @@ using namespace std;
 int main(int argc, const char *argv[])
 {
   if (argc < 3) {
-    cout << "Usage graphdb_admin config [START | DESTROY] [args...]" << endl;
+    cout << "Usage graphdb_admin config [START | RESET] [args...]" << endl;
     return 0;
   }
   graphlab::graphdb_config config(argv[1]);

@@ -53,6 +53,10 @@ namespace graphlab {
        return true;
      }
 
+     inline void clear() {
+       index_map.clear();
+     }
+
      inline void save (oarchive& oarc) const {
        oarc << index_map;
      }

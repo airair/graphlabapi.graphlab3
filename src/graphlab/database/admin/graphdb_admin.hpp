@@ -14,14 +14,16 @@ namespace graphlab {
 
      graphdb_admin(const graphdb_config& config) : config(config) { }
 
-     bool process(std::string cmd_str) {
-       return process(parse(cmd_str));
+     bool process(int argc, const char* argv[]) {
+       return process(parse(argv[0]), argc-1, argv+1);
      }
 
    private:
-     bool process(cmd_type cmd);
+     bool process(cmd_type cmd, int argc, const char* argv[]);
 
      cmd_type parse(std::string); 
+
+     void start_server(std::string serverbin);
 
    private:
      graphdb_config config;

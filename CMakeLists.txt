@@ -12,10 +12,6 @@ cmake_policy(SET CMP0005 NEW)
 # Determine where additional GraphLab specific cmake modules are
 # defined
 set(CMAKE_MODULE_PATH ${GraphLab_SOURCE_DIR}/cmake)
-# for mpi
-#set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "/Users/haijieg/mylibs/")
-#set(CMAKE_C_COMPILER "/usr/bin/clang")
-#set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 
 # TODO: what is this used by
 set(BUILD_SHARED_LIBS ON)
@@ -352,7 +348,7 @@ macro(requires_core_deps NAME)
     zmq
     zookeeper_mt
     )
-  add_dependencies(${NAME} boost libtcmalloc qthreads mongoclient libfault)
+  add_dependencies(${NAME} boost libtcmalloc qthreads mongoclient libfault libevent)
   if(MPI_FOUND)
     target_link_libraries(${NAME} ${MPI_LIBRARIES})
   endif(MPI_FOUND)

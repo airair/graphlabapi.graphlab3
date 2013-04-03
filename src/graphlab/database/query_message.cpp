@@ -6,7 +6,7 @@ namespace graphlab {
 
   const char* QueryMessage::qm_obj_type_str[NUM_OBJ_TYPE] = {
     "vertex", "edge", "vertex_adj", "vertex_mirror", "shard",
-    "num_vertices", "num_edges", "vertex_field", "edge_field", "terminate", "undefined"
+    "num_vertices", "num_edges", "vertex_field", "edge_field", "reset", "undefined"
   };
 
   QueryMessage::QueryMessage(header h) : h(h), iarc(NULL) {

@@ -102,6 +102,9 @@ namespace graphlab {
    private:
     void make_grid_constraint();
     void check();
+    boost::unordered_map<
+        std::pair<graph_shard_id_t, graph_shard_id_t>, 
+        std::vector<graph_shard_id_t> > joint_map;
   }; // end of sharding_constraint
 }; // end of namespace graphlab
 #endif

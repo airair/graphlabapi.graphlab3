@@ -21,6 +21,8 @@ namespace graphlab {
 
 
       ~graph_shard_server() {};
+
+      void clear();
   // --------------------- Basic Queries ----------------------------
   uint64_t num_vertices() { return shard.num_vertices(); }
   uint64_t num_edges() { return shard.num_edges(); }

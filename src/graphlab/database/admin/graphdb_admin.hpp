@@ -5,7 +5,7 @@ namespace graphlab {
   class graphdb_admin {
     enum cmd_type {
       START,
-      TERMINATE,
+      RESET,
       UNKNOWN,
     };
     

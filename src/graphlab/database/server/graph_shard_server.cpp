@@ -5,6 +5,12 @@
 #include<boost/bind.hpp>
 namespace graphlab {
 
+  void graph_shard_server::clear() {
+    shard.clear();
+    vertex_fields.clear();
+    edge_fields.clear();
+  }
+
   // -------------------- Query API -----------------------
   // Read API
   int graph_shard_server::graph_shard_server::get_vertex(graph_vid_t vid, graph_row& out) {

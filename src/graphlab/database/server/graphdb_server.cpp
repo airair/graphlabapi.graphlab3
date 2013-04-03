@@ -265,8 +265,8 @@ namespace graphlab {
 
   int graphdb_server::process_admin(QueryMessage& qm, oarchive& oarc) {
     switch (qm.get_header().obj) {
-      case QueryMessage::TERMINATE:
-        terminate();
+      case QueryMessage::RESET:
+        server.clear();
         return 0;
       default:
         oarc << false << EINVHEAD; 

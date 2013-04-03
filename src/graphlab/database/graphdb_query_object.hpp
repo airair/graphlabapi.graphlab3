@@ -73,10 +73,17 @@ namespace graphlab {
        return err;
      }
 
+     /**
+      * Parse a reply with a vector of results.
+      * Fill the vector out with the response content.  
+      * In case of an error, errorcodes will have the same lengh as out, filling with the erroro codes corresponding to each query.
+      * In case of server failure, the errorcodes will have one element ESRVUNREACH. 
+      */
      template<typename T>
      bool parse_batch_reply(query_result& future, std::vector<T>* out, std::vector<int>& errorcodes) {
        if (future.get_status() != 0) {
          logstream(LOG_ERROR) << glstrerr(ESRVUNREACH) << std::endl;
+         errorcodes.push_back(ESRVUNREACH);
          return false;
        }
        std::string reply = future.get_reply();
@@ -87,6 +94,7 @@ namespace graphlab {
          iarc >> *out;
        if (!success) {
          iarc >> errorcodes;
+         ASSERT_EQ(errorcodes.size(), out->size());
        }
        return success;
      }

@@ -83,11 +83,12 @@ namespace graphlab {
      mirror_table_type mirror_table_from_edges (const std::vector<edge_insert_descriptor>& edges);
 
      template<typename Tin, typename Tout>
-     void scatter_messages (QueryMessage::header query_header, 
+     bool scatter_messages (QueryMessage::header query_header, 
                             const std::vector<Tin>& in_values,
                             boost::function<graph_shard_id_t (const Tin&)> get_shard,
                             std::vector<Tout>* out_values, std::vector<int>& errorcodes) {
 
+       bool success = true;
        typedef std::map<graph_shard_id_t, std::vector<size_t> >::iterator map_iter_type;
        // group values by the shard id
        std::map<graph_shard_id_t, std::vector<size_t> > shard2valueid; 
@@ -126,26 +127,38 @@ namespace graphlab {
          std::vector<int> errorcodes_i;
          std::vector<Tout> results_i;
          graph_shard_id_t shardid = replies[i].first;
-         bool success = false;
+         bool success_i = false;
          if (out_values == NULL) {
-            success = queryobj.parse_batch_reply<char>(replies[i].second, NULL, errorcodes_i);
+            success_i = queryobj.parse_batch_reply<char>(replies[i].second, NULL, errorcodes_i);
          } else {
-            success = queryobj.parse_batch_reply<Tout>(replies[i].second, &results_i, errorcodes_i);
+            success_i = queryobj.parse_batch_reply<Tout>(replies[i].second, &results_i, errorcodes_i);
          }
 
          std::vector<size_t>& ids = shard2valueid[shardid];
-         if (success) { errorcodes_i.resize(ids.size()); } // resize a vector of 0 error codes
-         // fill the out vectors
+         // If query succeeds, generates a vector of 0 error codes
+         if (success_i) { 
+           errorcodes_i.resize(ids.size());
+         } else if (errorcodes_i[0] == ESRVUNREACH) {
+         // Special case: query failed because server unreachable 
+           errorcodes_i.resize(ids.size(), ESRVUNREACH);
+           if (out_values != NULL)
+             results_i.resize(ids.size());
+         }
+
+         // Fill in the errorcodes from shard i to the proper positions.
+         for (size_t j = 0; j < ids.size(); j++) {
+           errorcodes[ids[j]] = errorcodes_i[j];
+         }
+
+         // Fill in the response from shard i to  the poroper positions.
          if (out_values != NULL) {
            for (size_t j = 0; j < ids.size(); j++) {
              (*out_values)[ids[j]] = results_i[j];
            }
          }
-
-         for (size_t j = 0; j < ids.size(); j++) {
-           errorcodes[ids[j]] = errorcodes_i[j];
-         }
+         success &= success_i;
        }
+       return success;
     }
      
      // Compute shard id from different types 

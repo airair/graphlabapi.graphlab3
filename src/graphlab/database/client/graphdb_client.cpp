@@ -5,7 +5,7 @@ namespace graphlab {
                                  std::vector<int>& errorcodes) {
 
     QueryMessage::header header(QueryMessage::BADD, QueryMessage::EDGE);
-    scatter_messages<edge_insert_descriptor, char>(header, edges, boost::bind(&graphdb_client::ein2shard, this, _1), NULL, errorcodes);
+    bool success = scatter_messages<edge_insert_descriptor, char>(header, edges, boost::bind(&graphdb_client::ein2shard, this, _1), NULL, errorcodes);
     
     // add mirrors
     mirror_table_type mirror_table = mirror_table_from_edges(edges);
@@ -16,37 +16,39 @@ namespace graphlab {
       vid_mirror_pairs.push_back (mirror_insert_descriptor(vid, mirrors));
     }
 
-    bool success = add_vertex_mirrors(vid_mirror_pairs, errorcodes);
+    success &= add_vertex_mirrors(vid_mirror_pairs, errorcodes);
     ASSERT_TRUE(success);
 
     // check error codes
-    for (size_t i = 0; i < errorcodes.size(); ++i) {
-      if (errorcodes[i] != 0)
-        return false;
-    }
+    // for (size_t i = 0; i < errorcodes.size(); ++i) {
+    //   if (errorcodes[i] != 0)
+    //     return false;
+    // }
     return true;
   }
 
   bool graphdb_client::add_vertices(const std::vector<vertex_insert_descriptor>& vertices,
                                     std::vector<int>& errorcodes) {
     QueryMessage::header header(QueryMessage::BADD, QueryMessage::VERTEX);
-    scatter_messages<vertex_insert_descriptor, char>(header, vertices, boost::bind(&graphdb_client::vin2shard, this, _1), NULL, errorcodes);
-    for (size_t i = 0; i < errorcodes.size(); ++i) {
-      if (errorcodes[i] != 0)
-        return false;
-    }
-    return true;
+    bool success = scatter_messages<vertex_insert_descriptor, char>(header, vertices, boost::bind(&graphdb_client::vin2shard, this, _1), NULL, errorcodes);
+    // check error codes
+    // for (size_t i = 0; i < errorcodes.size(); ++i) {
+    //   if (errorcodes[i] != 0)
+    //     return false;
+    // }
+    return success;
   }
 
   bool graphdb_client::add_vertex_mirrors(const std::vector<mirror_insert_descriptor>& vid_mirror_pairs,
                                           std::vector<int>& errorcodes) {
     QueryMessage::header header(QueryMessage::BADD, QueryMessage::VMIRROR);
-    scatter_messages<mirror_insert_descriptor, char>(header, vid_mirror_pairs, boost::bind(&graphdb_client::vidpair2shard<std::vector<graph_shard_id_t> >, this, _1), NULL, errorcodes);
-    for (size_t i = 0; i < errorcodes.size(); ++i) {
-      if (errorcodes[i] != 0)
-        return false;
-    }
-    return true;
+    bool success = scatter_messages<mirror_insert_descriptor, char>(header, vid_mirror_pairs, boost::bind(&graphdb_client::vidpair2shard<std::vector<graph_shard_id_t> >, this, _1), NULL, errorcodes);
+    // check error codes
+    // for (size_t i = 0; i < errorcodes.size(); ++i) {
+    //   if (errorcodes[i] != 0)
+    //     return false;
+    // }
+    return success;
   }
 
 
@@ -55,50 +57,50 @@ namespace graphlab {
                                  std::vector<int>& errorcodes) {
 
     QueryMessage::header header(QueryMessage::BGET, QueryMessage::EDGE);
-    scatter_messages<graph_eid_t, graph_row>(header, eids, boost::bind(&graphdb_client::eid2shard, this, _1), &out, errorcodes);
+    bool success = scatter_messages<graph_eid_t, graph_row>(header, eids, boost::bind(&graphdb_client::eid2shard, this, _1), &out, errorcodes);
 
-    for (size_t i = 0; i < errorcodes.size(); ++i) {
-      if (errorcodes[i] != 0)
-        return false;
-    }
-    return true;
+    // for (size_t i = 0; i < errorcodes.size(); ++i) {
+    //   if (errorcodes[i] != 0)
+    //     return false;
+    // }
+    return success;
   }
 
   bool graphdb_client::get_vertices(const std::vector<graph_vid_t>& vids,
                                     std::vector<graph_row>& out, 
                                     std::vector<int>& errorcodes) {
     QueryMessage::header header(QueryMessage::BGET, QueryMessage::VERTEX);
-    scatter_messages<graph_vid_t, graph_row>(header, vids, boost::bind(&graphdb_client::vid2shard, this, _1), &out, errorcodes);
+    bool success = scatter_messages<graph_vid_t, graph_row>(header, vids, boost::bind(&graphdb_client::vid2shard, this, _1), &out, errorcodes);
 
-    for (size_t i = 0; i < errorcodes.size(); ++i) {
-      if (errorcodes[i] != 0)
-        return false;
-    }
-    return true;
+    // for (size_t i = 0; i < errorcodes.size(); ++i) {
+    //   if (errorcodes[i] != 0)
+    //     return false;
+    // }
+    return success;
   }
 
 
   bool graphdb_client::set_edges(const std::vector<std::pair<graph_eid_t, graph_row> >& pairs,
                                  std::vector<int>& errorcodes) {
     QueryMessage::header header(QueryMessage::BSET, QueryMessage::EDGE);
-    scatter_messages<std::pair<graph_eid_t, graph_row>, char>(header, pairs, boost::bind(&graphdb_client::eidpair2shard<graph_row>, this, _1), NULL, errorcodes);
-    for (size_t i = 0; i < errorcodes.size(); ++i) {
-      if (errorcodes[i] != 0)
-        return false;
-    }
-    return true;
+    bool success = scatter_messages<std::pair<graph_eid_t, graph_row>, char>(header, pairs, boost::bind(&graphdb_client::eidpair2shard<graph_row>, this, _1), NULL, errorcodes);
+    // for (size_t i = 0; i < errorcodes.size(); ++i) {
+    //   if (errorcodes[i] != 0)
+    //     return false;
+    // }
+    return success;
   }
 
 
   bool graphdb_client::set_vertices(const std::vector<std::pair<graph_vid_t, graph_row> >& pairs,
                                     std::vector<int>& errorcodes) {
     QueryMessage::header header(QueryMessage::BSET, QueryMessage::VERTEX);
-    scatter_messages<std::pair<graph_vid_t, graph_row>, char>(header, pairs, boost::bind(&graphdb_client::vidpair2shard<graph_row>, this, _1), NULL, errorcodes);
-    for (size_t i = 0; i < errorcodes.size(); ++i) {
-      if (errorcodes[i] != 0)
-        return false;
-    }
-    return true;  
+    bool success = scatter_messages<std::pair<graph_vid_t, graph_row>, char>(header, pairs, boost::bind(&graphdb_client::vidpair2shard<graph_row>, this, _1), NULL, errorcodes);
+    // for (size_t i = 0; i < errorcodes.size(); ++i) {
+    //   if (errorcodes[i] != 0)
+    //     return false;
+    // }
+    return success;  
   }
 
   int graphdb_client::add_edge(graph_vid_t source, graph_vid_t dest, const graph_row& data) {

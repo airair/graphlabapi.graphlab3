@@ -156,8 +156,10 @@ namespace graphlab {
         errorcode = EINVTYPE;
       }
     }
-    logstream(LOG_WARNING) << glstrerr(errorcode) 
+    if (errorcode != 0) {
+      logstream(LOG_WARNING) << "Error code: " << errorcode << ". " << glstrerr(errorcode) 
                            << ": (" << vid << ":" << data << ") " << std::endl;
+    }
     return errorcode;
   }
 

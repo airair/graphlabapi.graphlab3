@@ -3,6 +3,7 @@
 
 namespace graphlab {
   class graphdb_admin {
+   public:
     enum cmd_type {
       START,
       RESET,
@@ -18,9 +19,10 @@ namespace graphlab {
        return process(parse(argv[0]), argc-1, argv+1);
      }
 
-   private:
      bool process(cmd_type cmd, int argc, const char* argv[]);
 
+
+   private:
      cmd_type parse(std::string); 
 
      void start_server(std::string serverbin);

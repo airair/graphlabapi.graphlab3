@@ -156,10 +156,10 @@ namespace graphlab {
     for (size_t i = 0; i < errorcodes.size(); ++i) {
       // Expect EINVID, queried shards may not have adj structure of the query vertex.
       if (errorcodes[i] != 0 && errorcodes[i] != EINVID) {
-        return false;
+        return errorcodes[i];
       }
     }
-    return true;
+    return 0;
   }
 
   int graphdb_client::set_edge(graph_eid_t eid, const graph_row& data) {

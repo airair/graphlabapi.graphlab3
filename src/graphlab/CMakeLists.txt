@@ -28,6 +28,7 @@ add_library(graphlab3 STATIC
             database/client/graphdb_client.cpp
             database/client/ingress/graph_loader.cpp
             database/client/ingress/ingress_worker.cpp
+            database/admin/graphdb_admin.cpp
             #database/client/distributed_graph_client.cpp
             #database/client/graph_client_cli.cpp
             #database/engine/graph_database_synchronous_engine.cpp

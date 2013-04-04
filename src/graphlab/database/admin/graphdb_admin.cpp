@@ -10,7 +10,7 @@ namespace graphlab {
   void graphdb_admin::start_server(std::string serverbin) {
     // TODO: read from config 
     size_t replicacount = 0;
-    size_t objectcap = 2;
+    size_t objectcap = 1;
     size_t max_masters = 1;
 
     libfault::query_object_server_manager manager(serverbin, replicacount, objectcap);
@@ -59,7 +59,13 @@ namespace graphlab {
        QueryMessage qm(QueryMessage::ADMIN, QueryMessage::RESET);
        graphlab::graphdb_query_object qo(config);
        std::vector<query_result> results;
+       std::vector<int> errorcodes;
        qo.update_all(qm.message(), qm.length(), results);
+       for (size_t i = 0; i < results.size(); ++i) {
+         int error = qo.parse_reply(results[i]);
+         if (error != 0)
+           return false;
+       }
        return true;
      }
      default: {

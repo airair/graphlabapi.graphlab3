@@ -5,7 +5,7 @@ namespace graphlab {
 
   typedef libfault::query_object_client::query_result query_result;
 
-  graphdb_query_object::graphdb_query_object (graphdb_config& config) {
+  graphdb_query_object::graphdb_query_object (const graphdb_config& config) {
     size_t nshards = config.get_nshards();
     for (size_t i = 0; i < nshards; ++i)
       shard_list.push_back(i);

@@ -1,6 +1,5 @@
 #include <graphlab/database/admin/graphdb_admin.hpp>
 #include <graphlab/database/errno.hpp>
-#include <graphlab/database/graphdb_query_object.hpp>
 #include <graphlab/database/query_message.hpp>
 #include <fault/query_object_server_manager.hpp>
 #include <iostream>
@@ -57,7 +56,6 @@ namespace graphlab {
      }
      case RESET: {
        QueryMessage qm(QueryMessage::ADMIN, QueryMessage::RESET);
-       graphlab::graphdb_query_object qo(config);
        std::vector<query_result> results;
        std::vector<int> errorcodes;
        qo.update_all(qm.message(), qm.length(), results);

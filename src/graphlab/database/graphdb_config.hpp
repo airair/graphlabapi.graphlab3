@@ -15,25 +15,25 @@ namespace graphlab {
       } 
     }
 
-    size_t get_nshards() { return nshards; }
+    size_t get_nshards() const { return nshards; }
 
-    const std::vector<graph_field> get_vertex_fields() {
+    const std::vector<graph_field> get_vertex_fields() const {
       return vertex_fields;
     }
 
-    const std::vector<graph_field> get_edge_fields() {
+    const std::vector<graph_field> get_edge_fields() const {
       return edge_fields;
     } 
 
-    std::vector<std::string> get_zkhosts() {
+    const std::vector<std::string> get_zkhosts() const {
       return zk_hosts;
     }
 
-    std::string get_zkprefix() {
+    const std::string get_zkprefix() const {
       return zk_prefix;
     }
 
-    std::vector<std::string> get_serveraddrs() {
+    const std::vector<std::string> get_serveraddrs() const {
       return server_addrs;
     }
 

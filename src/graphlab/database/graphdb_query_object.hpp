@@ -17,7 +17,7 @@ namespace graphlab {
    public:
     typedef libfault::query_object_client::query_result query_result;
 
-    graphdb_query_object (graphdb_config& config);
+    graphdb_query_object (const graphdb_config& config);
   
     ~graphdb_query_object(); 
 
